@@ -1,0 +1,24 @@
+object frmDebug: TfrmDebug
+  Left = 477
+  Height = 392
+  Top = 341
+  Width = 546
+  Caption = 'Debug info'
+  ChildSizing.LeftRightSpacing = 10
+  ChildSizing.TopBottomSpacing = 10
+  ClientHeight = 392
+  ClientWidth = 546
+  FormStyle = fsStayOnTop
+  OnShow = FormShow
+  Position = poScreenCenter
+  LCLVersion = '2.0.12.0'
+  object memo: TMemo
+    Left = 10
+    Height = 372
+    Top = 10
+    Width = 526
+    Align = alClient
+    ScrollBars = ssAutoBoth
+    TabOrder = 0
+  end
+end

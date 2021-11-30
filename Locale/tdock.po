@@ -1,0 +1,1219 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Project-Id-Version: \n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 1.5.7\n"
+
+#: declu.xaddicon
+msgid "Add ..."
+msgstr ""
+
+#: declu.xall
+msgid "All"
+msgstr ""
+
+#: declu.xalphachannel
+msgid "Alpha channel: %d"
+msgstr ""
+
+#: declu.xanimationbounce3times
+msgid "Bounce 3 times"
+msgstr ""
+
+#: declu.xanimationbounceonce
+msgid "Bounce once"
+msgstr ""
+
+#: declu.xanimationbouncetwice
+msgid "Bounce twice"
+msgstr ""
+
+#: declu.xanimationnoanimation
+msgid "No animation"
+msgstr ""
+
+#: declu.xanimationquake
+msgid "Quake"
+msgstr ""
+
+#: declu.xanimationrotate
+msgid "Rotate"
+msgstr ""
+
+#: declu.xanimationspeed
+msgid "Animation speed: %d"
+msgstr ""
+
+#: declu.xanimationswing
+msgid "Swing"
+msgstr ""
+
+#: declu.xanimationvibrate
+msgid "Vibrate"
+msgstr ""
+
+#: declu.xanimationzoom
+msgid "Zoom"
+msgstr ""
+
+#: declu.xcloseallwindows
+msgid "Close all windows"
+msgstr ""
+
+#: declu.xclosewindow
+msgid "Close window"
+msgstr ""
+
+#: declu.xconfigureicon
+msgctxt "declu.xconfigureicon"
+msgid "Configure icon"
+msgstr ""
+
+#: declu.xcopy
+msgid "Copy"
+msgstr ""
+
+#: declu.xdeleteicon
+msgctxt "declu.xdeleteicon"
+msgid "Delete icon"
+msgstr ""
+
+#: declu.xdeleteseparator
+msgid "Delete separator"
+msgstr ""
+
+#: declu.xdistort
+msgid "Spacing/Distortion: %d"
+msgstr ""
+
+#: declu.xdock
+msgid "New dock"
+msgstr ""
+
+#: declu.xemptybin
+msgid "Empty bin"
+msgstr ""
+
+#: declu.xemptyicon
+msgid "Empty icon"
+msgstr ""
+
+#: declu.xerrorcommandlistnotfound
+msgid "Command list file not found. Try reinstalling the program."
+msgstr ""
+
+#: declu.xerrorcontactdeveloper
+msgid "Contact developer if error is permanent."
+msgstr ""
+
+#: declu.xerrorcritical
+msgid "Critical error occured. Try to run the program again."
+msgstr ""
+
+#: declu.xerrorhelpnotfound
+msgid "Help file not found! Try reinstalling the program."
+msgstr ""
+
+#: declu.xerrorin
+msgid "Error in"
+msgstr ""
+
+#: declu.xerrorinvalidprogramdatastructuresize
+msgid "Invalid program data structure size."
+msgstr ""
+
+#: declu.xerrorloadtheme
+msgid "Error loading theme. Try to run the program again."
+msgstr ""
+
+#: declu.xerrorsetsbackupfailed
+msgid "Failed to backup settings."
+msgstr ""
+
+#: declu.xerrorsetscorrupted
+msgid "Settings file corrupted."
+msgstr ""
+
+#: declu.xerrorsetsrestorefailed
+msgid "Restore operation failed."
+msgstr ""
+
+#: declu.xerrortipsnotfound
+msgid "Tips file not found. Try reinstalling the program."
+msgstr ""
+
+#: declu.xexit
+msgid "Exit"
+msgstr ""
+
+#: declu.xfile
+msgid "File"
+msgstr ""
+
+#: declu.xiconcollection
+msgid "Open icon collection"
+msgstr ""
+
+#: declu.xinstalledapplication
+msgid "Installed application"
+msgstr ""
+
+#: declu.xkillprocess
+msgid "Kill process"
+msgstr ""
+
+#: declu.xlabelcenteroffset
+msgid "Offset along the edge: %d %%"
+msgstr ""
+
+#: declu.xlabeledgeoffset
+msgid "Offset from the edge: %d pt"
+msgstr ""
+
+#: declu.xlabeliconsize
+msgid "Icon size: %d pt"
+msgstr ""
+
+#: declu.xlabeliconspacing
+msgid "Icon spacing: %d pt"
+msgstr ""
+
+#: declu.xlabelreservescreenedgepercent
+msgid "Reserve screen edge: %d%%"
+msgstr ""
+
+#: declu.xlabelzoomediconsize
+msgid "Icon size max: %d pt"
+msgstr ""
+
+#: declu.xlabelzoomtime
+msgid "Zoom-in time: %d ms"
+msgstr ""
+
+#: declu.xlabelzoomwidth
+msgid "Zoom width: %d"
+msgstr ""
+
+#: declu.xlockicons
+msgid "Lock icons"
+msgstr ""
+
+#: declu.xminimizerestoreallwindows
+msgid "Minimize/restore all windows (Alt+Click)"
+msgstr ""
+
+#: declu.xmonitor
+msgctxt "declu.xmonitor"
+msgid "Monitor"
+msgstr ""
+
+#: declu.xmsgconfirmrestore
+msgid "Confirm restore operation."
+msgstr ""
+
+#: declu.xmsgnotificationareaicons
+msgid "After you close this message you will see \"Notification area icons\" window. To use this function uncheck \"Always show all icons\" at the bottom of the window and set all behaviors to \"Only show notifications\"."
+msgstr ""
+
+#: declu.xmsgplacetargetfileinsteadofshortcut
+msgid "Put target file onto the dock instead of a shortcut?"
+msgstr ""
+
+#: declu.xmsgremovedockwarning
+msgid "Are you sure you pressed the correct button?"
+msgstr ""
+
+#: declu.xmsgrunagain
+msgid "Run the program again."
+msgstr ""
+
+#: declu.xmsgrunrestore
+msgid "Run restore operation."
+msgstr ""
+
+#: declu.xmsgsetsrestored
+msgid "Settings were restored from backup."
+msgstr ""
+
+#: declu.xmsgthemesaved
+msgid "Theme saved."
+msgstr ""
+
+#: declu.xmsgunsavediconparams
+msgid "Icon parameters changed. If you choose to proceed all changes will be lost. Proceed?"
+msgstr ""
+
+#: declu.xoffsetoficons
+msgid "Offset of icons: %d pt"
+msgstr ""
+
+#: declu.xopenfolderof
+msgid "Open folder of"
+msgstr ""
+
+#: declu.xopenthemesfolder
+msgid "Open themes folder"
+msgstr ""
+
+#: declu.xpageabout
+msgctxt "declu.xpageabout"
+msgid "About"
+msgstr ""
+
+#: declu.xpageactions
+msgctxt "declu.xpageactions"
+msgid "Actions"
+msgstr ""
+
+#: declu.xpagegeneral
+msgctxt "declu.xpagegeneral"
+msgid "General"
+msgstr ""
+
+#: declu.xpageicons
+msgctxt "declu.xpageicons"
+msgid "Icons"
+msgstr ""
+
+#: declu.xpagemisc
+msgctxt "declu.xpagemisc"
+msgid "Misc"
+msgstr ""
+
+#: declu.xpageposition
+msgctxt "declu.xpageposition"
+msgid "Position"
+msgstr ""
+
+#: declu.xpagestyle
+msgctxt "declu.xpagestyle"
+msgid "Style"
+msgstr ""
+
+#: declu.xpagetaskbar
+msgctxt "declu.xpagetaskbar"
+msgid "Taskbar"
+msgstr ""
+
+#: declu.xpaste
+msgid "Paste"
+msgstr ""
+
+#: declu.xpintodock
+msgid "Pin to dock"
+msgstr ""
+
+#: declu.xplacetaskshere
+msgid "Place tasks here"
+msgstr ""
+
+#: declu.xprogramsettings
+msgid "Program settings"
+msgstr ""
+
+#: declu.xrun
+msgid "Run  (Ctrl + Click)"
+msgstr ""
+
+#: declu.xselectworkingdirectory
+msgid "Select working directory"
+msgstr ""
+
+#: declu.xseparator
+msgid "Separator (space)"
+msgstr ""
+
+#: declu.xshortcut
+msgid "Shortcut"
+msgstr ""
+
+#: declu.xshowcmdmaximized
+msgid "Maximized to fullscreen"
+msgstr ""
+
+#: declu.xshowcmdminimized
+msgid "Minimized to taskbar"
+msgstr ""
+
+#: declu.xshowcmdnormal
+msgid "Normal size"
+msgstr ""
+
+#: declu.xsitebottom
+msgctxt "declu.xsitebottom"
+msgid "Bottom"
+msgstr ""
+
+#: declu.xsiteleft
+msgctxt "declu.xsiteleft"
+msgid "Left"
+msgstr ""
+
+#: declu.xsiteright
+msgctxt "declu.xsiteright"
+msgid "Right"
+msgstr ""
+
+#: declu.xsitetop
+msgctxt "declu.xsitetop"
+msgid "Top"
+msgstr ""
+
+#: declu.xspecificicons
+msgid "Specific icons"
+msgstr ""
+
+#: declu.xstackpreviewfour
+msgid "four"
+msgstr ""
+
+#: declu.xstackpreviewnine
+msgid "nine"
+msgstr ""
+
+#: declu.xstackpreviewnone
+msgid "none"
+msgstr ""
+
+#: declu.xstartbuttontext
+msgid "Start"
+msgstr ""
+
+#: declu.xtaskmanager
+msgid "Task manager"
+msgstr ""
+
+#: declu.xundeleteicon
+msgid "Undelete icon  (Ctrl+Z)"
+msgstr ""
+
+#: tfrmaddcommand.btnadd.caption
+msgid "Add icon"
+msgstr ""
+
+#: tfrmcmd.btn_browse.caption
+msgctxt "tfrmcmd.btn_browse.caption"
+msgid "..."
+msgstr ""
+
+#: tfrmcmd.caption
+msgctxt "tfrmcmd.caption"
+msgid "Command"
+msgstr ""
+
+#: tfrmcolor.btncancel.caption
+msgctxt "tfrmcolor.btncancel.caption"
+msgid "Cancel"
+msgstr ""
+
+#: tfrmcolor.btnok.caption
+msgctxt "tfrmcolor.btnok.caption"
+msgid "OK"
+msgstr ""
+
+#: tfrmcolor.caption
+msgctxt "TFRMCOLOR.CAPTION"
+msgid "Select color"
+msgstr ""
+
+#: tfrmcolor.label1.caption
+msgid "R"
+msgstr ""
+
+#: tfrmcolor.label2.caption
+msgid "G"
+msgstr ""
+
+#: tfrmcolor.label3.caption
+msgid "B"
+msgstr ""
+
+#: tfrmcolor.label4.caption
+msgid "H"
+msgstr ""
+
+#: tfrmcolor.label5.caption
+msgid "L"
+msgstr ""
+
+#: tfrmcolor.label6.caption
+msgid "S"
+msgstr ""
+
+#: tfrmcolor.lblbackgroundalpha.caption
+msgctxt "tfrmcolor.lblbackgroundalpha.caption"
+msgid "Alpha channel"
+msgstr ""
+
+#: tfrmdebug.caption
+msgctxt "tfrmdebug.caption"
+msgid "Debug info"
+msgstr ""
+
+#: tfrmhello.btnautorun.caption
+msgid "Set the dock to start with Windows"
+msgstr ""
+
+#: tfrmhello.btnbottom.caption
+msgctxt "tfrmhello.btnbottom.caption"
+msgid "Bottom"
+msgstr ""
+
+#: tfrmhello.btnclose.caption
+msgid "Thanks!  I will manage everything myself"
+msgstr ""
+
+#: tfrmhello.btncloseshowtips.caption
+msgid "Is there anything useful to know?"
+msgstr ""
+
+#: tfrmhello.btnleft.caption
+msgctxt "tfrmhello.btnleft.caption"
+msgid "Left"
+msgstr ""
+
+#: tfrmhello.btnright.caption
+msgctxt "tfrmhello.btnright.caption"
+msgid "Right"
+msgstr ""
+
+#: tfrmhello.btntop.caption
+msgctxt "tfrmhello.btntop.caption"
+msgid "Top"
+msgstr ""
+
+#: tfrmhello.caption
+msgid "Hello"
+msgstr ""
+
+#: tfrmhello.label1.caption
+msgid "Hello!  Probably this is the first time you run TDock."
+msgstr ""
+
+#: tfrmhello.label2.caption
+msgid "Here you can do basic setup."
+msgstr ""
+
+#: tfrmhello.label3.caption
+msgid "Choose what you want to do:"
+msgstr ""
+
+#: tfrmhello.label4.caption
+msgid "You can view useful tips at any time by pressing F1."
+msgstr ""
+
+#: tfrmhello.label5.caption
+msgid "Move the dock to anoher side of the screen:"
+msgstr ""
+
+#: tfrmitemprop.btnapply.caption
+msgctxt "tfrmitemprop.btnapply.caption"
+msgid "Apply"
+msgstr ""
+
+#: tfrmitemprop.btnbrowseimage1.caption
+msgctxt "tfrmitemprop.btnbrowseimage1.caption"
+msgid "Browse image"
+msgstr ""
+
+#: tfrmitemprop.btncancel.caption
+msgctxt "TFRMITEMPROP.BTNCANCEL.CAPTION"
+msgid "Cancel"
+msgstr ""
+
+#: tfrmitemprop.btnclearimage.caption
+msgctxt "tfrmitemprop.btnclearimage.caption"
+msgid "Clear image"
+msgstr ""
+
+#: tfrmitemprop.btnconvertlink.caption
+msgid "Convert .LNK"
+msgstr ""
+
+#: tfrmitemprop.btndefaultcolor.caption
+msgctxt "tfrmitemprop.btndefaultcolor.caption"
+msgid "Reset color"
+msgstr ""
+
+#: tfrmitemprop.btndir.caption
+msgctxt "TFRMITEMPROP.BTNDIR.CAPTION"
+msgid "..."
+msgstr ""
+
+#: tfrmitemprop.btnfile.caption
+msgctxt "TFRMITEMPROP.BTNFILE.CAPTION"
+msgid "..."
+msgstr ""
+
+#: tfrmitemprop.btnimage.caption
+msgctxt "TFRMITEMPROP.BTNIMAGE.CAPTION"
+msgid "..."
+msgstr ""
+
+#: tfrmitemprop.btnok.caption
+msgctxt "TFRMITEMPROP.BTNOK.CAPTION"
+msgid "OK"
+msgstr ""
+
+#: tfrmitemprop.btnparams.caption
+msgctxt "TFRMITEMPROP.BTNPARAMS.CAPTION"
+msgid "..."
+msgstr ""
+
+#: tfrmitemprop.btnproperties.caption
+msgctxt "tfrmitemprop.btnproperties.caption"
+msgid "Back to properties"
+msgstr ""
+
+#: tfrmitemprop.btnselectcolor.caption
+msgctxt "TFRMITEMPROP.BTNSELECTCOLOR.CAPTION"
+msgid "Select color"
+msgstr ""
+
+#: tfrmitemprop.caption
+msgctxt "tfrmitemprop.caption"
+msgid "Properties"
+msgstr ""
+
+#: tfrmitemprop.chbhide.caption
+msgid "Hide dock when application runs"
+msgstr ""
+
+#: tfrmitemprop.label2.caption
+msgctxt "tfrmitemprop.label2.caption"
+msgid "Hue"
+msgstr ""
+
+#: tfrmitemprop.label3.caption
+msgctxt "tfrmitemprop.label3.caption"
+msgid "Saturation"
+msgstr ""
+
+#: tfrmitemprop.label4.caption
+msgctxt "tfrmitemprop.label4.caption"
+msgid "Brightness"
+msgstr ""
+
+#: tfrmitemprop.label5.caption
+msgctxt "tfrmitemprop.label5.caption"
+msgid "Contrast"
+msgstr ""
+
+#: tfrmitemprop.lblcaption.caption
+msgctxt "tfrmitemprop.lblcaption.caption"
+msgid "Name"
+msgstr ""
+
+#: tfrmitemprop.lblcommand.caption
+msgctxt "TFRMITEMPROP.LBLCOMMAND.CAPTION"
+msgid "Command"
+msgstr ""
+
+#: tfrmitemprop.lblimage.caption
+msgctxt "tfrmitemprop.lblimage.caption"
+msgid "Image"
+msgstr ""
+
+#: tfrmitemprop.lblparams.caption
+msgid "Parameters"
+msgstr ""
+
+#: tfrmitemprop.lbltip.caption
+msgctxt "TFRMITEMPROP.LBLTIP.CAPTION"
+msgid "Use semicolon to separate multiple commands and parameters"
+msgstr ""
+
+#: tfrmitemprop.lblwindowsize.caption
+msgid "Window size"
+msgstr ""
+
+#: tfrmitemprop.lblworkingdirectory.caption
+msgid "Working directory"
+msgstr ""
+
+#: tfrmitemprop.tscolor.caption
+msgctxt "tfrmitemprop.tscolor.caption"
+msgid "Color"
+msgstr ""
+
+#: tfrmitemprop.tsproperties.caption
+msgctxt "TFRMITEMPROP.TSPROPERTIES.CAPTION"
+msgid "Properties"
+msgstr ""
+
+#: tfrmmain.caption
+msgid "TDockForm"
+msgstr ""
+
+#: tfrmrestore.btnrestore.caption
+msgid "Restore selected backup"
+msgstr ""
+
+#: tfrmrestore.caption
+msgctxt "tfrmrestore.caption"
+msgid "Restore settings from backup"
+msgstr ""
+
+#: tfrmsets.btnautorunadd.caption
+msgid "Add program"
+msgstr ""
+
+#: tfrmsets.btnautorunadd.hint
+msgctxt "tfrmsets.btnautorunadd.hint"
+msgid "Add"
+msgstr ""
+
+#: tfrmsets.btnautorunaddminimized.caption
+msgid "Add (run minimized)"
+msgstr ""
+
+#: tfrmsets.btnautorunaddminimized.hint
+msgctxt "TFRMSETS.BTNAUTORUNADDMINIMIZED.HINT"
+msgid "Add"
+msgstr ""
+
+#: tfrmsets.btnbackcolor.caption
+msgid "Background"
+msgstr ""
+
+#: tfrmsets.btnbrowseshell.caption
+msgctxt "TFRMSETS.BTNBROWSESHELL.CAPTION"
+msgid "..."
+msgstr ""
+
+#: tfrmsets.btncolor.caption
+msgctxt "TFRMSETS.BTNCOLOR.CAPTION"
+msgid "Color"
+msgstr ""
+
+#: tfrmsets.btndebug.caption
+msgctxt "TFRMSETS.BTNDEBUG.CAPTION"
+msgid "Debug info"
+msgstr ""
+
+#: tfrmsets.btnfontbold.caption
+msgctxt "TFRMSETS.BTNFONTBOLD.CAPTION"
+msgid "Bold"
+msgstr ""
+
+#: tfrmsets.btnfontitalic.caption
+msgctxt "TFRMSETS.BTNFONTITALIC.CAPTION"
+msgid "Italic"
+msgstr ""
+
+#: tfrmsets.btnremovedock.caption
+msgid "Remove this dock"
+msgstr ""
+
+#: tfrmsets.btnrestore.caption
+msgctxt "tfrmsets.btnrestore.caption"
+msgid "Restore settings"
+msgstr ""
+
+#: tfrmsets.btn_cancel.caption
+msgctxt "TFRMSETS.BTN_CANCEL.CAPTION"
+msgid "Cancel"
+msgstr ""
+
+#: tfrmsets.btn_ok.caption
+msgctxt "TFRMSETS.BTN_OK.CAPTION"
+msgid "OK"
+msgstr ""
+
+#: tfrmsets.caption
+msgid "Settings"
+msgstr ""
+
+#: tfrmsets.cbactivateonmouse.caption
+msgid "Activate dock on mouseover"
+msgstr ""
+
+#: tfrmsets.cbautohide.caption
+msgid "Slide into screen edge when mouse is not over the dock"
+msgstr ""
+
+#: tfrmsets.cbautorun.caption
+msgid "Start with Windows "
+msgstr ""
+
+#: tfrmsets.cbhidetaskbar.caption
+msgid "Hide Windows taskbar"
+msgstr ""
+
+#: tfrmsets.cbshowhint.caption
+msgid "Show hint (icon name)"
+msgstr ""
+
+#: tfrmsets.cbuseshell.caption
+msgid "Use this shell to open local and network folders"
+msgstr ""
+
+#: tfrmsets.cbzoomitems.caption
+msgid "Zoom icons when mouse is over"
+msgstr ""
+
+#: tfrmsets.chbactivaterunning.caption
+msgctxt "TFRMSETS.CHBACTIVATERUNNING.CAPTION"
+msgid "Activate program if already running"
+msgstr ""
+
+#: tfrmsets.chbaeropeekenabled.caption
+msgid "Enable AeroPeek"
+msgstr ""
+
+#: tfrmsets.chbautohideonfullscreenapp.caption
+msgid "Hide dock completely while fullscreen application active (game, etc) "
+msgstr ""
+
+#: tfrmsets.chbblur.caption
+msgid "Enable Aero Glass"
+msgstr ""
+
+#: tfrmsets.chbglobalconsole.caption
+msgid "Open console"
+msgstr ""
+
+#: tfrmsets.chbglobalhide.caption
+msgctxt "TFRMSETS.CHBGLOBALHIDE.CAPTION"
+msgid "Hide dock completely"
+msgstr ""
+
+#: tfrmsets.chbhinteffects.caption
+msgid "Enable hint effects"
+msgstr ""
+
+#: tfrmsets.chboccupyfullmonitor.caption
+msgid "Stretch to full monitor width or height"
+msgstr ""
+
+#: tfrmsets.chbreflection.caption
+msgctxt "TFRMSETS.CHBREFLECTION.CAPTION"
+msgid "Show icon reflections"
+msgstr ""
+
+#: tfrmsets.chbreservescreenedge.caption
+msgid "Reserve screen edge"
+msgstr ""
+
+#: tfrmsets.chbruninthread.caption
+msgid "Run applications in separate threads"
+msgstr ""
+
+#: tfrmsets.chbshowrunningindicator.caption
+msgctxt "TFRMSETS.CHBSHOWRUNNINGINDICATOR.CAPTION"
+msgid "Show indicator for running programs"
+msgstr ""
+
+#: tfrmsets.chbstackopenanimation.caption
+msgid "Stack open/close animation"
+msgstr ""
+
+#: tfrmsets.chbtaskbar.caption
+msgid "Show icons for running tasks (taskbar)"
+msgstr ""
+
+#: tfrmsets.chbtaskbargrouping.caption
+msgctxt "TFRMSETS.CHBTASKBARGROUPING.CAPTION"
+msgid "Group similar tasks"
+msgstr ""
+
+#: tfrmsets.chbtaskbarlivepreviews.caption
+msgctxt "TFRMSETS.CHBTASKBARLIVEPREVIEWS.CAPTION"
+msgid "Show live previews (when available)"
+msgstr ""
+
+#: tfrmsets.chbtaskbarsamemonitor.caption
+msgid "Show only tasks from the same monitor"
+msgstr ""
+
+#: tfrmsets.chbtaskbarsystemmenus.caption
+msgid "Use system-style menus"
+msgstr ""
+
+#: tfrmsets.chbuseshellcontextmenus.caption
+msgctxt "TFRMSETS.CHBUSESHELLCONTEXTMENUS.CAPTION"
+msgid "Show Windows Explorer context menus for programs"
+msgstr ""
+
+#: tfrmsets.dividerbevel4.caption
+msgctxt "TFRMSETS.DIVIDERBEVEL4.CAPTION"
+msgid "Global hotkeys"
+msgstr ""
+
+#: tfrmsets.dividerbevel5.caption
+msgid "Autoslide"
+msgstr ""
+
+#: tfrmsets.dividerbevel6.caption
+msgctxt "TFRMSETS.DIVIDERBEVEL6.CAPTION"
+msgid "Autorun"
+msgstr ""
+
+#: tfrmsets.dividerbevel7.caption
+msgctxt "TFRMSETS.DIVIDERBEVEL7.CAPTION"
+msgid "Font"
+msgstr ""
+
+#: tfrmsets.edactivateonmouseinterval.text
+msgid "400"
+msgstr ""
+
+#: tfrmsets.label1.caption
+msgid "Stack font size:"
+msgstr ""
+
+#: tfrmsets.label2.caption
+msgid "Margin at the start/end, px"
+msgstr ""
+
+#: tfrmsets.label3.caption
+msgid "Activation delay"
+msgstr ""
+
+#: tfrmsets.label4.caption
+msgid "Live preview size"
+msgstr ""
+
+#: tfrmsets.lblanimateicons.caption
+msgid "Animate icons:"
+msgstr ""
+
+#: tfrmsets.lblbackgroundtransparency.caption
+msgid "Background opacity:"
+msgstr ""
+
+#: tfrmsets.lblbackgroundtransparency1.caption
+msgid "Separators opacity:"
+msgstr ""
+
+#: tfrmsets.lblbackgroundtransparency2.caption
+msgid "Reflection size:"
+msgstr ""
+
+#: tfrmsets.lblcenteroffsetpercent.caption
+msgid "Offset along the edge"
+msgstr ""
+
+#: tfrmsets.lblcredits.caption
+msgid "A desktop launch panel"
+msgstr ""
+
+#: tfrmsets.lblcredits1.caption
+msgid "Author and developer: Roman Dubinin"
+msgstr ""
+
+#: tfrmsets.lblcredits2.caption
+msgid "Testing and ideas: Andrey Levchenko, Alex Dubinin"
+msgstr ""
+
+#: tfrmsets.lblcredits3.caption
+msgid "Built with Lazarus/FPC"
+msgstr ""
+
+#: tfrmsets.lblcredits4.caption
+msgid "Licensed under LGPL 2.1"
+msgstr ""
+
+#: tfrmsets.lblcredits5.caption
+msgid "Press F1 for Help"
+msgstr ""
+
+#: tfrmsets.lblcredits6.caption
+msgid "Uses Open Icon Library"
+msgstr ""
+
+#: tfrmsets.lblcredits7.caption
+msgid "http://openiconlibrary.sourceforge.net/"
+msgstr ""
+
+#: tfrmsets.lbledge.caption
+msgid "Edge of screen"
+msgstr ""
+
+#: tfrmsets.lbledgeoffset.caption
+msgid "Offset from the edge"
+msgstr ""
+
+#: tfrmsets.lblhidedelay.caption
+msgid "Delay before hide down (ms)"
+msgstr ""
+
+#: tfrmsets.lbliconsize.caption
+msgid "Icon size"
+msgstr ""
+
+#: tfrmsets.lbliconspacing.caption
+msgid "Icon spacing"
+msgstr ""
+
+#: tfrmsets.lbllaunchinterval.caption
+msgid "Minimum time before the next run of the program (ms)"
+msgstr ""
+
+#: tfrmsets.lbllaunchintervaltip.caption
+msgid "(Prevents accidental run of multiple copies of program)"
+msgstr ""
+
+#: tfrmsets.lblmonitor.caption
+msgctxt "tfrmsets.lblmonitor.caption"
+msgid "Monitor"
+msgstr ""
+
+#: tfrmsets.lblremovedock.caption
+msgid "Caution! This action can not be undone!"
+msgstr ""
+
+#: tfrmsets.lblshowdelay.caption
+msgid "Delay before show up (ms)"
+msgstr ""
+
+#: tfrmsets.lbltitle.caption
+msgid "TDock"
+msgstr ""
+
+#: tfrmsets.lblvisiblepart.caption
+msgid "Visible part in pixels"
+msgstr ""
+
+#: tfrmsets.lblzoomediconsize.caption
+msgid "Icon size max"
+msgstr ""
+
+#: tfrmsets.lblzoomtime.caption
+msgid "Zoom time"
+msgstr ""
+
+#: tfrmsets.lblzoomwideness.caption
+msgid "Zoom width"
+msgstr ""
+
+#: tfrmsets.stmouseovertip.caption
+msgid "(Move mouse pointer to the edge of the screen to put the dock to foreground)"
+msgstr ""
+
+#: tfrmsets.tsabout.caption
+msgctxt "tfrmsets.tsabout.caption"
+msgid "About"
+msgstr ""
+
+#: tfrmsets.tsactions.caption
+msgctxt "tfrmsets.tsactions.caption"
+msgid "Actions"
+msgstr ""
+
+#: tfrmsets.tsgeneral.caption
+msgctxt "tfrmsets.tsgeneral.caption"
+msgid "General"
+msgstr ""
+
+#: tfrmsets.tsicons.caption
+msgctxt "tfrmsets.tsicons.caption"
+msgid "Icons"
+msgstr ""
+
+#: tfrmsets.tsposition.caption
+msgctxt "tfrmsets.tsposition.caption"
+msgid "Position"
+msgstr ""
+
+#: tfrmsets.tsstyle.caption
+msgctxt "tfrmsets.tsstyle.caption"
+msgid "Style"
+msgstr ""
+
+#: tfrmsets.tssystem.caption
+msgctxt "tfrmsets.tssystem.caption"
+msgid "Misc"
+msgstr ""
+
+#: tfrmsets.tstaskbar.caption
+msgctxt "TFRMSETS.TSTASKBAR.CAPTION"
+msgid "Taskbar"
+msgstr ""
+
+#: tfrmstackprop.bbaddicon.hint
+msgid "Add shortcut/command"
+msgstr ""
+
+#: tfrmstackprop.bbdelicon.hint
+msgctxt "tfrmstackprop.bbdelicon.hint"
+msgid "Delete icon"
+msgstr ""
+
+#: tfrmstackprop.bbediticon.hint
+msgctxt "tfrmstackprop.bbediticon.hint"
+msgid "Configure icon"
+msgstr ""
+
+#: tfrmstackprop.bbicondown.hint
+msgid "Move down"
+msgstr ""
+
+#: tfrmstackprop.bbiconup.hint
+msgid "Move up"
+msgstr ""
+
+#: tfrmstackprop.btnapply.caption
+msgctxt "TFRMSTACKPROP.BTNAPPLY.CAPTION"
+msgid "Apply"
+msgstr ""
+
+#: tfrmstackprop.btnbrowseimage1.caption
+msgctxt "TFRMSTACKPROP.BTNBROWSEIMAGE1.CAPTION"
+msgid "Browse image"
+msgstr ""
+
+#: tfrmstackprop.btncancel.caption
+msgctxt "TFRMSTACKPROP.BTNCANCEL.CAPTION"
+msgid "Cancel"
+msgstr ""
+
+#: tfrmstackprop.btnclearimage.caption
+msgctxt "TFRMSTACKPROP.BTNCLEARIMAGE.CAPTION"
+msgid "Clear image"
+msgstr ""
+
+#: tfrmstackprop.btndefaultcolor.caption
+msgctxt "TFRMSTACKPROP.BTNDEFAULTCOLOR.CAPTION"
+msgid "Reset color"
+msgstr ""
+
+#: tfrmstackprop.btnok.caption
+msgctxt "TFRMSTACKPROP.BTNOK.CAPTION"
+msgid "OK"
+msgstr ""
+
+#: tfrmstackprop.btnproperties.caption
+msgctxt "TFRMSTACKPROP.BTNPROPERTIES.CAPTION"
+msgid "Back to properties"
+msgstr ""
+
+#: tfrmstackprop.btnselectcolor.caption
+msgctxt "TFRMSTACKPROP.BTNSELECTCOLOR.CAPTION"
+msgid "Select color"
+msgstr ""
+
+#: tfrmstackprop.caption
+msgctxt "TFRMSTACKPROP.CAPTION"
+msgid "Properties"
+msgstr ""
+
+#: tfrmstackprop.chbbackground.caption
+msgid "Show background for items"
+msgstr ""
+
+#: tfrmstackprop.chbsorted.caption
+msgid "Sorted"
+msgstr ""
+
+#: tfrmstackprop.label1.caption
+msgid "Items in stack preview"
+msgstr ""
+
+#: tfrmstackprop.label2.caption
+msgctxt "TFRMSTACKPROP.LABEL2.CAPTION"
+msgid "Hue"
+msgstr ""
+
+#: tfrmstackprop.label3.caption
+msgctxt "TFRMSTACKPROP.LABEL3.CAPTION"
+msgid "Saturation"
+msgstr ""
+
+#: tfrmstackprop.label4.caption
+msgctxt "TFRMSTACKPROP.LABEL4.CAPTION"
+msgid "Brightness"
+msgstr ""
+
+#: tfrmstackprop.label5.caption
+msgctxt "TFRMSTACKPROP.LABEL5.CAPTION"
+msgid "Contrast"
+msgstr ""
+
+#: tfrmstackprop.lblanimationspeed.caption
+msgid "Animation speed"
+msgstr ""
+
+#: tfrmstackprop.lblcaption.caption
+msgctxt "TFRMSTACKPROP.LBLCAPTION.CAPTION"
+msgid "Name"
+msgstr ""
+
+#: tfrmstackprop.lbldistort.caption
+msgid "Spacing/Distortion"
+msgstr ""
+
+#: tfrmstackprop.lblimage.caption
+msgctxt "TFRMSTACKPROP.LBLIMAGE.CAPTION"
+msgid "Image"
+msgstr ""
+
+#: tfrmstackprop.lbloffset.caption
+msgid "Offset of icons"
+msgstr ""
+
+#: tfrmstackprop.lblspecialfolder.caption
+msgid "Special folder"
+msgstr ""
+
+#: tfrmstackprop.lblstyle.caption
+msgid "Animation"
+msgstr ""
+
+#: tfrmstackprop.tscolor.caption
+msgctxt "TFRMSTACKPROP.TSCOLOR.CAPTION"
+msgid "Color"
+msgstr ""
+
+#: tfrmstackprop.tsproperties.caption
+msgctxt "TFRMSTACKPROP.TSPROPERTIES.CAPTION"
+msgid "Properties"
+msgstr ""
+
+#: tfrmthemeeditor.btnclose.caption
+msgid "Close (Esc)"
+msgstr ""
+
+#: tfrmthemeeditor.btnsave.caption
+msgid "Save"
+msgstr ""
+
+#: tfrmthemeeditor.caption
+msgid "Theme parameters"
+msgstr ""
+
+#: tfrmthemeeditor.label1.caption
+msgid "Items area border"
+msgstr ""
+
+#: tfrmthemeeditor.label14.caption
+msgid "Blur region"
+msgstr ""
+
+#: tfrmthemeeditor.label15.caption
+msgid "Separator margins"
+msgstr ""
+
+#: tfrmthemeeditor.label9.caption
+msgid "Background margins"
+msgstr ""
+
+#: tfrmtip.btnclose.caption
+msgctxt "TFRMTIP.BTNCLOSE.CAPTION"
+msgid "Thanks, I have learned enough"
+msgstr ""
+
+#: tfrmtip.btnnext.caption
+msgid "Next"
+msgstr ""
+
+#: tfrmtip.caption
+msgid "Tip"
+msgstr ""
+

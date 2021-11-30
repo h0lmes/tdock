@@ -1,0 +1,48 @@
+object frmTip: TfrmTip
+  Left = 441
+  Height = 323
+  Top = 357
+  Width = 470
+  Caption = 'Tip'
+  ClientHeight = 323
+  ClientWidth = 470
+  KeyPreview = True
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnKeyDown = FormKeyDown
+  OnShow = FormShow
+  Position = poScreenCenter
+  LCLVersion = '2.0.12.0'
+  object memo: TMemo
+    Left = 15
+    Height = 253
+    Top = 15
+    Width = 440
+    Align = alClient
+    BorderSpacing.Bottom = 40
+    BorderSpacing.Around = 15
+    BorderStyle = bsNone
+    Color = clBtnFace
+    TabOrder = 0
+  end
+  object btnClose: TButton
+    Left = 130
+    Height = 30
+    Top = 280
+    Width = 325
+    Anchors = [akLeft, akBottom]
+    Caption = 'Thanks, I have learned enough'
+    OnClick = btnCloseClick
+    TabOrder = 1
+  end
+  object btnNext: TButton
+    Left = 15
+    Height = 30
+    Top = 280
+    Width = 100
+    Anchors = [akLeft, akBottom]
+    Caption = 'Next'
+    OnClick = btnNextClick
+    TabOrder = 2
+  end
+end

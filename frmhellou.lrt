@@ -1,0 +1,13 @@
+TFRMHELLO.CAPTION=Hello
+TFRMHELLO.LABEL3.CAPTION=Choose what you want to do:
+TFRMHELLO.BTNAUTORUN.CAPTION=Set the dock to start with Windows
+TFRMHELLO.BTNCLOSE.CAPTION=Thanks!  I will manage everything myself
+TFRMHELLO.LABEL5.CAPTION=Move the dock to anoher side of the screen:
+TFRMHELLO.BTNTOP.CAPTION=Top
+TFRMHELLO.BTNLEFT.CAPTION=Left
+TFRMHELLO.BTNRIGHT.CAPTION=Right
+TFRMHELLO.BTNBOTTOM.CAPTION=Bottom
+TFRMHELLO.BTNCLOSESHOWTIPS.CAPTION=Is there anything useful to know?
+TFRMHELLO.LABEL1.CAPTION=Hello!  Probably this is the first time you run TDock.
+TFRMHELLO.LABEL4.CAPTION=You can view useful tips at any time by pressing F1.
+TFRMHELLO.LABEL2.CAPTION=Here you can do basic setup.

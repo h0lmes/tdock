@@ -1,0 +1,100 @@
+object frmThemeEditor: TfrmThemeEditor
+  Left = 609
+  Height = 222
+  Top = 359
+  Width = 539
+  Caption = 'Theme parameters'
+  ChildSizing.LeftRightSpacing = 10
+  ChildSizing.TopBottomSpacing = 10
+  ClientHeight = 222
+  ClientWidth = 539
+  Constraints.MinWidth = 300
+  KeyPreview = True
+  OnClose = FormClose
+  OnKeyDown = FormKeyDown
+  OnShow = FormShow
+  Position = poScreenCenter
+  LCLVersion = '2.0.12.0'
+  object Label1: TLabel
+    Left = 10
+    Height = 15
+    Top = 10
+    Width = 92
+    Caption = 'Items area border'
+    ParentColor = False
+  end
+  object Label15: TLabel
+    Left = 10
+    Height = 15
+    Top = 65
+    Width = 96
+    Caption = 'Separator margins'
+    ParentColor = False
+  end
+  object Label9: TLabel
+    Left = 275
+    Height = 15
+    Top = 10
+    Width = 110
+    Caption = 'Background margins'
+    ParentColor = False
+  end
+  object Label14: TLabel
+    Left = 10
+    Height = 15
+    Top = 120
+    Width = 58
+    Caption = 'Blur region'
+    ParentColor = False
+  end
+  object edBlurRegion: TEdit
+    Left = 10
+    Height = 23
+    Top = 140
+    Width = 516
+    OnChange = edItemsAreaChange
+    TabOrder = 2
+  end
+  object edmargin: TEdit
+    Left = 275
+    Height = 23
+    Top = 30
+    Width = 251
+    OnChange = edImageChange
+    TabOrder = 1
+  end
+  object edSeparatorMargins: TEdit
+    Left = 10
+    Height = 23
+    Top = 85
+    Width = 255
+    OnChange = edItemsAreaChange
+    TabOrder = 3
+  end
+  object edItemsArea: TEdit
+    Left = 10
+    Height = 23
+    Top = 30
+    Width = 255
+    OnChange = edItemsAreaChange
+    TabOrder = 0
+  end
+  object btnSave: TButton
+    Left = 10
+    Height = 25
+    Top = 185
+    Width = 125
+    Caption = 'Save'
+    OnClick = msaveClick
+    TabOrder = 4
+  end
+  object btnClose: TButton
+    Left = 145
+    Height = 25
+    Top = 185
+    Width = 125
+    Caption = 'Close (Esc)'
+    OnClick = mcloseClick
+    TabOrder = 5
+  end
+end

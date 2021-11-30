@@ -1,0 +1,62 @@
+object frmAddCommand: TfrmAddCommand
+  Left = 536
+  Height = 677
+  Top = 243
+  Width = 410
+  ClientHeight = 677
+  ClientWidth = 410
+  FormStyle = fsStayOnTop
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnShow = FormShow
+  Position = poScreenCenter
+  LCLVersion = '2.0.12.0'
+  object tree: TTreeView
+    Left = 15
+    Height = 587
+    Top = 15
+    Width = 380
+    Align = alClient
+    BorderSpacing.Left = 15
+    BorderSpacing.Top = 15
+    BorderSpacing.Right = 15
+    BorderSpacing.Bottom = 10
+    ReadOnly = True
+    RightClickSelect = True
+    ScrollBars = ssAutoBoth
+    TabOrder = 0
+    OnDblClick = treeDblClick
+    OnSelectionChanged = treeSelectionChanged
+    Options = [tvoAutoItemHeight, tvoHideSelection, tvoKeepCollapsedNodes, tvoReadOnly, tvoRightClickSelect, tvoShowButtons, tvoShowLines, tvoShowRoot, tvoToolTips, tvoThemedDraw]
+  end
+  object btnAdd: TButton
+    Left = 229
+    Height = 30
+    Top = 30
+    Width = 153
+    Anchors = [akTop, akRight]
+    Caption = 'Add icon'
+    OnClick = btnAddClick
+    TabOrder = 1
+    Visible = False
+  end
+  object memo: TMemo
+    Left = 15
+    Height = 50
+    Top = 612
+    Width = 380
+    Align = alBottom
+    BorderSpacing.Left = 15
+    BorderSpacing.Right = 15
+    BorderSpacing.Bottom = 15
+    ReadOnly = True
+    ScrollBars = ssAutoVertical
+    TabOrder = 2
+  end
+  object images: TImageList
+    Height = 32
+    Width = 32
+    Left = 223
+    Top = 187
+  end
+end

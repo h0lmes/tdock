@@ -1,0 +1,1260 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Project-Id-Version: \n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: Holmes <roman.holmes@gmail.com>\n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.0\n"
+"Language: ru\n"
+
+#: declu.xaddicon
+msgctxt "declu.xaddicon"
+msgid "Add ..."
+msgstr "Создать ..."
+
+#: declu.xall
+msgid "All"
+msgstr "Все"
+
+#: declu.xalphachannel
+msgid "Alpha channel: %d"
+msgstr "Альфа-канал: %d"
+
+#: declu.xanimationbounce3times
+msgid "Bounce 3 times"
+msgstr "Подпрыгивание 3 раза"
+
+#: declu.xanimationbounceonce
+msgid "Bounce once"
+msgstr "Подпрыгивание 1 раз"
+
+#: declu.xanimationbouncetwice
+msgid "Bounce twice"
+msgstr "Подпрыгивание 2 раза"
+
+#: declu.xanimationnoanimation
+msgid "No animation"
+msgstr "Без анимации"
+
+#: declu.xanimationquake
+msgid "Quake"
+msgstr "Тряска"
+
+#: declu.xanimationrotate
+msgid "Rotate"
+msgstr "Вращение"
+
+#: declu.xanimationspeed
+msgid "Animation speed: %d"
+msgstr "Скорость анимации: %d"
+
+#: declu.xanimationswing
+msgid "Swing"
+msgstr "Покачивание"
+
+#: declu.xanimationvibrate
+msgid "Vibrate"
+msgstr "Вибрация"
+
+#: declu.xanimationzoom
+msgid "Zoom"
+msgstr "Увеличение"
+
+#: declu.xcloseallwindows
+msgid "Close all windows"
+msgstr "Закрыть все окна"
+
+#: declu.xclosewindow
+msgctxt "declu.xclosewindow"
+msgid "Close window"
+msgstr "Закрыть окно"
+
+#: declu.xconfigureicon
+msgctxt "declu.xconfigureicon"
+msgid "Configure icon"
+msgstr "Настроить значок"
+
+#: declu.xcopy
+msgid "Copy"
+msgstr "Копировать"
+
+#: declu.xdeleteicon
+msgctxt "declu.xdeleteicon"
+msgid "Delete icon"
+msgstr "Удалить значок"
+
+#: declu.xdeleteseparator
+msgid "Delete separator"
+msgstr "Удалить разделитель"
+
+#: declu.xdistort
+msgid "Spacing/Distortion: %d"
+msgstr "Интервал/искажение: %d"
+
+#: declu.xdock
+msgid "New dock"
+msgstr "Новый док"
+
+#: declu.xemptybin
+msgid "Empty bin"
+msgstr "Очистить корзину"
+
+#: declu.xemptyicon
+msgctxt "declu.xemptyicon"
+msgid "Empty icon"
+msgstr "Пустой значок"
+
+#: declu.xerrorcommandlistnotfound
+msgid "Command list file not found. Try reinstalling the program."
+msgstr "Файл со списком команд не найден. Попробуйте переустановить программу."
+
+#: declu.xerrorcontactdeveloper
+msgid "Contact developer if error is permanent."
+msgstr "Сообщите разработчику если ошибка повторяется."
+
+#: declu.xerrorcritical
+msgid "Critical error occured. Try to run the program again."
+msgstr "Критическая ошибка. Попробуйте запустить программу снова."
+
+#: declu.xerrorhelpnotfound
+msgid "Help file not found! Try reinstalling the program."
+msgstr "Файл помощи не найден! Попробуйте переустановить программу."
+
+#: declu.xerrorin
+msgid "Error in"
+msgstr "Ошибка в"
+
+#: declu.xerrorinvalidprogramdatastructuresize
+msgid "Invalid program data structure size."
+msgstr "Неверный размер структуры данных о программе."
+
+#: declu.xerrorloadtheme
+msgid "Error loading theme. Try to run the program again."
+msgstr "Ошибка при загрузке темы. Попробуйте запустить программу снова."
+
+#: declu.xerrorsetsbackupfailed
+msgid "Failed to backup settings."
+msgstr "Не удалось сделать резервную копию файла настроек."
+
+#: declu.xerrorsetscorrupted
+msgid "Settings file corrupted."
+msgstr "Файл настроек поврежден."
+
+#: declu.xerrorsetsrestorefailed
+msgid "Restore operation failed."
+msgstr "Не удалось восстановить резервную копию файла настроек."
+
+#: declu.xerrortipsnotfound
+msgid "Tips file not found. Try reinstalling the program."
+msgstr "Файл с советами не найден. Переустановите программу."
+
+#: declu.xexit
+msgctxt "declu.xexit"
+msgid "Exit"
+msgstr "Выйти"
+
+#: declu.xfile
+msgid "File"
+msgstr "Файл"
+
+#: declu.xiconcollection
+msgctxt "declu.xiconcollection"
+msgid "Open icon collection"
+msgstr "Коллекция иконок"
+
+#: declu.xinstalledapplication
+msgctxt "declu.xinstalledapplication"
+msgid "Installed application"
+msgstr "Установленное приложение"
+
+#: declu.xkillprocess
+msgid "Kill process"
+msgstr "Завершить процесс"
+
+#: declu.xlabelcenteroffset
+msgctxt "declu.xlabelcenteroffset"
+msgid "Offset along the edge: %d %%"
+msgstr "Смещение вдоль края: %d %%"
+
+#: declu.xlabeledgeoffset
+msgctxt "declu.xlabeledgeoffset"
+msgid "Offset from the edge: %d pt"
+msgstr "Смещение от края: %d pt"
+
+#: declu.xlabeliconsize
+msgctxt "declu.xlabeliconsize"
+msgid "Icon size: %d pt"
+msgstr "Размер значков: %d pt"
+
+#: declu.xlabeliconspacing
+msgid "Icon spacing: %d pt"
+msgstr "Расстояние между значками: %d pt"
+
+#: declu.xlabelreservescreenedgepercent
+msgid "Reserve screen edge: %d%%"
+msgstr "Резервировать край экрана: %d%%"
+
+#: declu.xlabelzoomediconsize
+msgctxt "declu.xlabelzoomediconsize"
+msgid "Icon size max: %d pt"
+msgstr "Размер значков макс.: %d pt"
+
+#: declu.xlabelzoomtime
+msgid "Zoom-in time: %d ms"
+msgstr "Время увеличения: %d мс"
+
+#: declu.xlabelzoomwidth
+msgctxt "declu.xlabelzoomwidth"
+msgid "Zoom width: %d"
+msgstr "Ширина увеличения: %d"
+
+#: declu.xlockicons
+msgid "Lock icons"
+msgstr "Закрепить значки"
+
+#: declu.xminimizerestoreallwindows
+msgid "Minimize/restore all windows (Alt+Click)"
+msgstr "Свернуть/восстановить все окна (Alt+Click)"
+
+#: declu.xmonitor
+msgctxt "declu.xmonitor"
+msgid "Monitor"
+msgstr "Монитор"
+
+#: declu.xmsgconfirmrestore
+msgid "Confirm restore operation."
+msgstr "Подтвердите операцию восстановления."
+
+#: declu.xmsgnotificationareaicons
+msgid "After you close this message you will see \"Notification area icons\" window. To use this function uncheck \"Always show all icons\" at the bottom of the window and set all behaviors to \"Only show notifications\"."
+msgstr "После закрытия этого сообщения вы увидите окно \"Значки области уведомлений\". Чтобы использовать эту функцию, снимите флажок «Всегда показывать все значки» в нижней части окна и установите для всех вариантов поведения значение «Показывать только уведомления»."
+
+#: declu.xmsgplacetargetfileinsteadofshortcut
+msgid "Put target file onto the dock instead of a shortcut?"
+msgstr "Добавить на панель целевой файл вместо ярлыка?"
+
+#: declu.xmsgremovedockwarning
+msgid "Are you sure you pressed the correct button?"
+msgstr "Вы уверены что нажали правильную кнопку?"
+
+#: declu.xmsgrunagain
+msgid "Run the program again."
+msgstr "Запустите программу снова."
+
+#: declu.xmsgrunrestore
+msgid "Run restore operation."
+msgstr "Запустите операцию восстановления."
+
+#: declu.xmsgsetsrestored
+msgid "Settings were restored from backup."
+msgstr "Настройки восстановлены из резервной копии."
+
+#: declu.xmsgthemesaved
+msgid "Theme saved."
+msgstr "Тема сохранена."
+
+#: declu.xmsgunsavediconparams
+msgid "Icon parameters changed. If you choose to proceed all changes will be lost. Proceed?"
+msgstr "Параметры значка изменены. Если вы продолжите все изменения будут утеряны. Продолжить?"
+
+#: declu.xoffsetoficons
+msgid "Offset of icons: %d pt"
+msgstr "Смещение значков: %d pt"
+
+#: declu.xopenfolderof
+msgctxt "declu.xopenfolderof"
+msgid "Open folder of"
+msgstr "Открыть папку"
+
+#: declu.xopenthemesfolder
+msgid "Open themes folder"
+msgstr "Открыть папку тем"
+
+#: declu.xpageabout
+msgctxt "declu.xpageabout"
+msgid "About"
+msgstr "О программе"
+
+#: declu.xpageactions
+msgctxt "declu.xpageactions"
+msgid "Actions"
+msgstr "Действия"
+
+#: declu.xpagegeneral
+msgctxt "declu.xpagegeneral"
+msgid "General"
+msgstr "Общие"
+
+#: declu.xpageicons
+msgctxt "declu.xpageicons"
+msgid "Icons"
+msgstr "Значки"
+
+#: declu.xpagemisc
+msgctxt "declu.xpagemisc"
+msgid "Misc"
+msgstr "Разное"
+
+#: declu.xpageposition
+msgctxt "declu.xpageposition"
+msgid "Position"
+msgstr "Позиция"
+
+#: declu.xpagestyle
+msgctxt "declu.xpagestyle"
+msgid "Style"
+msgstr "Стиль"
+
+#: declu.xpagetaskbar
+msgctxt "declu.xpagetaskbar"
+msgid "Taskbar"
+msgstr "Панель задач"
+
+#: declu.xpaste
+msgid "Paste"
+msgstr "Вставить"
+
+#: declu.xpintodock
+msgid "Pin to dock"
+msgstr "Закрепить на доке"
+
+#: declu.xplacetaskshere
+msgid "Place tasks here"
+msgstr "Разместить панель задач здесь"
+
+#: declu.xprogramsettings
+msgctxt "declu.xprogramsettings"
+msgid "Program settings"
+msgstr "Настройки программы"
+
+#: declu.xrun
+msgid "Run  (Ctrl + Click)"
+msgstr "Выполнить  (Ctrl + Click)"
+
+#: declu.xselectworkingdirectory
+msgid "Select working directory"
+msgstr "Выберите папку программы"
+
+#: declu.xseparator
+msgctxt "declu.xseparator"
+msgid "Separator (space)"
+msgstr "Разделитель"
+
+#: declu.xshortcut
+msgid "Shortcut"
+msgstr "Ярлык"
+
+#: declu.xshowcmdmaximized
+msgid "Maximized to fullscreen"
+msgstr "Развернуто на весь экран"
+
+#: declu.xshowcmdminimized
+msgid "Minimized to taskbar"
+msgstr "Свернуто в панель задач"
+
+#: declu.xshowcmdnormal
+msgctxt "declu.xshowcmdnormal"
+msgid "Normal size"
+msgstr "Нормальный размер"
+
+#: declu.xsitebottom
+msgctxt "declu.xsitebottom"
+msgid "Bottom"
+msgstr "Снизу"
+
+#: declu.xsiteleft
+msgctxt "declu.xsiteleft"
+msgid "Left"
+msgstr "Слева"
+
+#: declu.xsiteright
+msgctxt "declu.xsiteright"
+msgid "Right"
+msgstr "Справа"
+
+#: declu.xsitetop
+msgctxt "declu.xsitetop"
+msgid "Top"
+msgstr "Сверху"
+
+#: declu.xspecificicons
+msgid "Specific icons"
+msgstr "Настроенные значки"
+
+#: declu.xstackpreviewfour
+msgid "four"
+msgstr "четыре"
+
+#: declu.xstackpreviewnine
+msgid "nine"
+msgstr "девять"
+
+#: declu.xstackpreviewnone
+msgid "none"
+msgstr "нет"
+
+#: declu.xstartbuttontext
+msgid "Start"
+msgstr "Пуск"
+
+#: declu.xtaskmanager
+msgctxt "declu.xtaskmanager"
+msgid "Task manager"
+msgstr "Диспетчер задач"
+
+#: declu.xundeleteicon
+msgid "Undelete icon  (Ctrl+Z)"
+msgstr "Отменить удаление значка  (Ctrl+Z)"
+
+#: tfrmaddcommand.btnadd.caption
+msgctxt "TFRMADDCOMMAND.BTNADD.CAPTION"
+msgid "Add icon"
+msgstr "Добавить значок"
+
+#: tfrmcmd.btn_browse.caption
+msgctxt "TFRMCMD.BTN_BROWSE.CAPTION"
+msgid "..."
+msgstr "..."
+
+#: tfrmcmd.caption
+msgctxt "tfrmcmd.caption"
+msgid "Command"
+msgstr "Команда"
+
+#: tfrmcolor.btncancel.caption
+msgctxt "TFRMCOLOR.BTNCANCEL.CAPTION"
+msgid "Cancel"
+msgstr "Отмена"
+
+#: tfrmcolor.btnok.caption
+msgctxt "TFRMCOLOR.BTNOK.CAPTION"
+msgid "OK"
+msgstr "OK"
+
+#: tfrmcolor.caption
+msgctxt "tfrmcolor.caption"
+msgid "Select color"
+msgstr "Выбрать цвет"
+
+#: tfrmcolor.label1.caption
+msgid "R"
+msgstr "R"
+
+#: tfrmcolor.label2.caption
+msgid "G"
+msgstr "G"
+
+#: tfrmcolor.label3.caption
+msgid "B"
+msgstr "B"
+
+#: tfrmcolor.label4.caption
+msgid "H"
+msgstr "H"
+
+#: tfrmcolor.label5.caption
+msgid "L"
+msgstr "L"
+
+#: tfrmcolor.label6.caption
+msgid "S"
+msgstr "S"
+
+#: tfrmcolor.lblbackgroundalpha.caption
+msgctxt "tfrmcolor.lblbackgroundalpha.caption"
+msgid "Alpha channel"
+msgstr "Альфа-канал"
+
+#: tfrmdebug.caption
+msgctxt "tfrmdebug.caption"
+msgid "Debug info"
+msgstr "Отладочная информация"
+
+#: tfrmhello.btnautorun.caption
+msgid "Set the dock to start with Windows"
+msgstr "Запускать док при старте Windows"
+
+#: tfrmhello.btnbottom.caption
+msgctxt "tfrmhello.btnbottom.caption"
+msgid "Bottom"
+msgstr "Снизу"
+
+#: tfrmhello.btnclose.caption
+msgid "Thanks!  I will manage everything myself"
+msgstr "Спасибо!  Дальше я сам разберусь"
+
+#: tfrmhello.btncloseshowtips.caption
+msgid "Is there anything useful to know?"
+msgstr "Есть что-то полезное что можно узнать?"
+
+#: tfrmhello.btnleft.caption
+msgctxt "tfrmhello.btnleft.caption"
+msgid "Left"
+msgstr "Слева"
+
+#: tfrmhello.btnright.caption
+msgctxt "tfrmhello.btnright.caption"
+msgid "Right"
+msgstr "Справа"
+
+#: tfrmhello.btntop.caption
+msgctxt "tfrmhello.btntop.caption"
+msgid "Top"
+msgstr "Сверху"
+
+#: tfrmhello.caption
+msgid "Hello"
+msgstr "Привет"
+
+#: tfrmhello.label1.caption
+msgid "Hello!  Probably this is the first time you run TDock."
+msgstr "Привет!  Возможно это Ваш первый запуск TDock."
+
+#: tfrmhello.label2.caption
+msgid "Here you can do basic setup."
+msgstr "Здесь вы можете произвести базовую настройку программы."
+
+#: tfrmhello.label3.caption
+msgid "Choose what you want to do:"
+msgstr "Выберите что Вы хотите сделать:"
+
+#: tfrmhello.label4.caption
+msgid "You can view useful tips at any time by pressing F1."
+msgstr "Вы можете посмотреть полезные подсказки в любое время нажав F1."
+
+#: tfrmhello.label5.caption
+msgid "Move the dock to anoher side of the screen:"
+msgstr "Переместить док к другом краю экрана:"
+
+#: tfrmitemprop.btnapply.caption
+msgctxt "TFRMITEMPROP.BTNAPPLY.CAPTION"
+msgid "Apply"
+msgstr "Применить"
+
+#: tfrmitemprop.btnbrowseimage1.caption
+msgctxt "TFRMITEMPROP.BTNBROWSEIMAGE1.CAPTION"
+msgid "Browse image"
+msgstr "Выбрать иконку"
+
+#: tfrmitemprop.btncancel.caption
+msgctxt "TFRMITEMPROP.BTNCANCEL.CAPTION"
+msgid "Cancel"
+msgstr "Отмена"
+
+#: tfrmitemprop.btnclearimage.caption
+msgctxt "TFRMITEMPROP.BTNCLEARIMAGE.CAPTION"
+msgid "Clear image"
+msgstr "Очистить иконку"
+
+#: tfrmitemprop.btnconvertlink.caption
+msgid "Convert .LNK"
+msgstr "Преобразовать .LNK"
+
+#: tfrmitemprop.btndefaultcolor.caption
+msgctxt "TFRMITEMPROP.BTNDEFAULTCOLOR.CAPTION"
+msgid "Reset color"
+msgstr "Сбросить цвет"
+
+#: tfrmitemprop.btndir.caption
+msgctxt "TFRMITEMPROP.BTNDIR.CAPTION"
+msgid "..."
+msgstr "..."
+
+#: tfrmitemprop.btnfile.caption
+msgctxt "TFRMITEMPROP.BTNFILE.CAPTION"
+msgid "..."
+msgstr "..."
+
+#: tfrmitemprop.btnimage.caption
+msgctxt "tfrmitemprop.btnimage.caption"
+msgid "..."
+msgstr "..."
+
+#: tfrmitemprop.btnok.caption
+msgctxt "TFRMITEMPROP.BTNOK.CAPTION"
+msgid "OK"
+msgstr "OK"
+
+#: tfrmitemprop.btnparams.caption
+msgctxt "TFRMITEMPROP.BTNPARAMS.CAPTION"
+msgid "..."
+msgstr "..."
+
+#: tfrmitemprop.btnproperties.caption
+msgctxt "tfrmitemprop.btnproperties.caption"
+msgid "Back to properties"
+msgstr "Вернуться к свойствам"
+
+#: tfrmitemprop.btnselectcolor.caption
+msgctxt "tfrmitemprop.btnselectcolor.caption"
+msgid "Select color"
+msgstr "Выбрать цвет"
+
+#: tfrmitemprop.caption
+msgctxt "tfrmitemprop.caption"
+msgid "Properties"
+msgstr "Свойства"
+
+#: tfrmitemprop.chbhide.caption
+msgctxt "tfrmitemprop.chbhide.caption"
+msgid "Hide dock when application runs"
+msgstr "Прятать док при запуске приложения"
+
+#: tfrmitemprop.label2.caption
+msgctxt "TFRMITEMPROP.LABEL2.CAPTION"
+msgid "Hue"
+msgstr "Тон"
+
+#: tfrmitemprop.label3.caption
+msgctxt "TFRMITEMPROP.LABEL3.CAPTION"
+msgid "Saturation"
+msgstr "Насыщенность"
+
+#: tfrmitemprop.label4.caption
+msgctxt "TFRMITEMPROP.LABEL4.CAPTION"
+msgid "Brightness"
+msgstr "Яркость"
+
+#: tfrmitemprop.label5.caption
+msgctxt "TFRMITEMPROP.LABEL5.CAPTION"
+msgid "Contrast"
+msgstr "Контраст"
+
+#: tfrmitemprop.lblcaption.caption
+msgctxt "TFRMITEMPROP.LBLCAPTION.CAPTION"
+msgid "Name"
+msgstr "Имя"
+
+#: tfrmitemprop.lblcommand.caption
+msgctxt "TFRMITEMPROP.LBLCOMMAND.CAPTION"
+msgid "Command"
+msgstr "Команда"
+
+#: tfrmitemprop.lblimage.caption
+msgctxt "tfrmitemprop.lblimage.caption"
+msgid "Image"
+msgstr "Иконка"
+
+#: tfrmitemprop.lblparams.caption
+msgctxt "TFRMITEMPROP.LBLPARAMS.CAPTION"
+msgid "Parameters"
+msgstr "Параметры"
+
+#: tfrmitemprop.lbltip.caption
+msgctxt "tfrmitemprop.lbltip.caption"
+msgid "Use semicolon to separate multiple commands and parameters"
+msgstr "Разделяйте несколько команд или параметров точкой с запятой"
+
+#: tfrmitemprop.lblwindowsize.caption
+msgctxt "tfrmitemprop.lblwindowsize.caption"
+msgid "Window size"
+msgstr "Окно"
+
+#: tfrmitemprop.lblworkingdirectory.caption
+msgid "Working directory"
+msgstr "Рабочая папка"
+
+#: tfrmitemprop.tscolor.caption
+msgctxt "TFRMITEMPROP.TSCOLOR.CAPTION"
+msgid "Color"
+msgstr "Цвет"
+
+#: tfrmitemprop.tsproperties.caption
+msgctxt "TFRMITEMPROP.TSPROPERTIES.CAPTION"
+msgid "Properties"
+msgstr "Свойства"
+
+#: tfrmmain.caption
+msgctxt "tfrmmain.caption"
+msgid "TDockForm"
+msgstr "TDockForm"
+
+#: tfrmrestore.btnrestore.caption
+msgid "Restore selected backup"
+msgstr "Восстановить выбранный бэкап"
+
+#: tfrmrestore.caption
+msgctxt "tfrmrestore.caption"
+msgid "Restore settings from backup"
+msgstr "Восстановить настройки из бэкапа"
+
+#: tfrmsets.btnautorunadd.caption
+msgctxt "TFRMSETS.BTNAUTORUNADD.CAPTION"
+msgid "Add program"
+msgstr "Добавить программу"
+
+#: tfrmsets.btnautorunadd.hint
+msgctxt "TFRMSETS.BTNAUTORUNADD.HINT"
+msgid "Add"
+msgstr "Добавить"
+
+#: tfrmsets.btnautorunaddminimized.caption
+msgid "Add (run minimized)"
+msgstr "Добавить (запускать свернутым)"
+
+#: tfrmsets.btnautorunaddminimized.hint
+msgctxt "tfrmsets.btnautorunaddminimized.hint"
+msgid "Add"
+msgstr "Добавить"
+
+#: tfrmsets.btnbackcolor.caption
+msgid "Background"
+msgstr "Фон"
+
+#: tfrmsets.btnbrowseshell.caption
+msgctxt "TFRMSETS.BTNBROWSESHELL.CAPTION"
+msgid "..."
+msgstr "..."
+
+#: tfrmsets.btncolor.caption
+msgctxt "tfrmsets.btncolor.caption"
+msgid "Color"
+msgstr "Цвет"
+
+#: tfrmsets.btndebug.caption
+msgctxt "TFRMSETS.BTNDEBUG.CAPTION"
+msgid "Debug info"
+msgstr "Отладочная информация"
+
+#: tfrmsets.btnfontbold.caption
+msgctxt "tfrmsets.btnfontbold.caption"
+msgid "Bold"
+msgstr "Жирный"
+
+#: tfrmsets.btnfontitalic.caption
+msgctxt "tfrmsets.btnfontitalic.caption"
+msgid "Italic"
+msgstr "Курсив"
+
+#: tfrmsets.btnremovedock.caption
+msgid "Remove this dock"
+msgstr "Удалить этот док"
+
+#: tfrmsets.btnrestore.caption
+msgctxt "tfrmsets.btnrestore.caption"
+msgid "Restore settings"
+msgstr "Восстановить настройки"
+
+#: tfrmsets.btn_cancel.caption
+msgctxt "TFRMSETS.BTN_CANCEL.CAPTION"
+msgid "Cancel"
+msgstr "Отмена"
+
+#: tfrmsets.btn_ok.caption
+msgctxt "TFRMSETS.BTN_OK.CAPTION"
+msgid "OK"
+msgstr "OK"
+
+#: tfrmsets.caption
+msgctxt "tfrmsets.caption"
+msgid "Settings"
+msgstr "Настройки"
+
+#: tfrmsets.cbactivateonmouse.caption
+msgid "Activate dock on mouseover"
+msgstr "Активировать док при наведении мыши"
+
+#: tfrmsets.cbautohide.caption
+msgid "Slide into screen edge when mouse is not over the dock"
+msgstr "Уезжать за край экрана когда мышь вне дока"
+
+#: tfrmsets.cbautorun.caption
+msgid "Start with Windows "
+msgstr "Запускаться при старте Windows "
+
+#: tfrmsets.cbhidetaskbar.caption
+msgid "Hide Windows taskbar"
+msgstr "Скрыть панель задач Windows"
+
+#: tfrmsets.cbshowhint.caption
+msgid "Show hint (icon name)"
+msgstr "Показывать подсказки (имена значков)"
+
+#: tfrmsets.cbuseshell.caption
+msgid "Use this shell to open local and network folders"
+msgstr "Использовать этот шелл для открытия локальных и сетевых папок"
+
+#: tfrmsets.cbzoomitems.caption
+msgid "Zoom icons when mouse is over"
+msgstr "Увеличивать значки при наведении мыши"
+
+#: tfrmsets.chbactivaterunning.caption
+msgctxt "tfrmsets.chbactivaterunning.caption"
+msgid "Activate program if already running"
+msgstr "Активировать программу если уже запущена"
+
+#: tfrmsets.chbaeropeekenabled.caption
+msgid "Enable AeroPeek"
+msgstr "Включить AeroPeek"
+
+#: tfrmsets.chbautohideonfullscreenapp.caption
+msgid "Hide dock completely while fullscreen application active (game, etc) "
+msgstr "Прятать док при полноэкранных приложениях (игры, т.п.) "
+
+#: tfrmsets.chbblur.caption
+msgid "Enable Aero Glass"
+msgstr "Включить эффекты Aero"
+
+#: tfrmsets.chbglobalconsole.caption
+msgid "Open console"
+msgstr "Открыть консоль"
+
+#: tfrmsets.chbglobalhide.caption
+msgctxt "tfrmsets.chbglobalhide.caption"
+msgid "Hide dock completely"
+msgstr "Спрятать док полностью"
+
+#: tfrmsets.chbhinteffects.caption
+msgid "Enable hint effects"
+msgstr "Включить эффекты для подсказок"
+
+#: tfrmsets.chboccupyfullmonitor.caption
+msgid "Stretch to full monitor width or height"
+msgstr "Растянуть на всю ширину или высоту монитора"
+
+#: tfrmsets.chbreflection.caption
+msgctxt "tfrmsets.chbreflection.caption"
+msgid "Show icon reflections"
+msgstr "Показывать отражения значков"
+
+#: tfrmsets.chbreservescreenedge.caption
+msgid "Reserve screen edge"
+msgstr "Резервировать край экрана"
+
+#: tfrmsets.chbruninthread.caption
+msgid "Run applications in separate threads"
+msgstr "Запускать программы в отдельных потоках"
+
+#: tfrmsets.chbshowrunningindicator.caption
+msgctxt "tfrmsets.chbshowrunningindicator.caption"
+msgid "Show indicator for running programs"
+msgstr "Показывать индикатор для запущенных программ"
+
+#: tfrmsets.chbstackopenanimation.caption
+msgid "Stack open/close animation"
+msgstr "Анимация открытия/закрытия стека"
+
+#: tfrmsets.chbtaskbar.caption
+msgid "Show icons for running tasks (taskbar)"
+msgstr "Показывать значки для запущенных программ (панель задач)"
+
+#: tfrmsets.chbtaskbargrouping.caption
+msgctxt "tfrmsets.chbtaskbargrouping.caption"
+msgid "Group similar tasks"
+msgstr "Группировать сходные задачи"
+
+#: tfrmsets.chbtaskbarlivepreviews.caption
+msgctxt "tfrmsets.chbtaskbarlivepreviews.caption"
+msgid "Show live previews (when available)"
+msgstr "Показывать миниатюры (когда доступно)"
+
+#: tfrmsets.chbtaskbarsamemonitor.caption
+msgid "Show only tasks from the same monitor"
+msgstr "Показывать только программы с этого монитора"
+
+#: tfrmsets.chbtaskbarsystemmenus.caption
+msgid "Use system-style menus"
+msgstr "Использовать системные меню"
+
+#: tfrmsets.chbuseshellcontextmenus.caption
+msgctxt "tfrmsets.chbuseshellcontextmenus.caption"
+msgid "Show Windows Explorer context menus for programs"
+msgstr "Показывать контекстные меню Проводника Windows для программ"
+
+#: tfrmsets.dividerbevel4.caption
+msgctxt "tfrmsets.dividerbevel4.caption"
+msgid "Global hotkeys"
+msgstr "Глобальные горячие клавиши"
+
+#: tfrmsets.dividerbevel5.caption
+msgid "Autoslide"
+msgstr "Автослайд"
+
+#: tfrmsets.dividerbevel6.caption
+msgctxt "tfrmsets.dividerbevel6.caption"
+msgid "Autorun"
+msgstr "Автозапуск"
+
+#: tfrmsets.dividerbevel7.caption
+msgctxt "tfrmsets.dividerbevel7.caption"
+msgid "Font"
+msgstr "Шрифт"
+
+#: tfrmsets.edactivateonmouseinterval.text
+msgid "400"
+msgstr "400"
+
+#: tfrmsets.label1.caption
+msgid "Stack font size:"
+msgstr "Размер шрифта стека:"
+
+#: tfrmsets.label2.caption
+msgid "Margin at the start/end, px"
+msgstr "Отступ в начале/конце, пиксел"
+
+#: tfrmsets.label3.caption
+msgid "Activation delay"
+msgstr "Задержка активации"
+
+#: tfrmsets.label4.caption
+msgid "Live preview size"
+msgstr "Размер миниатюр"
+
+#: tfrmsets.lblanimateicons.caption
+msgctxt "TFRMSETS.LBLANIMATEICONS.CAPTION"
+msgid "Animate icons:"
+msgstr "Анимация значков:"
+
+#: tfrmsets.lblbackgroundtransparency.caption
+msgctxt "TFRMSETS.LBLBACKGROUNDTRANSPARENCY.CAPTION"
+msgid "Background opacity:"
+msgstr "Непрозрачность фона:"
+
+#: tfrmsets.lblbackgroundtransparency1.caption
+msgid "Separators opacity:"
+msgstr "Непрозрачность разделителей:"
+
+#: tfrmsets.lblbackgroundtransparency2.caption
+msgid "Reflection size:"
+msgstr "Размер отражений:"
+
+#: tfrmsets.lblcenteroffsetpercent.caption
+msgid "Offset along the edge"
+msgstr "Смещение вдоль края"
+
+#: tfrmsets.lblcredits.caption
+msgid "A desktop launch panel"
+msgstr "Панель для запуска программ с рабочего стола"
+
+#: tfrmsets.lblcredits1.caption
+msgid "Author and developer: Roman Dubinin"
+msgstr "Автор и разработчик: Роман Дубинин"
+
+#: tfrmsets.lblcredits2.caption
+msgid "Testing and ideas: Andrey Levchenko, Alex Dubinin"
+msgstr "Тестирование и идеи: Андрей Левченко, Алексей Дубинин"
+
+#: tfrmsets.lblcredits3.caption
+msgid "Built with Lazarus/FPC"
+msgstr "Создано с помощью Lazarus/FPC"
+
+#: tfrmsets.lblcredits4.caption
+msgid "Licensed under LGPL 2.1"
+msgstr "Лицензия LGPL 2.1"
+
+#: tfrmsets.lblcredits5.caption
+msgid "Press F1 for Help"
+msgstr "Нажмите F1 для просмотра помощи"
+
+#: tfrmsets.lblcredits6.caption
+msgid "Uses Open Icon Library"
+msgstr "Использует Open Icon Library"
+
+#: tfrmsets.lblcredits7.caption
+msgid "http://openiconlibrary.sourceforge.net/"
+msgstr "http://openiconlibrary.sourceforge.net/"
+
+#: tfrmsets.lbledge.caption
+msgctxt "TFRMSETS.LBLEDGE.CAPTION"
+msgid "Edge of screen"
+msgstr "Сторона экрана"
+
+#: tfrmsets.lbledgeoffset.caption
+msgid "Offset from the edge"
+msgstr "Смещение от края"
+
+#: tfrmsets.lblhidedelay.caption
+msgctxt "TFRMSETS.LBLHIDEDELAY.CAPTION"
+msgid "Delay before hide down (ms)"
+msgstr "Задержка перед скрытием (мс)"
+
+#: tfrmsets.lbliconsize.caption
+msgid "Icon size"
+msgstr "Размер значка"
+
+#: tfrmsets.lbliconspacing.caption
+msgid "Icon spacing"
+msgstr "Расстояние между значками"
+
+#: tfrmsets.lbllaunchinterval.caption
+msgctxt "TFRMSETS.LBLLAUNCHINTERVAL.CAPTION"
+msgid "Minimum time before the next run of the program (ms)"
+msgstr "Минимальное время между запусками программ (мс)"
+
+#: tfrmsets.lbllaunchintervaltip.caption
+msgctxt "TFRMSETS.LBLLAUNCHINTERVALTIP.CAPTION"
+msgid "(Prevents accidental run of multiple copies of program)"
+msgstr "(Позволяет избежать случайного запуска нескольких копий программы)"
+
+#: tfrmsets.lblmonitor.caption
+msgctxt "TFRMSETS.LBLMONITOR.CAPTION"
+msgid "Monitor"
+msgstr "Монитор"
+
+#: tfrmsets.lblremovedock.caption
+msgid "Caution! This action can not be undone!"
+msgstr "Внимание! Это действие не может быть отменено!"
+
+#: tfrmsets.lblshowdelay.caption
+msgctxt "TFRMSETS.LBLSHOWDELAY.CAPTION"
+msgid "Delay before show up (ms)"
+msgstr "Задержка перед показом (мс)"
+
+#: tfrmsets.lbltitle.caption
+msgid "TDock"
+msgstr "TDock"
+
+#: tfrmsets.lblvisiblepart.caption
+msgctxt "TFRMSETS.LBLVISIBLEPART.CAPTION"
+msgid "Visible part in pixels"
+msgstr "Видимая часть (пиксел)"
+
+#: tfrmsets.lblzoomediconsize.caption
+msgid "Icon size max"
+msgstr "Размер значка максимальный"
+
+#: tfrmsets.lblzoomtime.caption
+msgid "Zoom time"
+msgstr "Время увеличения"
+
+#: tfrmsets.lblzoomwideness.caption
+msgid "Zoom width"
+msgstr "Ширина увеличения"
+
+#: tfrmsets.stmouseovertip.caption
+msgid "(Move mouse pointer to the edge of the screen to put the dock to foreground)"
+msgstr "Переместите указатель мыши к краю экрана чтобы вывести док на передний план"
+
+#: tfrmsets.tsabout.caption
+msgctxt "TFRMSETS.TSABOUT.CAPTION"
+msgid "About"
+msgstr "О программе"
+
+#: tfrmsets.tsactions.caption
+msgctxt "tfrmsets.tsactions.caption"
+msgid "Actions"
+msgstr "Действия"
+
+#: tfrmsets.tsgeneral.caption
+msgctxt "TFRMSETS.TSGENERAL.CAPTION"
+msgid "General"
+msgstr "Общие"
+
+#: tfrmsets.tsicons.caption
+msgctxt "TFRMSETS.TSICONS.CAPTION"
+msgid "Icons"
+msgstr "Значки"
+
+#: tfrmsets.tsposition.caption
+msgctxt "TFRMSETS.TSPOSITION.CAPTION"
+msgid "Position"
+msgstr "Позиция"
+
+#: tfrmsets.tsstyle.caption
+msgctxt "TFRMSETS.TSSTYLE.CAPTION"
+msgid "Style"
+msgstr "Стиль"
+
+#: tfrmsets.tssystem.caption
+msgctxt "TFRMSETS.TSSYSTEM.CAPTION"
+msgid "Misc"
+msgstr "Разное"
+
+#: tfrmsets.tstaskbar.caption
+msgctxt "tfrmsets.tstaskbar.caption"
+msgid "Taskbar"
+msgstr "Панель задач"
+
+#: tfrmstackprop.bbaddicon.hint
+msgctxt "tfrmstackprop.bbaddicon.hint"
+msgid "Add shortcut/command"
+msgstr "Добавить пустой значок"
+
+#: tfrmstackprop.bbdelicon.hint
+msgctxt "tfrmstackprop.bbdelicon.hint"
+msgid "Delete icon"
+msgstr "Удалить значок"
+
+#: tfrmstackprop.bbediticon.hint
+msgctxt "tfrmstackprop.bbediticon.hint"
+msgid "Configure icon"
+msgstr "Настроить значок"
+
+#: tfrmstackprop.bbicondown.hint
+msgctxt "tfrmstackprop.bbicondown.hint"
+msgid "Move down"
+msgstr "Ниже"
+
+#: tfrmstackprop.bbiconup.hint
+msgctxt "tfrmstackprop.bbiconup.hint"
+msgid "Move up"
+msgstr "Выше"
+
+#: tfrmstackprop.btnapply.caption
+msgctxt "TFRMSTACKPROP.BTNAPPLY.CAPTION"
+msgid "Apply"
+msgstr "Применить"
+
+#: tfrmstackprop.btnbrowseimage1.caption
+msgctxt "TFRMSTACKPROP.BTNBROWSEIMAGE1.CAPTION"
+msgid "Browse image"
+msgstr "Выбрать иконку"
+
+#: tfrmstackprop.btncancel.caption
+msgctxt "TFRMSTACKPROP.BTNCANCEL.CAPTION"
+msgid "Cancel"
+msgstr "Отмена"
+
+#: tfrmstackprop.btnclearimage.caption
+msgctxt "TFRMSTACKPROP.BTNCLEARIMAGE.CAPTION"
+msgid "Clear image"
+msgstr "Очистить иконку"
+
+#: tfrmstackprop.btndefaultcolor.caption
+msgctxt "TFRMSTACKPROP.BTNDEFAULTCOLOR.CAPTION"
+msgid "Reset color"
+msgstr "Сбросить цвет"
+
+#: tfrmstackprop.btnok.caption
+msgctxt "TFRMSTACKPROP.BTNOK.CAPTION"
+msgid "OK"
+msgstr "OK"
+
+#: tfrmstackprop.btnproperties.caption
+msgctxt "tfrmstackprop.btnproperties.caption"
+msgid "Back to properties"
+msgstr "Вернуться к свойствам"
+
+#: tfrmstackprop.btnselectcolor.caption
+msgctxt "tfrmstackprop.btnselectcolor.caption"
+msgid "Select color"
+msgstr "Выбрать цвет"
+
+#: tfrmstackprop.caption
+msgctxt "tfrmstackprop.caption"
+msgid "Properties"
+msgstr "Свойства"
+
+#: tfrmstackprop.chbbackground.caption
+msgid "Show background for items"
+msgstr "Показывать фон для элементов"
+
+#: tfrmstackprop.chbsorted.caption
+msgid "Sorted"
+msgstr "Сортировка"
+
+#: tfrmstackprop.label1.caption
+msgid "Items in stack preview"
+msgstr "Предпросмотр элементов в стеке"
+
+#: tfrmstackprop.label2.caption
+msgctxt "TFRMSTACKPROP.LABEL2.CAPTION"
+msgid "Hue"
+msgstr "Тон"
+
+#: tfrmstackprop.label3.caption
+msgctxt "TFRMSTACKPROP.LABEL3.CAPTION"
+msgid "Saturation"
+msgstr "Насыщенность"
+
+#: tfrmstackprop.label4.caption
+msgctxt "TFRMSTACKPROP.LABEL4.CAPTION"
+msgid "Brightness"
+msgstr "Яркость"
+
+#: tfrmstackprop.label5.caption
+msgctxt "TFRMSTACKPROP.LABEL5.CAPTION"
+msgid "Contrast"
+msgstr "Контраст"
+
+#: tfrmstackprop.lblanimationspeed.caption
+msgid "Animation speed"
+msgstr "Скорость анимации"
+
+#: tfrmstackprop.lblcaption.caption
+msgctxt "TFRMSTACKPROP.LBLCAPTION.CAPTION"
+msgid "Name"
+msgstr "Имя"
+
+#: tfrmstackprop.lbldistort.caption
+msgid "Spacing/Distortion"
+msgstr "Интервал/искажение"
+
+#: tfrmstackprop.lblimage.caption
+msgctxt "tfrmstackprop.lblimage.caption"
+msgid "Image"
+msgstr "Иконка"
+
+#: tfrmstackprop.lbloffset.caption
+msgid "Offset of icons"
+msgstr "Смещение иконок"
+
+#: tfrmstackprop.lblspecialfolder.caption
+msgid "Special folder"
+msgstr "Специальная папка"
+
+#: tfrmstackprop.lblstyle.caption
+msgctxt "tfrmstackprop.lblstyle.caption"
+msgid "Animation"
+msgstr "Анимация"
+
+#: tfrmstackprop.tscolor.caption
+msgctxt "TFRMSTACKPROP.TSCOLOR.CAPTION"
+msgid "Color"
+msgstr "Цвет"
+
+#: tfrmstackprop.tsproperties.caption
+msgctxt "TFRMSTACKPROP.TSPROPERTIES.CAPTION"
+msgid "Properties"
+msgstr "Свойства"
+
+#: tfrmthemeeditor.btnclose.caption
+msgid "Close (Esc)"
+msgstr "Закрыть (Esc)"
+
+#: tfrmthemeeditor.btnsave.caption
+msgid "Save"
+msgstr "Сохранить"
+
+#: tfrmthemeeditor.caption
+msgctxt "tfrmthemeeditor.caption"
+msgid "Theme parameters"
+msgstr "Параметры темы"
+
+#: tfrmthemeeditor.label1.caption
+msgctxt "tfrmthemeeditor.label1.caption"
+msgid "Items area border"
+msgstr "Отступ области значков"
+
+#: tfrmthemeeditor.label14.caption
+msgctxt "tfrmthemeeditor.label14.caption"
+msgid "Blur region"
+msgstr "Регион размытия"
+
+#: tfrmthemeeditor.label15.caption
+msgctxt "tfrmthemeeditor.label15.caption"
+msgid "Separator margins"
+msgstr "Границы разделителя (нерастягиваемые)"
+
+#: tfrmthemeeditor.label9.caption
+msgctxt "tfrmthemeeditor.label9.caption"
+msgid "Background margins"
+msgstr "Нерастягиваемые границы фона"
+
+#: tfrmtip.btnclose.caption
+msgctxt "tfrmtip.btnclose.caption"
+msgid "Thanks, I have learned enough"
+msgstr "Спасибо, я узнал достаточно"
+
+#: tfrmtip.btnnext.caption
+msgctxt "tfrmtip.btnnext.caption"
+msgid "Next"
+msgstr "Дальше"
+
+#: tfrmtip.caption
+msgid "Tip"
+msgstr "Подсказка"
