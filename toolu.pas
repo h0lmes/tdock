@@ -127,7 +127,8 @@ procedure split(itext, ch: string; var str1, str2: string);
 procedure split_cmd(incmd: string; var cmd, params: string);
 function ReplaceEx(strSrc, strWhat, strWith: string): string;
 function fetch(var itext: string; delim: string; adelete: boolean = False): string;
-function FetchValue(itext: string; Value, delim: string): string;
+function FetchValue(itext: string; value, delimiter: string): string; overload;
+function FetchValue(itext: string; value, delimiter, default: string): string; overload;
 function PosEx(Value, atext: string; startpos: integer): integer;
 function cuttolast(itext, ch: string): string;
 function cutafterlast(itext, ch: string): string;
@@ -188,20 +189,12 @@ implementation
 //------------------------------------------------------------------------------
 function GetFont: string;
 begin
-  Result := 'tahoma';
-  try
-    if bIsWindowsVistaOrHigher then Result := 'segoe ui';
-  except
-  end;
+  Result := Screen.SystemFont.Name;
 end;
 //------------------------------------------------------------------------------
 function GetFontSize: integer;
 begin
-  Result := 9;
-  try
-    if bIsWindowsVistaOrHigher then Result := 11;
-  except
-  end;
+  Result := Screen.SystemFont.Size;
   if ScalingFactor > 100 then Result := Result * ScalingFactor div 100;
 end;
 //------------------------------------------------------------------------------
@@ -313,18 +306,32 @@ begin
   end;
 end;
 //------------------------------------------------------------------------------
-function FetchValue(itext: string; Value, delim: string): string;
+function FetchValue(itext: string; value, delimiter: string): string;
 var
   ipos, ipos2: integer;
 begin
-  ipos := pos(LowerCase(Value), LowerCase(itext));
+  ipos := pos(LowerCase(value), LowerCase(itext));
   if ipos > 0 then
   begin
-    ipos2 := posex(delim, itext, ipos + length(Value));
-    Result := system.copy(itext, ipos + length(Value), ipos2 - ipos - length(Value));
+    ipos2 := posex(delimiter, itext, ipos + length(value));
+    Result := system.copy(itext, ipos + length(value), ipos2 - ipos - length(value));
   end
   else
     Result := '';
+end;
+//------------------------------------------------------------------------------
+function FetchValue(itext: string; value, delimiter, default: string): string; overload;
+var
+  ipos, ipos2: integer;
+begin
+  ipos := pos(LowerCase(value), LowerCase(itext));
+  if ipos > 0 then
+  begin
+    ipos2 := posex(delimiter, itext, ipos + length(value));
+    Result := system.copy(itext, ipos + length(value), ipos2 - ipos - length(value));
+  end
+  else
+    Result := default;
 end;
 //------------------------------------------------------------------------------
 function PosEx(Value, atext: string; startpos: integer): integer;

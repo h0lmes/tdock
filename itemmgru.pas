@@ -699,17 +699,19 @@ begin
 end;
 //------------------------------------------------------------------------------
 // insert a File at current DropPlace
-// or at the end of array if DropPlace not exists (e.g. DropPlace = NOT_AN_ITEM)
+// or at the end of array if DropPlace does not exist (e.g. DropPlace = NOT_AN_ITEM)
 procedure TItemManager.InsertFile(Filename: string);
 begin
-  if FEnabled then InsertItem(TShortcutItem.MakeFromFilename(Filename));
+  if FEnabled then
+    InsertItem(TShortcutItem.MakeFromFilename(Filename));
 end;
 //------------------------------------------------------------------------------
 // insert item at current DropPlace
-// or at the end of array if DropPlace not exists (e.g. DropPlace = NOT_AN_ITEM)
+// or at the end of array if DropPlace does not exist (e.g. DropPlace = NOT_AN_ITEM)
 procedure TItemManager.InsertItem(AData: string);
 begin
-  if FEnabled then AddItem(CreateItemFromString(AData), true);
+  if FEnabled then
+    AddItem(CreateItemFromString(AData), true);
 end;
 //------------------------------------------------------------------------------
 // put an Item onto dock
@@ -800,7 +802,7 @@ begin
       icp.IniFile := '';
       icp.IniSection := '';
       icp.Parameter := Parameter;
-      ClassName := LowerCase(FetchValue(Parameter, 'class="', '";'));
+      ClassName := LowerCase(FetchValue(Parameter, 'class="', '";', 'shortcut'));
     end;
 
     if ClassName = 'shortcut' then Inst := TShortcutItem.Create(FParentHWnd, icp)

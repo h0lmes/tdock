@@ -1170,6 +1170,20 @@ begin
   ContextMenu(pt);
 end;
 //------------------------------------------------------------------------------
+function Tfrmmain.ContextMenu(pt: Windows.TPoint): boolean;
+var
+  msg: TMessage;
+begin
+  Result := False;
+  GetHMenu(0);
+  LockMouseEffect(Handle, true);
+  SetForegroundWindow(handle);
+  SetForeground;
+  msg.WParam := WPARAM(TrackPopupMenuEx(FMenu, TPM_RETURNCMD, pt.x, pt.y, handle, nil));
+  WMCommand(msg);
+  Result := True;
+end;
+//------------------------------------------------------------------------------
 function Tfrmmain.GetHMenu(ParentMenu: THandle): THandle;
   function IsValidItemString(str: string): boolean;
   var
@@ -1178,7 +1192,6 @@ function Tfrmmain.GetHMenu(ParentMenu: THandle): THandle;
     classname := FetchValue(str, 'class="', '";');
     result := (classname = 'shortcut') or (classname = 'stack');
   end;
-
 var
   idx: integer;
 begin
@@ -1192,7 +1205,8 @@ begin
   // create submenu 'Add...' //
 
   FMenuCreate := CreatePopupMenu;
-  AppendMenuW(FMenuCreate, MF_STRING + ifthen(ItemMgr._itemsDeleted.Count > 0, 0, MF_DISABLED), $f026, pwchar(UTF8Decode(XUndeleteIcon)));
+  AppendMenuW(FMenuCreate, MF_STRING + ifthen(ItemMgr._itemsDeleted.Count > 0, 0, MF_DISABLED),
+    $f026, pwchar(UTF8Decode(XUndeleteIcon)));
   AppendMenuW(FMenuCreate, MF_STRING, $f023, pwchar(UTF8Decode(XSpecificIcons)));
   AppendMenuW(FMenuCreate, MF_STRING, $f021, pwchar(UTF8Decode(XEmptyIcon)));
   AppendMenuW(FMenuCreate, MF_STRING, $f022, pwchar(UTF8Decode(XFile)));
@@ -1222,20 +1236,6 @@ begin
   AppendMenuW(FMenu, MF_STRING, IDM_QUIT, pwchar(UTF8Decode(XExit)));
 
   Result := FMenu;
-end;
-//------------------------------------------------------------------------------
-function Tfrmmain.ContextMenu(pt: Windows.TPoint): boolean;
-var
-  msg: TMessage;
-begin
-  Result := False;
-  GetHMenu(0);
-  LockMouseEffect(Handle, true);
-  SetForegroundWindow(handle);
-  SetForeground;
-  msg.WParam := WPARAM(TrackPopupMenuEx(FMenu, TPM_RETURNCMD, pt.x, pt.y, handle, nil));
-  WMCommand(msg);
-  Result := True;
 end;
 //------------------------------------------------------------------------------
 procedure Tfrmmain.WMCommand(var msg: TMessage);
@@ -1577,7 +1577,7 @@ end;
 procedure Tfrmmain.AddFile(Filename: string);
 begin
   if assigned(ItemMgr) then
-    ItemMgr.InsertItem(Filename);
+    ItemMgr.InsertFile(Filename);
 end;
 //------------------------------------------------------------------------------
 procedure Tfrmmain.NewDock;
