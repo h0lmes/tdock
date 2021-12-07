@@ -75,7 +75,7 @@ type
     FTextColor: cardinal;
     FCompositionEnabled: boolean;
     FFontFamily: string;
-    FFontSize: integer;
+    FFontSize: single;
     FLayout: TAPWLayout;
     FWindowCount: integer;
     FProcessCount: integer;
@@ -208,7 +208,7 @@ begin
   FActive := false;
   FAnimate := true;
   FFontFamily := toolu.GetFont;
-  FFontSize := round(toolu.GetFontSize * 1.6);
+  FFontSize := round(toolu.GetFontSize * 1.5);
   FCloseButtonDownIndex := -1;
   FItemCount := 0;
   FHover := false;
@@ -1326,7 +1326,7 @@ begin
     end;
 
     // icons and titles ... or separators
-    GdipSetTextRenderingHint(hgdip, TextRenderingHintAntiAliasGridFit);
+    GdipSetTextRenderingHint(hgdip, TextRenderingHintAntiAlias);
     GdipCreateFontFamilyFromName(PWideChar(WideString(FFontFamily)), nil, family);
     GdipCreateFont(family, FFontSize, 0, 2, font);
     GdipCreateSolidFill(FTextColor, brush);
