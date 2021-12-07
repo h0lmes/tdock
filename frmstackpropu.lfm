@@ -63,7 +63,7 @@ object frmStackProp: TfrmStackProp
         Tag = 10
         Left = 10
         Height = 23
-        Top = 40
+        Top = 35
         Width = 526
         Anchors = [akTop, akLeft, akRight]
         OnChange = edCaptionChange
@@ -73,7 +73,7 @@ object frmStackProp: TfrmStackProp
         Tag = 10
         Left = 10
         Height = 15
-        Top = 20
+        Top = 15
         Width = 32
         Caption = 'Name'
         ParentColor = False
@@ -82,7 +82,7 @@ object frmStackProp: TfrmStackProp
         Tag = 10
         Left = 10
         Height = 15
-        Top = 185
+        Top = 220
         Width = 56
         Caption = 'Animation'
         ParentColor = False
@@ -90,7 +90,7 @@ object frmStackProp: TfrmStackProp
       object cboMode: TComboBox
         Left = 10
         Height = 23
-        Top = 205
+        Top = 240
         Width = 213
         DropDownCount = 20
         ItemHeight = 15
@@ -102,7 +102,7 @@ object frmStackProp: TfrmStackProp
         Tag = 10
         Left = 10
         Height = 15
-        Top = 275
+        Top = 280
         Width = 77
         Caption = 'Offset of icons'
         ParentColor = False
@@ -133,7 +133,7 @@ object frmStackProp: TfrmStackProp
       object tbOffset: TTrackBar
         Left = 10
         Height = 34
-        Top = 292
+        Top = 297
         Width = 213
         Frequency = 10
         Max = 50
@@ -149,7 +149,7 @@ object frmStackProp: TfrmStackProp
         Tag = 10
         Left = 280
         Height = 15
-        Top = 275
+        Top = 280
         Width = 99
         Caption = 'Spacing/Distortion'
         ParentColor = False
@@ -157,7 +157,7 @@ object frmStackProp: TfrmStackProp
       object tbDistort: TTrackBar
         Left = 280
         Height = 34
-        Top = 292
+        Top = 297
         Width = 213
         Frequency = 2
         Min = -10
@@ -171,7 +171,7 @@ object frmStackProp: TfrmStackProp
         Tag = 10
         Left = 10
         Height = 15
-        Top = 75
+        Top = 70
         Width = 33
         Caption = 'Image'
         ParentColor = False
@@ -179,7 +179,7 @@ object frmStackProp: TfrmStackProp
       object edImage: TEdit
         Left = 10
         Height = 23
-        Top = 95
+        Top = 90
         Width = 526
         Anchors = [akTop, akLeft, akRight]
         OnChange = edImageChange
@@ -436,7 +436,7 @@ object frmStackProp: TfrmStackProp
       object cboPreview: TComboBox
         Left = 280
         Height = 23
-        Top = 205
+        Top = 240
         Width = 213
         ItemHeight = 15
         OnChange = cboPreviewChange
@@ -446,24 +446,24 @@ object frmStackProp: TfrmStackProp
       object Label1: TLabel
         Left = 280
         Height = 15
-        Top = 185
+        Top = 220
         Width = 116
         Caption = 'Items in stack preview'
         ParentColor = False
       end
       object chbBackground: TCheckBox
-        Left = 10
+        Left = 280
         Height = 19
-        Top = 240
+        Top = 185
         Width = 166
         Caption = 'Show background for items'
         OnChange = chbBackgroundChange
         TabOrder = 6
       end
       object chbSorted: TCheckBox
-        Left = 280
+        Left = 10
         Height = 19
-        Top = 240
+        Top = 185
         Width = 54
         Caption = 'Sorted'
         OnChange = chbSortedChange
@@ -473,7 +473,7 @@ object frmStackProp: TfrmStackProp
         Tag = 10
         Left = 10
         Height = 15
-        Top = 130
+        Top = 125
         Width = 71
         Caption = 'Special folder'
         ParentColor = False
@@ -481,7 +481,7 @@ object frmStackProp: TfrmStackProp
       object edSpecialFolder: TEdit
         Left = 10
         Height = 23
-        Top = 150
+        Top = 145
         Width = 526
         Anchors = [akTop, akLeft, akRight]
         OnChange = edSpecialFolderChange
