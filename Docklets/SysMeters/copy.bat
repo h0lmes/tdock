@@ -1,1 +1,1 @@
-copy .\sysmeters.dll c:\terry\docklets\sysmeters\sysmeters.dll
+copy .\sysmeters.dll c:\tdock\docklets\sysmeters\sysmeters.dll

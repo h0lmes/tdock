@@ -1426,28 +1426,33 @@ end;
 procedure TItemManager.SetDropPlaceEx(index: integer);
 var
   DragInst, Inst: TCustomItem;
-  atype: integer;
+  indicatorType: integer;
 begin
   try
     FDropPlaceEx := index;
-    atype := 0;
+    indicatorType := DII_NONE;
 
-    // correct disallowed drop cases //
+    // correct invalid drop cases //
     if FDropPlaceEx <> NOT_AN_ITEM then
       if FDraggingItem then
       begin
         Inst := TCustomItem(GetWindowLongPtr(FItemArray[FDropPlaceEx].h, GWL_USERDATA));
         DragInst := TCustomItem(GetWindowLongPtr(FDragHWnd, GWL_USERDATA));
+
         if ((Inst is TStackItem) and (DragInst is TStackItem)) or
-          ((Inst is TStackItem) and (DragInst is TShortcutItem)) or
-          ((Inst is TShortcutItem) and (DragInst is TShortcutItem)) then atype := DII_ADD; // add
-        if atype = 0 then FDropPlaceEx := FDropPlace;
+            ((Inst is TStackItem) and (DragInst is TShortcutItem)) or
+            ((Inst is TShortcutItem) and (DragInst is TShortcutItem)) then
+          indicatorType := DII_ADD;
+
+        if indicatorType = DII_NONE then
+          FDropPlaceEx := FDropPlace;
       end;
 
     if FDraggingItem then
     begin
       AllItemCmd(icDropIndicator, 0);
-      if atype > 0 then ItemCmd(FItemArray[FDropPlaceEx].h, icDropIndicator, atype);
+      if indicatorType > 0 then
+        ItemCmd(FItemArray[FDropPlaceEx].h, icDropIndicator, indicatorType);
     end;
   except
     on e: Exception do err('ItemManager.SetDropPlaceEx', e);
