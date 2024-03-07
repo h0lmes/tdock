@@ -1396,13 +1396,14 @@ var
   w, h: uint;
 begin
   result := false;
-  srcwidth := 32;
-  srcheight := 32;
-  if not assigned(image) then exit;
+  if (image = nil) or not assigned(image) then exit;
 
   try
+    srcwidth := 32;
+    srcheight := 32;
     GdipGetImageWidth(image, w);
     GdipGetImageHeight(image, h);
+    if (w = 0) or (h = 0) then exit;
     if h > w then h := w;
     if w > h then w := h;
     srcwidth := w;
@@ -1424,6 +1425,7 @@ begin
       end;
       imgTemp := image;
       GdipCreateBitmapFromScan0(srcwidth, srcheight, 0, PixelFormat32bppPARGB, nil, image);
+      if image = nil then exit;
       GdipGetImageGraphicsContext(image, g);
       GdipSetInterpolationMode(g, InterpolationModeHighQualityBicubic);
       GdipSetPixelOffsetMode(g, PixelOffsetModeHighQuality);
@@ -1440,6 +1442,7 @@ begin
       end;
       imgTemp := image;
       GdipCreateBitmapFromScan0(srcwidth, srcheight, 0, PixelFormat32bppPARGB, nil, image);
+      if image = nil then exit;
       GdipGetImageGraphicsContext(image, g);
       GdipSetInterpolationMode(g, InterpolationModeHighQualityBicubic);
       GdipSetPixelOffsetMode(g, PixelOffsetModeHighQuality);
@@ -1450,7 +1453,7 @@ begin
       result := true;
     end;
   except
-    on e: Exception do raise Exception.Create('DownscaleImage ' + LineEnding + e.message);
+    on e: Exception do raise Exception.Create('DownscaleImage(image=' + IntToStr(QWord(image)) + ') ' + LineEnding + e.message);
   end;
 end;
 //--------------------------------------------------------------------------------------------------

@@ -155,7 +155,7 @@ begin
   rect.Width := 128;
   rect.Height := 112;
   GdipCreateFontFamilyFromName(PWideChar(WideString(PChar('Segoe UI'))), nil, hff);
-  GdipCreateFont(hff, 42, 1, 2, hfont);
+  GdipCreateFont(hff, 42, 0, 2, hfont);
   GdipCreateStringFormat(0, LANG_NEUTRAL, hformat);
   GdipSetStringFormatAlign(hformat, StringAlignmentCenter);
   if bottom then GdipSetStringFormatLineAlign(hformat, StringAlignmentFar);

@@ -448,8 +448,14 @@ begin
 end;
 //------------------------------------------------------------------------------
 procedure TTaskItem.ShowPeekWindow(Timeout: cardinal = 0);
+const
+  MARGIN_PERCENT = 0.005;
+  MONITOR_DEFAULTTOPRIMARY = 1;
 var
   pt: windows.TPoint;
+  monitor: THandle;
+  monInfo: MONITORINFO;
+  xMargin, yMargin: integer;
 begin
   try
     if FAppList.Count < 1 then exit;
@@ -462,16 +468,23 @@ begin
 
     KillTimer(FHWnd, ID_TIMER_OPEN);
 
+    monitor := MonitorFromWindow(FHWnd, MONITOR_DEFAULTTOPRIMARY);
+    monInfo.cbSize := sizeof(MONITORINFO);
+    GetMonitorInfoA(monitor, @monInfo);
+
+    xMargin := trunc(monInfo.rcWork.Width * MARGIN_PERCENT);
+    yMargin := trunc(monInfo.rcWork.Height * MARGIN_PERCENT);
+
     pt := GetScreenRect.TopLeft;
     if (FSite = 1) or (FSite = 3) then inc(pt.x, FSize div 2);
     if (FSite = 0) or (FSite = 2) then inc(pt.y, FSize div 2);
     if FSite = 0 then inc(pt.x, FSize);
     if FSite = 1 then inc(pt.y, FSize);
     case FSite of
-      0: inc(pt.x, 5);
-      1: inc(pt.y, 5);
-      2: dec(pt.x, 5);
-      3: dec(pt.y, 5);
+      0: inc(pt.x, xMargin);
+      1: inc(pt.y, yMargin);
+      2: dec(pt.x, xMargin);
+      3: dec(pt.y, yMargin);
     end;
     FHideHint := true;
     UpdateHint;
