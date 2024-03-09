@@ -536,11 +536,6 @@ msgstr ""
 msgid "Convert .LNK"
 msgstr ""
 
-#: tfrmitemprop.btndefaultcolor.caption
-msgctxt "tfrmitemprop.btndefaultcolor.caption"
-msgid "Reset color"
-msgstr ""
-
 #: tfrmitemprop.btndir.caption
 msgctxt "TFRMITEMPROP.BTNDIR.CAPTION"
 msgid "..."
@@ -566,16 +561,6 @@ msgctxt "TFRMITEMPROP.BTNPARAMS.CAPTION"
 msgid "..."
 msgstr ""
 
-#: tfrmitemprop.btnproperties.caption
-msgctxt "tfrmitemprop.btnproperties.caption"
-msgid "Back to properties"
-msgstr ""
-
-#: tfrmitemprop.btnselectcolor.caption
-msgctxt "TFRMITEMPROP.BTNSELECTCOLOR.CAPTION"
-msgid "Select color"
-msgstr ""
-
 #: tfrmitemprop.caption
 msgctxt "tfrmitemprop.caption"
 msgid "Properties"
@@ -583,26 +568,6 @@ msgstr ""
 
 #: tfrmitemprop.chbhide.caption
 msgid "Hide dock when application runs"
-msgstr ""
-
-#: tfrmitemprop.label2.caption
-msgctxt "tfrmitemprop.label2.caption"
-msgid "Hue"
-msgstr ""
-
-#: tfrmitemprop.label3.caption
-msgctxt "tfrmitemprop.label3.caption"
-msgid "Saturation"
-msgstr ""
-
-#: tfrmitemprop.label4.caption
-msgctxt "tfrmitemprop.label4.caption"
-msgid "Brightness"
-msgstr ""
-
-#: tfrmitemprop.label5.caption
-msgctxt "tfrmitemprop.label5.caption"
-msgid "Contrast"
 msgstr ""
 
 #: tfrmitemprop.lblcaption.caption
@@ -635,16 +600,6 @@ msgstr ""
 
 #: tfrmitemprop.lblworkingdirectory.caption
 msgid "Working directory"
-msgstr ""
-
-#: tfrmitemprop.tscolor.caption
-msgctxt "tfrmitemprop.tscolor.caption"
-msgid "Color"
-msgstr ""
-
-#: tfrmitemprop.tsproperties.caption
-msgctxt "TFRMITEMPROP.TSPROPERTIES.CAPTION"
-msgid "Properties"
 msgstr ""
 
 #: tfrmmain.caption
@@ -1079,24 +1034,9 @@ msgctxt "TFRMSTACKPROP.BTNCLEARIMAGE.CAPTION"
 msgid "Clear image"
 msgstr ""
 
-#: tfrmstackprop.btndefaultcolor.caption
-msgctxt "TFRMSTACKPROP.BTNDEFAULTCOLOR.CAPTION"
-msgid "Reset color"
-msgstr ""
-
 #: tfrmstackprop.btnok.caption
 msgctxt "TFRMSTACKPROP.BTNOK.CAPTION"
 msgid "OK"
-msgstr ""
-
-#: tfrmstackprop.btnproperties.caption
-msgctxt "TFRMSTACKPROP.BTNPROPERTIES.CAPTION"
-msgid "Back to properties"
-msgstr ""
-
-#: tfrmstackprop.btnselectcolor.caption
-msgctxt "TFRMSTACKPROP.BTNSELECTCOLOR.CAPTION"
-msgid "Select color"
 msgstr ""
 
 #: tfrmstackprop.caption
@@ -1114,26 +1054,6 @@ msgstr ""
 
 #: tfrmstackprop.label1.caption
 msgid "Items in stack preview"
-msgstr ""
-
-#: tfrmstackprop.label2.caption
-msgctxt "TFRMSTACKPROP.LABEL2.CAPTION"
-msgid "Hue"
-msgstr ""
-
-#: tfrmstackprop.label3.caption
-msgctxt "TFRMSTACKPROP.LABEL3.CAPTION"
-msgid "Saturation"
-msgstr ""
-
-#: tfrmstackprop.label4.caption
-msgctxt "TFRMSTACKPROP.LABEL4.CAPTION"
-msgid "Brightness"
-msgstr ""
-
-#: tfrmstackprop.label5.caption
-msgctxt "TFRMSTACKPROP.LABEL5.CAPTION"
-msgid "Contrast"
 msgstr ""
 
 #: tfrmstackprop.lblanimationspeed.caption
@@ -1164,16 +1084,6 @@ msgstr ""
 
 #: tfrmstackprop.lblstyle.caption
 msgid "Animation"
-msgstr ""
-
-#: tfrmstackprop.tscolor.caption
-msgctxt "TFRMSTACKPROP.TSCOLOR.CAPTION"
-msgid "Color"
-msgstr ""
-
-#: tfrmstackprop.tsproperties.caption
-msgctxt "TFRMSTACKPROP.TSPROPERTIES.CAPTION"
-msgid "Properties"
 msgstr ""
 
 #: tfrmthemeeditor.btnclose.caption

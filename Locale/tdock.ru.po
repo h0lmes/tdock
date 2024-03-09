@@ -554,11 +554,6 @@ msgstr "Очистить иконку"
 msgid "Convert .LNK"
 msgstr "Преобразовать .LNK"
 
-#: tfrmitemprop.btndefaultcolor.caption
-msgctxt "TFRMITEMPROP.BTNDEFAULTCOLOR.CAPTION"
-msgid "Reset color"
-msgstr "Сбросить цвет"
-
 #: tfrmitemprop.btndir.caption
 msgctxt "TFRMITEMPROP.BTNDIR.CAPTION"
 msgid "..."
@@ -584,16 +579,6 @@ msgctxt "TFRMITEMPROP.BTNPARAMS.CAPTION"
 msgid "..."
 msgstr "..."
 
-#: tfrmitemprop.btnproperties.caption
-msgctxt "tfrmitemprop.btnproperties.caption"
-msgid "Back to properties"
-msgstr "Вернуться к свойствам"
-
-#: tfrmitemprop.btnselectcolor.caption
-msgctxt "tfrmitemprop.btnselectcolor.caption"
-msgid "Select color"
-msgstr "Выбрать цвет"
-
 #: tfrmitemprop.caption
 msgctxt "tfrmitemprop.caption"
 msgid "Properties"
@@ -603,26 +588,6 @@ msgstr "Свойства"
 msgctxt "tfrmitemprop.chbhide.caption"
 msgid "Hide dock when application runs"
 msgstr "Прятать док при запуске приложения"
-
-#: tfrmitemprop.label2.caption
-msgctxt "TFRMITEMPROP.LABEL2.CAPTION"
-msgid "Hue"
-msgstr "Тон"
-
-#: tfrmitemprop.label3.caption
-msgctxt "TFRMITEMPROP.LABEL3.CAPTION"
-msgid "Saturation"
-msgstr "Насыщенность"
-
-#: tfrmitemprop.label4.caption
-msgctxt "TFRMITEMPROP.LABEL4.CAPTION"
-msgid "Brightness"
-msgstr "Яркость"
-
-#: tfrmitemprop.label5.caption
-msgctxt "TFRMITEMPROP.LABEL5.CAPTION"
-msgid "Contrast"
-msgstr "Контраст"
 
 #: tfrmitemprop.lblcaption.caption
 msgctxt "TFRMITEMPROP.LBLCAPTION.CAPTION"
@@ -657,16 +622,6 @@ msgstr "Окно"
 #: tfrmitemprop.lblworkingdirectory.caption
 msgid "Working directory"
 msgstr "Рабочая папка"
-
-#: tfrmitemprop.tscolor.caption
-msgctxt "TFRMITEMPROP.TSCOLOR.CAPTION"
-msgid "Color"
-msgstr "Цвет"
-
-#: tfrmitemprop.tsproperties.caption
-msgctxt "TFRMITEMPROP.TSPROPERTIES.CAPTION"
-msgid "Properties"
-msgstr "Свойства"
 
 #: tfrmmain.caption
 msgctxt "tfrmmain.caption"
@@ -1114,25 +1069,10 @@ msgctxt "TFRMSTACKPROP.BTNCLEARIMAGE.CAPTION"
 msgid "Clear image"
 msgstr "Очистить иконку"
 
-#: tfrmstackprop.btndefaultcolor.caption
-msgctxt "TFRMSTACKPROP.BTNDEFAULTCOLOR.CAPTION"
-msgid "Reset color"
-msgstr "Сбросить цвет"
-
 #: tfrmstackprop.btnok.caption
 msgctxt "TFRMSTACKPROP.BTNOK.CAPTION"
 msgid "OK"
 msgstr "OK"
-
-#: tfrmstackprop.btnproperties.caption
-msgctxt "tfrmstackprop.btnproperties.caption"
-msgid "Back to properties"
-msgstr "Вернуться к свойствам"
-
-#: tfrmstackprop.btnselectcolor.caption
-msgctxt "tfrmstackprop.btnselectcolor.caption"
-msgid "Select color"
-msgstr "Выбрать цвет"
 
 #: tfrmstackprop.caption
 msgctxt "tfrmstackprop.caption"
@@ -1150,26 +1090,6 @@ msgstr "Сортировка"
 #: tfrmstackprop.label1.caption
 msgid "Items in stack preview"
 msgstr "Предпросмотр элементов в стеке"
-
-#: tfrmstackprop.label2.caption
-msgctxt "TFRMSTACKPROP.LABEL2.CAPTION"
-msgid "Hue"
-msgstr "Тон"
-
-#: tfrmstackprop.label3.caption
-msgctxt "TFRMSTACKPROP.LABEL3.CAPTION"
-msgid "Saturation"
-msgstr "Насыщенность"
-
-#: tfrmstackprop.label4.caption
-msgctxt "TFRMSTACKPROP.LABEL4.CAPTION"
-msgid "Brightness"
-msgstr "Яркость"
-
-#: tfrmstackprop.label5.caption
-msgctxt "TFRMSTACKPROP.LABEL5.CAPTION"
-msgid "Contrast"
-msgstr "Контраст"
 
 #: tfrmstackprop.lblanimationspeed.caption
 msgid "Animation speed"
@@ -1201,16 +1121,6 @@ msgstr "Специальная папка"
 msgctxt "tfrmstackprop.lblstyle.caption"
 msgid "Animation"
 msgstr "Анимация"
-
-#: tfrmstackprop.tscolor.caption
-msgctxt "TFRMSTACKPROP.TSCOLOR.CAPTION"
-msgid "Color"
-msgstr "Цвет"
-
-#: tfrmstackprop.tsproperties.caption
-msgctxt "TFRMSTACKPROP.TSPROPERTIES.CAPTION"
-msgid "Properties"
-msgstr "Свойства"
 
 #: tfrmthemeeditor.btnclose.caption
 msgid "Close (Esc)"
@@ -1258,3 +1168,4 @@ msgstr "Дальше"
 #: tfrmtip.caption
 msgid "Tip"
 msgstr "Подсказка"
+

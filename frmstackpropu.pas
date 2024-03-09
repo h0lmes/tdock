@@ -20,52 +20,36 @@ type
     bbIconUp: TBitBtn;
     btnBrowseImage1: TButton;
     btnClearImage: TButton;
-    btnDefaultColor: TButton;
     btnOK: TButton;
     btnApply: TButton;
     btnCancel: TButton;
-    btnProperties: TButton;
-    btnSelectColor: TButton;
     cboMode: TComboBox;
     cboPreview: TComboBox;
     chbBackground: TCheckBox;
     chbSorted: TCheckBox;
-    edImage: TEdit;
     edCaption: TEdit;
+    edImage: TEdit;
     edSpecialFolder: TEdit;
     iPic: TPaintBox;
     Label1: TLabel;
-    Label2: TLabel;
-    Label3: TLabel;
-    Label4: TLabel;
-    Label5: TLabel;
-    lblImage: TLabel;
-    lblDistort: TLabel;
-    lblCaption: TLabel;
     lblAnimationSpeed: TLabel;
+    lblCaption: TLabel;
+    lblDir: TLabel;
+    lblDistort: TLabel;
+    lblImage: TLabel;
+    lblOffset: TLabel;
     lblSpecialFolder: TLabel;
     lblStyle: TLabel;
-    lblDir: TLabel;
-    lblOffset: TLabel;
     list: TListBox;
-    pages: TPageControl;
     tbAnimationSpeed: TTrackBar;
     tbDistort: TTrackBar;
     tbOffset: TTrackBar;
-    tsProperties: TTabSheet;
-    tsColor: TTabSheet;
-    tbBr: TTrackBar;
-    tbCont: TTrackBar;
-    tbHue: TTrackBar;
-    tbSat: TTrackBar;
     procedure bbAddIconClick(Sender: TObject);
     procedure bbDelIconClick(Sender: TObject);
     procedure bbEditIconClick(Sender: TObject);
     procedure bbIconDownClick(Sender: TObject);
     procedure bbIconUpClick(Sender: TObject);
     procedure btnBrowseImage1Click(Sender: TObject);
-    procedure btnDefaultColorClick(Sender: TObject);
-    procedure btnPropertiesClick(Sender: TObject);
     procedure cboModeChange(Sender: TObject);
     procedure cboPreviewChange(Sender: TObject);
     procedure chbBackgroundChange(Sender: TObject);
@@ -75,7 +59,6 @@ type
     procedure edSpecialFolderChange(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure btnClearImageClick(Sender: TObject);
-    procedure btnSelectColorClick(Sender: TObject);
     procedure btnCancelClick(Sender: TObject);
     procedure btnOKClick(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: word; Shift: TShiftState);
@@ -85,7 +68,6 @@ type
     procedure listDblClick(Sender: TObject);
     procedure tbAnimationSpeedChange(Sender: TObject);
     procedure tbDistortChange(Sender: TObject);
-    procedure tbHueChange(Sender: TObject);
     procedure tbOffsetChange(Sender: TObject);
   private
     savedCaption: WideString;
@@ -171,7 +153,6 @@ begin
   if not (Item is TStackItem) then exit;
 
   result := true;
-  pages.ActivePageIndex := 0;
 
   ItemHWnd                   := wnd;
   savedCaption               := Item.Caption;
@@ -191,20 +172,7 @@ begin
   edCaption.Text             := UTF8Encode(savedCaption);
   edImage.Text               := AnsiToUTF8(savedImageFile);
   edSpecialFolder.Text       := AnsiToUTF8(savedSpecialFolder);
-
   color_data                 := savedColorData;
-  tbHue.OnChange             := nil;
-  tbSat.OnChange             := nil;
-  tbBr.OnChange              := nil;
-  tbCont.OnChange            := nil;
-  tbHue.position             := byte(color_data);
-  tbSat.position             := byte(color_data shr 8);
-  tbBr.position              := byte(color_data shr 16);
-  tbCont.position            := byte(color_data shr 24);
-  tbHue.OnChange             := tbHueChange;
-  tbSat.OnChange             := tbHueChange;
-  tbBr.OnChange              := tbHueChange;
-  tbCont.OnChange            := tbHueChange;
 
   tbOffset.Position          := -1;
   tbOffset.Position          := 0;
@@ -254,7 +222,6 @@ end;
 procedure TfrmStackProp.btnOKClick(Sender: TObject);
 begin
   if FChanged then btnApply.Click;
-  // save settings !!!
   frmmain.BaseCmd(tcSaveSets, 0);
   Close;
 end;
@@ -313,16 +280,6 @@ end;
 procedure TfrmStackProp.btnClearImageClick(Sender: TObject);
 begin
   edImage.Clear;
-end;
-//------------------------------------------------------------------------------
-procedure TfrmStackProp.btnSelectColorClick(Sender: TObject);
-begin
-  pages.ActivePageIndex := 1;
-end;
-//------------------------------------------------------------------------------
-procedure TfrmStackProp.btnPropertiesClick(Sender: TObject);
-begin
-  pages.ActivePageIndex := 0;
 end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.btnBrowseImage1Click(Sender: TObject);
@@ -389,35 +346,6 @@ end;
 procedure TfrmStackProp.chbSortedChange(Sender: TObject);
 begin
   FChanged := true;
-end;
-//------------------------------------------------------------------------------
-procedure TfrmStackProp.tbHueChange(Sender: TObject);
-begin
-  FChanged := true;
-  color_data := byte(tbHue.Position) +
-    byte(tbSat.Position) shl 8 +
-    byte(tbBr.Position) shl 16 +
-    byte(tbCont.Position) shl 24;
-  DrawFit;
-end;
-//------------------------------------------------------------------------------
-procedure TfrmStackProp.btnDefaultColorClick(Sender: TObject);
-begin
-  FChanged := true;
-  color_data      := DEF_COLOR_DATA;
-  tbHue.OnChange  := nil;
-  tbSat.OnChange  := nil;
-  tbBr.OnChange   := nil;
-  tbCont.OnChange := nil;
-  tbHue.position  := byte(color_data);
-  tbSat.position  := byte(color_data shr 8);
-  tbBr.position   := byte(color_data shr 16);
-  tbCont.position := byte(color_data shr 24);
-  tbHue.OnChange  := tbHueChange;
-  tbSat.OnChange  := tbHueChange;
-  tbBr.OnChange   := tbHueChange;
-  tbCont.OnChange := tbHueChange;
-  tbHueChange(nil);
 end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.bbIconUpClick(Sender: TObject);
@@ -496,9 +424,8 @@ end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.DrawFit;
 var
-  hgdip, hbrush, hattr: Pointer;
+  hgdip, hbrush: Pointer;
   w_coeff, h_coeff: extended;
-  matrix: ColorMatrix;
   background: cardinal;
 begin
   if assigned(FImage) then
@@ -520,16 +447,11 @@ begin
     GdipFillRectangleI(hgdip, hbrush, 0, 0, iPic.Width, iPic.Height);
     GdipDeleteBrush(hbrush);
 
-    CreateColorMatrix(color_data, matrix);
-    GdipCreateImageAttributes(hattr);
-    GdipSetImageAttributesColorMatrix(hattr, ColorAdjustTypeBitmap, true, @matrix, nil, ColorMatrixFlagsDefault);
-
     GdipDrawImageRectRectI(hgdip, FImage,
       (iPic.Width - trunc(iPic.Width * w_coeff)) div 2, (iPic.Height - trunc(iPic.Height * h_coeff)) div 2,
       trunc(iPic.Width * w_coeff), trunc(iPic.Height * h_coeff),
-      0, 0, FIW, FIH, UnitPixel, hattr, nil, nil);
+      0, 0, FIW, FIH, UnitPixel, nil, nil, nil);
 
-    GdipDisposeImageAttributes(hattr);
     GdipDeleteGraphics(hgdip);
   except
     on e: Exception do frmmain.err('frmStackProp.DrawFit', e);

@@ -13,16 +13,13 @@ type
   TfrmItemProp = class(TForm)
     btnBrowseImage1: TButton;
     btnClearImage: TButton;
-    btnDefaultColor: TButton;
     btnDir: TButton;
-    btnImage: TButton;
     btnFile: TButton;
+    btnImage: TButton;
     btnOK: TButton;
     btnApply: TButton;
     btnCancel: TButton;
     btnParams: TButton;
-    btnSelectColor: TButton;
-    btnProperties: TButton;
     btnConvertLink: TButton;
     cboWindow: TComboBox;
     chbHide: TCheckBox;
@@ -32,29 +29,16 @@ type
     edImage: TEdit;
     edParams: TEdit;
     iPic: TPaintBox;
-    lblTip: TLabel;
-    Label2: TLabel;
-    Label3: TLabel;
-    Label4: TLabel;
-    Label5: TLabel;
     lblCaption: TLabel;
     lblCommand: TLabel;
     lblDir: TLabel;
-    lblParams: TLabel;
-    lblWorkingDirectory: TLabel;
-    lblWindowSize: TLabel;
     lblImage: TLabel;
-    pages: TPageControl;
-    tsProperties: TTabSheet;
-    tsColor: TTabSheet;
-    tbBr: TTrackBar;
-    tbCont: TTrackBar;
-    tbHue: TTrackBar;
-    tbSat: TTrackBar;
+    lblParams: TLabel;
+    lblTip: TLabel;
+    lblWindowSize: TLabel;
+    lblWorkingDirectory: TLabel;
     procedure btnBrowseImage1Click(Sender: TObject);
     procedure btnConvertLinkClick(Sender: TObject);
-    procedure btnDefaultColorClick(Sender: TObject);
-    procedure btnPropertiesClick(Sender: TObject);
     procedure cboWindowChange(Sender: TObject);
     procedure chbHideChange(Sender: TObject);
     procedure edImageChange(Sender: TObject);
@@ -63,7 +47,6 @@ type
     procedure edParamsChange(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure btnClearImageClick(Sender: TObject);
-    procedure btnSelectColorClick(Sender: TObject);
     procedure btnDirClick(Sender: TObject);
     procedure btnCancelClick(Sender: TObject);
     procedure btnOKClick(Sender: TObject);
@@ -74,7 +57,6 @@ type
     procedure edCmdChange(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
 		procedure FormShow(Sender: TObject);
-    procedure tbHueChange(Sender: TObject);
   private
     savedCaption: WideString;
     savedColorData: integer;
@@ -93,7 +75,6 @@ type
     FIW: cardinal;
     FIH: cardinal;
     function SetData(itemWnd: HWND): boolean;
-    procedure OpenColor;
     procedure iPicPaint(Sender: TObject);
     procedure Draw;
     procedure DrawFit;
@@ -156,7 +137,6 @@ begin
   if not (Inst is TShortcutItem) and not (Inst is TShortcutSubitem) then exit;
 
   result := true;
-  pages.ActivePageIndex := 0;
   if Inst is TShortcutItem then sci := TShortcutItem(Inst);
   if Inst is TShortcutSubitem then scs := TShortcutSubitem(Inst);
 
@@ -196,24 +176,9 @@ begin
   edParams.Text     := AnsiToUTF8(savedParams);
   edDir.Text        := AnsiToUTF8(savedDir);
   edImage.text      := savedImageFile;
-  if savedImageFile2 <> '' then
-       edImage.text := edImage.text + ';' + savedImageFile2;
+  if savedImageFile2 <> '' then edImage.text := edImage.text + ';' + savedImageFile2;
   chbHide.Checked   := savedHide;
-  //
   color_data        := savedColorData;
-  tbHue.OnChange    := nil;
-  tbSat.OnChange    := nil;
-  tbBr.OnChange     := nil;
-  tbCont.OnChange   := nil;
-  tbHue.position    := byte(color_data);
-  tbSat.position    := byte(color_data shr 8);
-  tbBr.position     := byte(color_data shr 16);
-  tbCont.position   := byte(color_data shr 24);
-  tbHue.OnChange    := tbHueChange;
-  tbSat.OnChange    := tbHueChange;
-  tbBr.OnChange     := tbHueChange;
-  tbCont.OnChange   := tbHueChange;
-  //
   cboWindow.ItemIndex := 0;
   if savedShowCmd = sw_showminimized then cboWindow.ItemIndex := 1
   else if savedShowCmd = sw_showmaximized then cboWindow.ItemIndex := 2;
@@ -234,7 +199,6 @@ end;
 procedure TfrmItemProp.btnOKClick(Sender: TObject);
 begin
   if FChanged then btnApply.Click;
-  // save settings !!!
   frmmain.BaseCmd(tcSaveSets, 0);
   Close;
 end;
@@ -339,11 +303,6 @@ begin
   frmItemProp := nil;
 end;
 //------------------------------------------------------------------------------
-procedure TfrmItemProp.btnPropertiesClick(Sender: TObject);
-begin
-  pages.ActivePageIndex := 0;
-end;
-//------------------------------------------------------------------------------
 procedure TfrmItemProp.btnFileClick(Sender: TObject);
 begin
   with TOpenDialog.Create(self) do
@@ -432,7 +391,7 @@ end;
 procedure TfrmItemProp.edCmdChange(Sender: TObject);
 begin
   FChanged := true;
-  btnConvertLink.Visible := SameText(ExtractFileExt(edCmd.Text), '.lnk');
+  btnConvertLink.Enabled := SameText(ExtractFileExt(edCmd.Text), '.lnk');
   if edImage.text = '' then Draw;
 end;
 //------------------------------------------------------------------------------
@@ -465,44 +424,6 @@ end;
 procedure TfrmItemProp.btnClearImageClick(Sender: TObject);
 begin
   edImage.Clear;
-end;
-//------------------------------------------------------------------------------
-procedure TfrmItemProp.btnSelectColorClick(Sender: TObject);
-begin
-  OpenColor;
-end;
-//------------------------------------------------------------------------------
-procedure TfrmItemProp.OpenColor;
-begin
-  pages.ActivePageIndex := 1;
-end;
-//------------------------------------------------------------------------------
-procedure TfrmItemProp.tbHueChange(Sender: TObject);
-begin
-  FChanged := true;
-  color_data := byte(tbHue.Position) +
-    byte(tbSat.Position) shl 8 +
-    byte(tbBr.Position) shl 16 +
-    byte(tbCont.Position) shl 24;
-  DrawFit;
-end;
-//------------------------------------------------------------------------------
-procedure TfrmItemProp.btnDefaultColorClick(Sender: TObject);
-begin
-  color_data      := DEF_COLOR_DATA;
-  tbHue.OnChange  := nil;
-  tbSat.OnChange  := nil;
-  tbBr.OnChange   := nil;
-  tbCont.OnChange := nil;
-  tbHue.position  := byte(color_data);
-  tbSat.position  := byte(color_data shr 8);
-  tbBr.position   := byte(color_data shr 16);
-  tbCont.position := byte(color_data shr 24);
-  tbHue.OnChange  := tbHueChange;
-  tbSat.OnChange  := tbHueChange;
-  tbBr.OnChange   := tbHueChange;
-  tbCont.OnChange := tbHueChange;
-  tbHueChange(nil);
 end;
 //------------------------------------------------------------------------------
 procedure TfrmItemProp.Draw;
@@ -544,9 +465,8 @@ end;
 //------------------------------------------------------------------------------
 procedure TfrmItemProp.DrawFit;
 var
-  hgdip, hbrush, hattr: Pointer;
+  hgdip, hbrush: Pointer;
   w_coeff, h_coeff: extended;
-  matrix: ColorMatrix;
   background: cardinal;
 begin
   if assigned(FImage) then
@@ -568,16 +488,11 @@ begin
     GdipFillRectangleI(hgdip, hbrush, 0, 0, iPic.Width, iPic.Height);
     GdipDeleteBrush(hbrush);
 
-    CreateColorMatrix(color_data, matrix);
-    GdipCreateImageAttributes(hattr);
-    GdipSetImageAttributesColorMatrix(hattr, ColorAdjustTypeBitmap, true, @matrix, nil, ColorMatrixFlagsDefault);
-
     GdipDrawImageRectRectI(hgdip, FImage,
       (iPic.Width - trunc(iPic.Width * w_coeff)) div 2, (iPic.Height - trunc(iPic.Height * h_coeff)) div 2,
       trunc(iPic.Width * w_coeff), trunc(iPic.Height * h_coeff),
-      0, 0, FIW, FIH, UnitPixel, hattr, nil, nil);
+      0, 0, FIW, FIH, UnitPixel, nil, nil, nil);
 
-    GdipDisposeImageAttributes(hattr);
     GdipDeleteGraphics(hgdip);
   except
     on e: Exception do frmmain.err('frmItemProp.DrawFit', e);
