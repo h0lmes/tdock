@@ -1,12 +1,13 @@
 object frmStackProp: TfrmStackProp
-  Left = 886
-  Height = 845
-  Top = 358
-  Width = 1119
+  Left = 974
+  Height = 856
+  Top = 596
+  Width = 1045
   BorderIcons = [biSystemMenu]
+  BorderStyle = bsSingle
   Caption = 'Properties'
-  ClientHeight = 845
-  ClientWidth = 1119
+  ClientHeight = 856
+  ClientWidth = 1045
   DesignTimePPI = 144
   KeyPreview = True
   OnClose = FormClose
@@ -16,33 +17,30 @@ object frmStackProp: TfrmStackProp
   Position = poScreenCenter
   LCLVersion = '2.0.12.0'
   object btnOK: TButton
-    Left = 870
+    Left = 20
     Height = 46
-    Top = 395
-    Width = 225
-    Anchors = [akTop, akRight]
+    Top = 795
+    Width = 210
     Caption = 'OK'
     OnClick = btnOKClick
     ParentFont = False
     TabOrder = 0
   end
   object btnApply: TButton
-    Left = 870
+    Left = 240
     Height = 46
-    Top = 455
-    Width = 225
-    Anchors = [akTop, akRight]
+    Top = 795
+    Width = 210
     Caption = 'Apply'
     OnClick = btnApplyClick
     ParentFont = False
     TabOrder = 1
   end
   object btnCancel: TButton
-    Left = 870
+    Left = 460
     Height = 46
-    Top = 515
-    Width = 225
-    Anchors = [akTop, akRight]
+    Top = 795
+    Width = 210
     Caption = 'Cancel'
     OnClick = btnCancelClick
     ParentFont = False
@@ -50,30 +48,27 @@ object frmStackProp: TfrmStackProp
   end
   object iPic: TPaintBox
     Tag = 10
-    Left = 885
-    Height = 192
-    Top = 22
-    Width = 192
-    Anchors = [akTop, akRight]
+    Left = 35
+    Height = 128
+    Top = 30
+    Width = 128
     ParentFont = False
   end
   object btnBrowseImage1: TButton
-    Left = 870
+    Left = 200
     Height = 46
-    Top = 240
+    Top = 40
     Width = 225
-    Anchors = [akTop, akRight]
     Caption = 'Browse image'
     OnClick = btnBrowseImage1Click
     ParentFont = False
     TabOrder = 3
   end
   object btnClearImage: TButton
-    Left = 870
+    Left = 200
     Height = 46
-    Top = 300
+    Top = 100
     Width = 225
-    Anchors = [akTop, akRight]
     Caption = 'Clear image'
     OnClick = btnClearImageClick
     ParentFont = False
@@ -81,9 +76,9 @@ object frmStackProp: TfrmStackProp
   end
   object lblCaption: TLabel
     Tag = 10
-    Left = 15
+    Left = 20
     Height = 25
-    Top = 22
+    Top = 175
     Width = 47
     Caption = 'Name'
     ParentColor = False
@@ -91,20 +86,19 @@ object frmStackProp: TfrmStackProp
   end
   object edCaption: TEdit
     Tag = 10
-    Left = 15
+    Left = 20
     Height = 33
-    Top = 52
-    Width = 831
-    Anchors = [akTop, akLeft, akRight]
+    Top = 203
+    Width = 655
     OnChange = edCaptionChange
     ParentFont = False
     TabOrder = 5
   end
   object lblImage: TLabel
     Tag = 10
-    Left = 15
+    Left = 20
     Height = 25
-    Top = 105
+    Top = 253
     Width = 50
     Caption = 'Image'
     ParentColor = False
@@ -112,38 +106,36 @@ object frmStackProp: TfrmStackProp
   end
   object lblSpecialFolder: TLabel
     Tag = 10
-    Left = 15
+    Left = 20
     Height = 25
-    Top = 188
+    Top = 333
     Width = 107
     Caption = 'Special folder'
     ParentColor = False
     ParentFont = False
   end
   object edImage: TEdit
-    Left = 15
+    Left = 20
     Height = 33
-    Top = 135
-    Width = 831
-    Anchors = [akTop, akLeft, akRight]
+    Top = 283
+    Width = 655
     OnChange = edImageChange
     ParentFont = False
     TabOrder = 6
   end
   object edSpecialFolder: TEdit
-    Left = 15
+    Left = 20
     Height = 33
-    Top = 220
-    Width = 831
-    Anchors = [akTop, akLeft, akRight]
+    Top = 363
+    Width = 655
     OnChange = edSpecialFolderChange
     ParentFont = False
     TabOrder = 7
   end
   object chbSorted: TCheckBox
-    Left = 15
+    Left = 20
     Height = 29
-    Top = 278
+    Top = 415
     Width = 83
     Caption = 'Sorted'
     OnChange = chbSortedChange
@@ -151,52 +143,32 @@ object frmStackProp: TfrmStackProp
     TabOrder = 8
   end
   object chbBackground: TCheckBox
-    Left = 420
+    Left = 20
     Height = 29
-    Top = 278
+    Top = 455
     Width = 251
     Caption = 'Show background for items'
     OnChange = chbBackgroundChange
     ParentFont = False
     TabOrder = 9
   end
-  object Label1: TLabel
-    Left = 420
-    Height = 25
-    Top = 330
-    Width = 174
-    Caption = 'Items in stack preview'
-    ParentColor = False
-    ParentFont = False
-  end
-  object cboPreview: TComboBox
-    Left = 420
-    Height = 33
-    Top = 360
-    Width = 320
-    ItemHeight = 25
-    OnChange = cboPreviewChange
-    ParentFont = False
-    Style = csDropDownList
-    TabOrder = 10
-  end
   object cboMode: TComboBox
-    Left = 15
+    Left = 395
     Height = 33
-    Top = 360
-    Width = 320
+    Top = 445
+    Width = 280
     DropDownCount = 20
     ItemHeight = 25
     OnChange = cboModeChange
     ParentFont = False
     Style = csDropDownList
-    TabOrder = 11
+    TabOrder = 10
   end
   object lblStyle: TLabel
     Tag = 10
-    Left = 15
+    Left = 395
     Height = 25
-    Top = 330
+    Top = 415
     Width = 82
     Caption = 'Animation'
     ParentColor = False
@@ -204,70 +176,71 @@ object frmStackProp: TfrmStackProp
   end
   object lblOffset: TLabel
     Tag = 10
-    Left = 15
+    Left = 20
     Height = 25
-    Top = 420
+    Top = 550
     Width = 117
     Caption = 'Offset of icons'
     ParentColor = False
     ParentFont = False
   end
   object tbOffset: TTrackBar
-    Left = 15
+    Left = 20
     Height = 51
-    Top = 446
-    Width = 320
+    Top = 576
+    Width = 655
     Frequency = 10
-    Max = 50
-    Min = -40
+    Max = 100
+    Min = -50
     OnChange = tbOffsetChange
     PageSize = 5
     Position = 0
     ScalePos = trLeft
     ShowSelRange = False
     ParentFont = False
-    TabOrder = 12
+    TabOrder = 11
   end
   object lblDistort: TLabel
     Tag = 10
-    Left = 420
+    Left = 20
     Height = 25
-    Top = 420
+    Top = 625
     Width = 149
     Caption = 'Spacing/Distortion'
     ParentColor = False
     ParentFont = False
   end
   object tbDistort: TTrackBar
-    Left = 420
+    Left = 20
     Height = 51
-    Top = 446
-    Width = 320
+    Top = 651
+    Width = 655
     Frequency = 2
-    Min = -10
+    Max = 50
+    Min = -50
     OnChange = tbDistortChange
     Position = 0
     ScalePos = trLeft
     ShowSelRange = False
     ParentFont = False
-    TabOrder = 13
+    TabOrder = 12
   end
   object lblAnimationSpeed: TLabel
     Tag = 10
-    Left = 15
+    Left = 20
     Height = 25
-    Top = 510
+    Top = 695
     Width = 135
     Caption = 'Animation speed'
     ParentColor = False
     ParentFont = False
   end
   object tbAnimationSpeed: TTrackBar
-    Left = 15
+    Left = 20
     Height = 51
-    Top = 538
-    Width = 320
-    Max = 16
+    Top = 723
+    Width = 655
+    Max = 20
     Min = 1
     OnChange = tbAnimationSpeedChange
     PageSize = 1
@@ -275,27 +248,25 @@ object frmStackProp: TfrmStackProp
     ScalePos = trLeft
     ShowSelRange = False
     ParentFont = False
-    TabOrder = 14
+    TabOrder = 13
   end
   object list: TListBox
-    Left = 15
-    Height = 220
-    Top = 605
-    Width = 761
-    Anchors = [akTop, akLeft, akRight, akBottom]
+    Left = 700
+    Height = 755
+    Top = 85
+    Width = 321
     ExtendedSelect = False
     ItemHeight = 0
     OnDblClick = listDblClick
     ParentFont = False
-    TabOrder = 15
+    TabOrder = 14
   end
   object bbAddIcon: TBitBtn
-    Left = 785
+    Left = 700
     Height = 38
     Hint = 'Add shortcut/command'
-    Top = 605
+    Top = 30
     Width = 62
-    Anchors = [akTop, akRight]
     Color = clWhite
     Glyph.Data = {
       36040000424D3604000000000000360000002800000010000000100000000100
@@ -336,15 +307,14 @@ object frmStackProp: TfrmStackProp
     OnClick = bbAddIconClick
     ParentFont = False
     Spacing = 0
-    TabOrder = 16
+    TabOrder = 15
   end
   object bbDelIcon: TBitBtn
-    Left = 785
+    Left = 764
     Height = 38
     Hint = 'Delete icon'
-    Top = 649
+    Top = 30
     Width = 62
-    Anchors = [akTop, akRight]
     Color = clWhite
     Glyph.Data = {
       36040000424D3604000000000000360000002800000010000000100000000100
@@ -385,15 +355,14 @@ object frmStackProp: TfrmStackProp
     OnClick = bbDelIconClick
     ParentFont = False
     Spacing = 0
-    TabOrder = 17
+    TabOrder = 16
   end
   object bbEditIcon: TBitBtn
-    Left = 785
+    Left = 829
     Height = 38
     Hint = 'Configure icon'
-    Top = 695
+    Top = 30
     Width = 62
-    Anchors = [akTop, akRight]
     Glyph.Data = {
       36040000424D3604000000000000360000002800000010000000100000000100
       2000000000000004000064000000640000000000000000000000FFFFFF00FFFF
@@ -433,15 +402,14 @@ object frmStackProp: TfrmStackProp
     OnClick = bbEditIconClick
     ParentFont = False
     Spacing = 0
-    TabOrder = 18
+    TabOrder = 17
   end
   object bbIconUp: TBitBtn
-    Left = 785
+    Left = 894
     Height = 38
     Hint = 'Move up'
-    Top = 739
+    Top = 30
     Width = 62
-    Anchors = [akTop, akRight]
     Glyph.Data = {
       36040000424D3604000000000000360000002800000010000000100000000100
       2000000000000004000064000000640000000000000000000000FFFFFF00FFFF
@@ -481,15 +449,14 @@ object frmStackProp: TfrmStackProp
     OnClick = bbIconUpClick
     ParentFont = False
     Spacing = 0
-    TabOrder = 19
+    TabOrder = 18
   end
   object bbIconDown: TBitBtn
-    Left = 785
+    Left = 959
     Height = 38
     Hint = 'Move down'
-    Top = 785
+    Top = 30
     Width = 62
-    Anchors = [akTop, akRight]
     Glyph.Data = {
       36040000424D3604000000000000360000002800000010000000100000000100
       2000000000000004000064000000640000000000000000000000FFFFFF00FFFF
@@ -529,6 +496,16 @@ object frmStackProp: TfrmStackProp
     OnClick = bbIconDownClick
     ParentFont = False
     Spacing = 0
+    TabOrder = 19
+  end
+  object chbPreview: TCheckBox
+    Left = 20
+    Height = 29
+    Top = 495
+    Width = 184
+    Caption = 'Show items overlay'
+    OnChange = chbPreviewChange
+    ParentFont = False
     TabOrder = 20
   end
 end

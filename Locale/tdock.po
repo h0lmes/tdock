@@ -369,18 +369,6 @@ msgstr ""
 msgid "Specific icons"
 msgstr ""
 
-#: declu.xstackpreviewfour
-msgid "four"
-msgstr ""
-
-#: declu.xstackpreviewnine
-msgid "nine"
-msgstr ""
-
-#: declu.xstackpreviewnone
-msgid "none"
-msgstr ""
-
 #: declu.xstartbuttontext
 msgid "Start"
 msgstr ""
@@ -1048,12 +1036,12 @@ msgstr ""
 msgid "Show background for items"
 msgstr ""
 
-#: tfrmstackprop.chbsorted.caption
-msgid "Sorted"
+#: tfrmstackprop.chbpreview.caption
+msgid "Show items overlay"
 msgstr ""
 
-#: tfrmstackprop.label1.caption
-msgid "Items in stack preview"
+#: tfrmstackprop.chbsorted.caption
+msgid "Sorted"
 msgstr ""
 
 #: tfrmstackprop.lblanimationspeed.caption

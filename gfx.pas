@@ -1031,7 +1031,7 @@ end;
 procedure LoadImageFromPIDL(pidl: PItemIDList; MaxSize: integer; exact: boolean; default: boolean; var image: pointer; var srcwidth, srcheight: uint);
 var
   sfi: TSHFileInfoW;
-  hil: HIMAGELIST;
+  imageList: HIMAGELIST;
   ico: HICON;
   shil: cardinal;
   jumbo: boolean;
@@ -1046,8 +1046,8 @@ begin
     if bIsWindowsVistaOrHigher then shil := SHIL_JUMBO;
 
     SHGetFileInfoW(pwchar(pidl), 0, sfi, sizeof(sfi), SHGFI_PIDL or SHGFI_ICON or SHGFI_SYSICONINDEX or SHGFI_SHELLICONSIZE);
-    if S_OK = SHGetImageList(shil, IID_IImageList, @hil) then
-        ico := ImageList_GetIcon(hil, sfi.iIcon, ILD_TRANSPARENT);
+    if S_OK = SHGetImageList(shil, IID_IImageList, @imageList) then
+        ico := ImageList_GetIcon(imageList, sfi.iIcon, ILD_TRANSPARENT + ILD_IMAGE);
 
     jumbo := false;
     if bIsWindowsVistaOrHigher then jumbo := IsJumboIcon(ico);

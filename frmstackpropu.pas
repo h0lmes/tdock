@@ -24,14 +24,13 @@ type
     btnApply: TButton;
     btnCancel: TButton;
     cboMode: TComboBox;
-    cboPreview: TComboBox;
     chbBackground: TCheckBox;
+    chbPreview: TCheckBox;
     chbSorted: TCheckBox;
     edCaption: TEdit;
     edImage: TEdit;
     edSpecialFolder: TEdit;
     iPic: TPaintBox;
-    Label1: TLabel;
     lblAnimationSpeed: TLabel;
     lblCaption: TLabel;
     lblDir: TLabel;
@@ -51,8 +50,8 @@ type
     procedure bbIconUpClick(Sender: TObject);
     procedure btnBrowseImage1Click(Sender: TObject);
     procedure cboModeChange(Sender: TObject);
-    procedure cboPreviewChange(Sender: TObject);
     procedure chbBackgroundChange(Sender: TObject);
+    procedure chbPreviewChange(Sender: TObject);
     procedure chbSortedChange(Sender: TObject);
     procedure edCaptionChange(Sender: TObject);
     procedure edImageChange(Sender: TObject);
@@ -78,7 +77,7 @@ type
     savedOffset: integer;
     savedAnimationSpeed: integer;
     savedDistort: integer;
-    savedPreview: integer;
+    savedPreview: boolean;
     savedShowBackground: boolean;
     savedSorted: boolean;
     //
@@ -112,11 +111,7 @@ class procedure TfrmStackProp.Open(wnd: HWND);
 begin
   try
     if not assigned(frmStackProp) then Application.CreateForm(self, frmStackProp);
-    if frmStackProp.SetData(wnd) then
-    begin
-      frmStackProp.Show;
-      frmStackProp.edCaption.SetFocus;
-    end;
+    if frmStackProp.SetData(wnd) then frmStackProp.Show;
   except
     on e: Exception do frmmain.err('frmStackProp.Open', e);
   end;
@@ -127,12 +122,7 @@ var
   idx: integer;
 begin
   FChanged := false;
-
   for idx := 0 to mc.GetModeCount - 1 do cboMode.Items.Add(mc.GetModeName(idx));
-  cboPreview.Clear;
-  cboPreview.Items.Add(XStackPreviewNone);
-  cboPreview.Items.Add(XStackPreviewFour);
-  cboPreview.Items.Add(XStackPreviewNine);
 end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.FormShow(Sender: TObject);
@@ -184,7 +174,7 @@ begin
   tbOffset.Position          := savedOffset;
   tbAnimationSpeed.Position  := savedAnimationSpeed;
   tbDistort.Position         := savedDistort;
-  cboPreview.ItemIndex       := savedPreview;
+  chbPreview.Checked         := savedPreview;
   chbBackground.checked      := savedShowBackground;
   chbSorted.checked          := savedSorted;
 
@@ -229,17 +219,17 @@ end;
 procedure TfrmStackProp.btnApplyClick(Sender: TObject);
 begin
   try
-    Item.Caption               := UTF8Decode(edCaption.Text);
-    Item.ImageFile             := UTF8ToAnsi(edImage.Text);
-    Item.SpecialFolder         := UTF8ToAnsi(edSpecialFolder.Text);
-    Item.ColorData             := color_data;
-    Item.Mode                  := cboMode.ItemIndex;
-    Item.Offset                := tbOffset.Position;
-    Item.AnimationSpeed        := tbAnimationSpeed.Position;
-    Item.Distort               := tbDistort.Position;
-    Item.Preview               := cboPreview.ItemIndex;
-    Item.ShowBackground        := chbBackground.Checked;
-    Item.Sorted                := chbSorted.Checked;
+    Item.Caption        := UTF8Decode(edCaption.Text);
+    Item.ImageFile      := UTF8ToAnsi(edImage.Text);
+    Item.SpecialFolder  := UTF8ToAnsi(edSpecialFolder.Text);
+    Item.ColorData      := color_data;
+    Item.Mode           := cboMode.ItemIndex;
+    Item.Offset         := tbOffset.Position;
+    Item.AnimationSpeed := tbAnimationSpeed.Position;
+    Item.Distort        := tbDistort.Position;
+    Item.Preview        := chbPreview.Checked;
+    Item.ShowBackground := chbBackground.Checked;
+    Item.Sorted         := chbSorted.Checked;
     Item.Update;
     FChanged := false;
   except
@@ -251,17 +241,17 @@ procedure TfrmStackProp.btnCancelClick(Sender: TObject);
 begin
   if FChanged then
   begin
-    Item.Caption               := savedCaption;
-    Item.ImageFile             := savedImageFile;
-    Item.SpecialFolder         := savedSpecialFolder;
-    Item.ColorData             := savedColorData;
-    Item.Mode                  := savedMode;
-    Item.Offset                := savedOffset;
-    Item.AnimationSpeed        := savedAnimationSpeed;
-    Item.Distort               := savedDistort;
-    Item.Preview               := savedPreview;
-    Item.ShowBackground        := savedShowBackground;
-    Item.Sorted                := savedSorted;
+    Item.Caption        := savedCaption;
+    Item.ImageFile      := savedImageFile;
+    Item.SpecialFolder  := savedSpecialFolder;
+    Item.ColorData      := savedColorData;
+    Item.Mode           := savedMode;
+    Item.Offset         := savedOffset;
+    Item.AnimationSpeed := savedAnimationSpeed;
+    Item.Distort        := savedDistort;
+    Item.Preview        := savedPreview;
+    Item.ShowBackground := savedShowBackground;
+    Item.Sorted         := savedSorted;
     Item.Update;
   end;
   FChanged := false;
@@ -333,12 +323,12 @@ begin
   FChanged := true;
 end;
 //------------------------------------------------------------------------------
-procedure TfrmStackProp.cboPreviewChange(Sender: TObject);
+procedure TfrmStackProp.chbBackgroundChange(Sender: TObject);
 begin
   FChanged := true;
 end;
 //------------------------------------------------------------------------------
-procedure TfrmStackProp.chbBackgroundChange(Sender: TObject);
+procedure TfrmStackProp.chbPreviewChange(Sender: TObject);
 begin
   FChanged := true;
 end;

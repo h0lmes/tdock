@@ -214,17 +214,7 @@ begin
 
     // create ItemManager //
     try
-      ItemMgr := TItemManager.Create(Handle, BaseCmd,
-          sets.container.ItemSize, sets.container.BigItemSize, sets.container.ZoomWidth,
-          sets.container.ZoomTime, sets.container.ItemSpacing, sets.container.ZoomEnabled,
-          sets.container.ReflectionEnabled, sets.container.ReflectionSize, sets.container.LaunchInterval,
-          sets.container.ItemAnimationType, sets.container.SeparatorAlpha,
-          sets.container.ActivateRunningApps, sets.container.UseShellContextMenus, sets.container.LockDragging,
-          sets.container.StackAnimationEnabled,
-          sets.container.AeroPeekEnabled, sets.container.TaskLivePreviews,
-          sets.container.TaskGrouping, sets.container.TaskSystemMenus,
-          sets.container.TaskThumbSize, sets.container.TaskSpot,
-          sets.container.ShowHint, sets.container.Font);
+      ItemMgr := TItemManager.Create(Handle, BaseCmd, sets.container);
       {$ifdef EXT_DEBUG} AddLog('TItemManager.Create'); {$endif}
     except
       notify(UTF8Decode(XErrorCritical + ' ' + XErrorContactDeveloper));

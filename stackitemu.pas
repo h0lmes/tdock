@@ -11,10 +11,10 @@ const
   MAX_SUBITEMS = 64;
   STATE_PROGRESS_MIN = 0.0;
   STATE_PROGRESS_MAX = 1.0;
-  DEF_ANIM_SPEED = 8;
+  DEF_ANIM_SPEED = 7;
   MID_ANIM_SPEED = 4;
   DEF_DISTORT = 1;
-  DEF_STACK_PREVIEW = 1;
+  DEF_STACK_PREVIEW = true;
 
 type
   TStackState = (stsClosed, stsOpening, stsOpen, stsClosing);
@@ -49,7 +49,7 @@ type
     FOffset: integer;
     FAnimationSpeed: integer;
     FDistort: integer;
-    FPreview: integer; // 0 - none, 1 - four, 2 - nine
+    FPreview: boolean;
     FShowBackground: boolean;
     FSorted: boolean;
     //
@@ -97,7 +97,7 @@ type
     property Offset: integer read FOffset write FOffset;
     property AnimationSpeed: integer read FAnimationSpeed write FAnimationSpeed;
     property Distort: integer read FDistort write FDistort;
-    property Preview: integer read FPreview write FPreview;
+    property Preview: boolean read FPreview write FPreview;
     property ShowBackground: boolean read FShowBackground write FShowBackground;
     property Sorted: boolean read FSorted write FSorted;
     //
@@ -133,7 +133,8 @@ type
     class function Make(ACaption: WideString = ''; AImage: string = ''; ASpecialFolder: string = '';
       color_data: integer = DEF_COLOR_DATA; AMode: integer = 0;
       AOffset: integer = 0; AAnimationSpeed: integer = DEF_ANIM_SPEED;
-      ADistort: integer = DEF_DISTORT; APreview: integer = DEF_STACK_PREVIEW;
+      ADistort: integer = DEF_DISTORT;
+      APreview: boolean = DEF_STACK_PREVIEW;
       AShowBackground: boolean = false;
       ASorted: boolean = false): string;
   end;
@@ -199,13 +200,13 @@ begin
       begin
         Caption          := ReadIniStringW(IniFile, IniSection, 'caption', '');
         FImageFile       := ReadIniStringW(IniFile, IniSection, 'image', '');
+        FSpecialFolder   := ReadIniStringW(IniFile, IniSection, 'special_folder', '');
         FColorData       := toolu.StringToColor(ReadIniStringW(IniFile, IniSection, 'color_data', toolu.ColorToString(DEF_COLOR_DATA)));
         FMode            := ReadIniIntW(IniFile, IniSection, 'mode', 0, 0, 99);
         FOffset          := ReadIniIntW(IniFile, IniSection, 'offset', 0, -100, 100);
         FAnimationSpeed  := ReadIniIntW(IniFile, IniSection, 'animation_speed', DEF_ANIM_SPEED, 1, 20);
         FDistort         := ReadIniIntW(IniFile, IniSection, 'distort', DEF_DISTORT, -10, 10);
-        FPreview         := ReadIniIntW(IniFile, IniSection, 'preview', DEF_STACK_PREVIEW, 0, 2);
-        FSpecialFolder   := ReadIniStringW(IniFile, IniSection, 'special_folder', '');
+        FPreview         := ReadIniBoolW(IniFile, IniSection, 'preview', DEF_STACK_PREVIEW);
         FShowBackground  := ReadIniBoolW(IniFile, IniSection, 'background', false);
         FSorted          := ReadIniBoolW(IniFile, IniSection, 'sorted', false);
 
@@ -253,6 +254,7 @@ begin
       FDistort             := DEF_DISTORT;
       FSpecialFolder       := '';
       FShowBackground      := false;
+      FSpecialFolder       := FetchValue(value, 'special_folder="', '";');
       try FColorData       := strtoint(FetchValue(value, 'color_data="', '";'));
       except end;
       try FMode            := strtoint(FetchValue(value, 'mode="', '";'));
@@ -263,10 +265,8 @@ begin
       except end;
       try FDistort         := strtoint(FetchValue(value, 'distort="', '";'));
       except end;
-      FPreview             := DEF_STACK_PREVIEW;
-      try FPreview         := strtoint(FetchValue(value, 'preview="', '";'));
+      try FPreview         := boolean(strtoint(FetchValue(value, 'preview="', '";')));
       except end;
-      FSpecialFolder       := FetchValue(value, 'special_folder="', '";');
       try FShowBackground  := boolean(strtoint(FetchValue(value, 'background="', '";')));
       except end;
       try FSorted          := boolean(strtoint(FetchValue(value, 'sorted="', '";')));
@@ -664,7 +664,7 @@ begin
   if FAnimationSpeed <> DEF_ANIM_SPEED then     WriteIniStringW(ini, section, 'animation_speed', inttostr(FAnimationSpeed));
   if FDistort <> DEF_DISTORT then               WriteIniStringW(ini, section, 'distort', inttostr(FDistort));
   if FSpecialFolder <> '' then                  WriteIniStringW(ini, section, 'special_folder', FSpecialFolder);
-  if FPreview <> DEF_STACK_PREVIEW then         WriteIniStringW(ini, section, 'preview', inttostr(FPreview));
+  if FPreview then                              WriteIniStringW(ini, section, 'preview', '1');
   if FShowBackground then                       WriteIniStringW(ini, section, 'background', '1');
   if FSorted then                               WriteIniStringW(ini, section, 'sorted', '1');
   if (FItemCount > 0) and (FSpecialFolder = '') then
@@ -782,10 +782,9 @@ begin
     except end;
     FPreviewImage := nil;
 
-    if (FPreview > 0) and (FItemCount > 0) then
+    if FPreview and (FItemCount > 0) then
     begin
-      viewItemCount := Math.Min(FItemCount, 4);
-      if FPreview = 2 then viewItemCount := Math.Min(FItemCount, 9);
+      viewItemCount := Math.Min(FItemCount, 9);
 
 	    border := round(FBigItemSize / 8);
 	    itemSize := (FBigItemSize - border * 2);
@@ -1192,7 +1191,8 @@ end;
 class function TStackItem.Make(ACaption: WideString = ''; AImage: string = ''; ASpecialFolder: string = '';
       color_data: integer = DEF_COLOR_DATA; AMode: integer = 0;
       AOffset: integer = 0; AAnimationSpeed: integer = DEF_ANIM_SPEED;
-      ADistort: integer = DEF_DISTORT; APreview: integer = DEF_STACK_PREVIEW;
+      ADistort: integer = DEF_DISTORT;
+      APreview: boolean = DEF_STACK_PREVIEW;
       AShowBackground: boolean = false;
       ASorted: boolean = false): string;
 begin
@@ -1205,7 +1205,7 @@ begin
   if AOffset <> 0 then result := result + 'offset="' + inttostr(AOffset) + '";';
   result := result + 'animation_speed="' + inttostr(AAnimationSpeed) + '";';
   result := result + 'distort="' + inttostr(ADistort) + '";';
-  if APreview <> DEF_STACK_PREVIEW then result := result + 'preview="' + inttostr(APreview) + '";';
+  if APreview then result := result + 'preview="1";';
   if AShowBackground then result := result + 'background="1";';
   if ASorted then result := result + 'sorted="1";';
 end;

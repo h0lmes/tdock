@@ -94,11 +94,7 @@ class procedure TfrmItemProp.Open(wnd: HWND);
 begin
   try
     if not assigned(frmItemProp) then Application.CreateForm(self, frmItemProp);
-    if frmItemProp.SetData(wnd) then
-    begin
-      frmItemProp.Show;
-      frmItemProp.edCaption.SetFocus;
-    end;
+    if frmItemProp.SetData(wnd) then frmItemProp.Show;
   except
     on e: Exception do frmmain.err('TfrmItemProp.Open', e);
   end;

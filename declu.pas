@@ -340,10 +340,6 @@ resourcestring
   XDistort = 'Spacing/Distortion: %d';
   XAnimationSpeed = 'Animation speed: %d';
   XAlphaChannel = 'Alpha channel: %d';
-  // frmstackpropu //
-  XStackPreviewNone = 'none';
-  XStackPreviewFour = 'four';
-  XStackPreviewNine = 'nine';
   // frmAddCommand //
   XErrorCommandListNotFound = 'Command list file not found. Try reinstalling the program.';
   // frmTip //

@@ -258,8 +258,9 @@ begin
         result.y := round(y * s);
       end;
     2: begin
-        x := progress * (Offset + ItemSize div 2) + (ItemSize + hSpace + d) * (cols - 1 - index mod cols);
-        if (index div cols = rows - 1) and (ItemCount mod cols <> 0) then x := x + (ItemSize + hSpace + d) * (cols - ItemCount mod cols) / 2;
+        //x := progress * (Offset + ItemSize div 2) + (ItemSize + hSpace + d) * (cols - 1 - index mod cols);
+        x := (Offset + ItemSize div 2) + (ItemSize + hSpace + d) * (cols - 1 - index mod cols);
+        if (index div cols = rows - 1) and (ItemCount mod cols <> 0) then x := x + (ItemSize + hSpace + d) * (cols - ItemCount mod cols - 1) / 2;
         y := (ItemSize + vSpace) * (index div cols) - (ItemSize + vSpace) * (rows - 1) / 2;
         result.x := -round(x * s);
         result.y := round(y * s);

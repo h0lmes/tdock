@@ -385,18 +385,6 @@ msgstr "Сверху"
 msgid "Specific icons"
 msgstr "Настроенные значки"
 
-#: declu.xstackpreviewfour
-msgid "four"
-msgstr "четыре"
-
-#: declu.xstackpreviewnine
-msgid "nine"
-msgstr "девять"
-
-#: declu.xstackpreviewnone
-msgid "none"
-msgstr "нет"
-
 #: declu.xstartbuttontext
 msgid "Start"
 msgstr "Пуск"
@@ -1083,13 +1071,13 @@ msgstr "Свойства"
 msgid "Show background for items"
 msgstr "Показывать фон для элементов"
 
+#: tfrmstackprop.chbpreview.caption
+msgid "Show items overlay"
+msgstr "Показывать содержимое"
+
 #: tfrmstackprop.chbsorted.caption
 msgid "Sorted"
 msgstr "Сортировка"
-
-#: tfrmstackprop.label1.caption
-msgid "Items in stack preview"
-msgstr "Предпросмотр элементов в стеке"
 
 #: tfrmstackprop.lblanimationspeed.caption
 msgid "Animation speed"
@@ -1168,4 +1156,3 @@ msgstr "Дальше"
 #: tfrmtip.caption
 msgid "Tip"
 msgstr "Подсказка"
-

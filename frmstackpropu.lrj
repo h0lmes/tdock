@@ -10,7 +10,6 @@
 {"hash":9296002,"name":"tfrmstackprop.lblspecialfolder.caption","sourcebytes":[83,112,101,99,105,97,108,32,102,111,108,100,101,114],"value":"Special folder"},
 {"hash":94804660,"name":"tfrmstackprop.chbsorted.caption","sourcebytes":[83,111,114,116,101,100],"value":"Sorted"},
 {"hash":39960723,"name":"tfrmstackprop.chbbackground.caption","sourcebytes":[83,104,111,119,32,98,97,99,107,103,114,111,117,110,100,32,102,111,114,32,105,116,101,109,115],"value":"Show background for items"},
-{"hash":159340551,"name":"tfrmstackprop.label1.caption","sourcebytes":[73,116,101,109,115,32,105,110,32,115,116,97,99,107,32,112,114,101,118,105,101,119],"value":"Items in stack preview"},
 {"hash":3729422,"name":"tfrmstackprop.lblstyle.caption","sourcebytes":[65,110,105,109,97,116,105,111,110],"value":"Animation"},
 {"hash":99857091,"name":"tfrmstackprop.lbloffset.caption","sourcebytes":[79,102,102,115,101,116,32,111,102,32,105,99,111,110,115],"value":"Offset of icons"},
 {"hash":204228350,"name":"tfrmstackprop.lbldistort.caption","sourcebytes":[83,112,97,99,105,110,103,47,68,105,115,116,111,114,116,105,111,110],"value":"Spacing/Distortion"},
@@ -19,5 +18,6 @@
 {"hash":171719838,"name":"tfrmstackprop.bbdelicon.hint","sourcebytes":[68,101,108,101,116,101,32,105,99,111,110],"value":"Delete icon"},
 {"hash":238683198,"name":"tfrmstackprop.bbediticon.hint","sourcebytes":[67,111,110,102,105,103,117,114,101,32,105,99,111,110],"value":"Configure icon"},
 {"hash":74217360,"name":"tfrmstackprop.bbiconup.hint","sourcebytes":[77,111,118,101,32,117,112],"value":"Move up"},
-{"hash":209126078,"name":"tfrmstackprop.bbicondown.hint","sourcebytes":[77,111,118,101,32,100,111,119,110],"value":"Move down"}
+{"hash":209126078,"name":"tfrmstackprop.bbicondown.hint","sourcebytes":[77,111,118,101,32,100,111,119,110],"value":"Move down"},
+{"hash":66698921,"name":"tfrmstackprop.chbpreview.caption","sourcebytes":[83,104,111,119,32,105,116,101,109,115,32,111,118,101,114,108,97,121],"value":"Show items overlay"}
 ]}

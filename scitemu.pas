@@ -278,42 +278,48 @@ begin
   except end;
   FImage := nil;
 
-  if FDynObjectRecycleBin and (FImageFile <> '') then // the recycle bin
+  // if recycle bin
+  if FDynObjectRecycleBin and (FImageFile <> '') then
   begin
     if FDynObjectState = 0 then
       LoadImage(UnzipPath(FImageFile), FBigItemSize, false, true, FImage, FIW, FIH)
     else
       LoadImage(UnzipPath(FImageFile2), FBigItemSize, false, true, FImage, FIW, FIH);
-  end
-  else
-  if FDynObject then // if a dynamic state object
+    exit;
+  end;
+
+  // if a dynamic state object
+  if FDynObject then
   begin
     LoadDynObjectImage(FImageFile, FBigItemSize, false, true, FImage, FIW, FIH);
-  end
-  else
-  if FImageFile <> '' then // if custom image file specified
+    exit;
+  end;
+
+  // if custom image is set
+  if FImageFile <> '' then
   begin
     LoadImage(UnzipPath(FImageFile), FBigItemSize, false, true, FImage, FIW, FIH);
-  end
-  else // if no custom image set - load from object itself (Immersive App, PIDL or File)
-  begin
-    if IsImmersiveApp(FCommand) then
-    begin
-      imgPIDL := PIDL_GetFromPath(pchar(FCommand));
-      if assigned(imgPIDL) then
-      begin
-        LoadImageFromPIDL(imgPIDL, FBigItemSize, false, true, FImage, FIW, FIH);
-        PIDL_Free(imgPIDL);
-      end;
-    end
-    else
-    begin
-      if FIsPIDL then
-        LoadImageFromPIDL(FPIDL, FBigItemSize, false, true, FImage, FIW, FIH)
-      else
-        LoadImage(UnzipPath(FCommand), FBigItemSize, false, true, FImage, FIW, FIH);
-    end;
+    exit;
   end;
+
+  if IsImmersiveApp(FCommand) then
+  begin
+    imgPIDL := PIDL_GetFromPath(pchar(FCommand));
+    if assigned(imgPIDL) then
+    begin
+      LoadImageFromPIDL(imgPIDL, FBigItemSize, false, true, FImage, FIW, FIH);
+      PIDL_Free(imgPIDL);
+    end;
+    exit;
+  end;
+
+  if FIsPIDL then
+  begin
+    LoadImageFromPIDL(FPIDL, FBigItemSize, false, true, FImage, FIW, FIH);
+    exit;
+  end;
+
+  LoadImage(UnzipPath(FCommand), FBigItemSize, false, true, FImage, FIW, FIH);
 end;
 //--------------------------------------------------------------------------------------------------
 procedure TShortcutItem.LoadDynObjectImage(imagefile: string; MaxSize: integer; exact, default: boolean; var image: pointer; var srcwidth, srcheight: uint);
