@@ -250,6 +250,7 @@ begin
       FColorData           := DEF_COLOR_DATA;
       FMode                := 0;
       FOffset              := 0;
+      FPreview             := DEF_STACK_PREVIEW;
       FAnimationSpeed      := DEF_ANIM_SPEED;
       FDistort             := DEF_DISTORT;
       FSpecialFolder       := '';
@@ -664,7 +665,7 @@ begin
   if FAnimationSpeed <> DEF_ANIM_SPEED then     WriteIniStringW(ini, section, 'animation_speed', inttostr(FAnimationSpeed));
   if FDistort <> DEF_DISTORT then               WriteIniStringW(ini, section, 'distort', inttostr(FDistort));
   if FSpecialFolder <> '' then                  WriteIniStringW(ini, section, 'special_folder', FSpecialFolder);
-  if FPreview then                              WriteIniStringW(ini, section, 'preview', '1');
+  if FPreview <> DEF_STACK_PREVIEW then         WriteIniStringW(ini, section, 'preview', inttostr(integer(FPreview)));
   if FShowBackground then                       WriteIniStringW(ini, section, 'background', '1');
   if FSorted then                               WriteIniStringW(ini, section, 'sorted', '1');
   if (FItemCount > 0) and (FSpecialFolder = '') then
@@ -1188,13 +1189,18 @@ end;
 //
 //
 //------------------------------------------------------------------------------
-class function TStackItem.Make(ACaption: WideString = ''; AImage: string = ''; ASpecialFolder: string = '';
-      color_data: integer = DEF_COLOR_DATA; AMode: integer = 0;
-      AOffset: integer = 0; AAnimationSpeed: integer = DEF_ANIM_SPEED;
-      ADistort: integer = DEF_DISTORT;
-      APreview: boolean = DEF_STACK_PREVIEW;
-      AShowBackground: boolean = false;
-      ASorted: boolean = false): string;
+class function TStackItem.Make(
+  ACaption: WideString = '';
+  AImage: string = '';
+  ASpecialFolder: string = '';
+  color_data: integer = DEF_COLOR_DATA;
+  AMode: integer = 0;
+  AOffset: integer = 0;
+  AAnimationSpeed: integer = DEF_ANIM_SPEED;
+  ADistort: integer = DEF_DISTORT;
+  APreview: boolean = DEF_STACK_PREVIEW;
+  AShowBackground: boolean = false;
+  ASorted: boolean = false): string;
 begin
   result := 'class="stack";';
   if ACaption <> '' then result := result + 'caption="' + ACaption + '";';
@@ -1205,7 +1211,7 @@ begin
   if AOffset <> 0 then result := result + 'offset="' + inttostr(AOffset) + '";';
   result := result + 'animation_speed="' + inttostr(AAnimationSpeed) + '";';
   result := result + 'distort="' + inttostr(ADistort) + '";';
-  if APreview then result := result + 'preview="1";';
+  if APreview <> DEF_STACK_PREVIEW then result := result + 'preview="' + inttostr(integer(APreview)) + '";';
   if AShowBackground then result := result + 'background="1";';
   if ASorted then result := result + 'sorted="1";';
 end;

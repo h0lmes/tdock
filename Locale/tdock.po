@@ -160,10 +160,6 @@ msgstr ""
 msgid "Open icon collection"
 msgstr ""
 
-#: declu.xinstalledapplication
-msgid "Installed application"
-msgstr ""
-
 #: declu.xkillprocess
 msgid "Kill process"
 msgstr ""
@@ -313,8 +309,13 @@ msgstr ""
 msgid "Place tasks here"
 msgstr ""
 
+#: declu.xpreconfiguredicons
+msgid "Preconfigured icons"
+msgstr ""
+
 #: declu.xprogramsettings
-msgid "Program settings"
+msgctxt "declu.xprogramsettings"
+msgid "Settings"
 msgstr ""
 
 #: declu.xrun
@@ -365,16 +366,12 @@ msgctxt "declu.xsitetop"
 msgid "Top"
 msgstr ""
 
-#: declu.xspecificicons
-msgid "Specific icons"
-msgstr ""
-
 #: declu.xstartbuttontext
 msgid "Start"
 msgstr ""
 
 #: declu.xtaskmanager
-msgid "Task manager"
+msgid "Run Task Manager"
 msgstr ""
 
 #: declu.xundeleteicon
@@ -670,6 +667,7 @@ msgid "OK"
 msgstr ""
 
 #: tfrmsets.caption
+msgctxt "tfrmsets.caption"
 msgid "Settings"
 msgstr ""
 

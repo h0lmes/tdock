@@ -128,7 +128,7 @@ begin
   container.CenterOffsetPercent := 50;
   container.EdgeOffset := 0;
   container.ActivateOnMouse := true;
-  container.ActivateOnMouseInterval := 400;
+  container.ActivateOnMouseInterval := 500;
   container.GlobalHotkeyFlag_Hide := false;
   container.GlobalHotkeyValue_Hide := 16506;
   container.GlobalHotkeyFlag_Console := false;
@@ -137,6 +137,7 @@ begin
   container.CloseCmdWindow := true;
   container.BaseAlpha := 255;
   container.SeparatorAlpha := 255;
+  container.LaunchInterval := 500;
   container.Hello := true;
   FSetsPathFile := ASetsPathFile;
   FBackupPath := IncludeTrailingPathDelimiter(AProgramPath) + 'Backup';
@@ -177,7 +178,6 @@ begin
   container.EndOffset := SetRange(ini.ReadInteger('base', 'EndOffset', 0), -10000, 10000);
   container.autohidetime := SetRange(ini.ReadInteger('base', 'AutoHideTime', 800), 0, 9999);
   container.autoshowtime := SetRange(ini.ReadInteger('base', 'AutoShowTime', 400), 0, 9999);
-  container.LaunchInterval := SetRange(ini.ReadInteger('base', 'LaunchInterval', 500), 0, 9999);
   container.ActivateRunningApps := ini.ReadBool('base', 'ActivateRunning', true);
   container.ShowRunningIndicator := ini.ReadBool('base', 'ShowRunningIndicator', true);
   container.ItemAnimationType := SetRange(ini.ReadInteger('base', 'ItemAnimation', 4), 0, 8);
@@ -196,7 +196,6 @@ begin
   container.LaunchInThread := ini.ReadBool('base', 'LaunchInThread', true);
   container.ZoomEnabled := ini.ReadBool('base', 'ZoomItems', true);
   container.ActivateOnMouse := ini.ReadBool('base', 'ActivateOnMouse', true);
-  container.ActivateOnMouseInterval := SetRange(ini.ReadInteger('base', 'ActivateOnMouseInterval', 400), 0, 2000);
   container.CloseCmdWindow := ini.ReadBool('base', 'CloseCmdWindow', true);
   container.HideSystemTaskbar := ini.ReadBool('base', 'HideTaskBar', false);
   container.ReserveScreenEdge := ini.ReadBool('base', 'ReserveScreenEdge', false);
@@ -281,7 +280,6 @@ begin
   ini.WriteInteger('base', 'AutoHideTime', container.autohidetime);
   ini.WriteInteger('base', 'AutoShowTime', container.autoshowtime);
   ini.WriteInteger('base', 'AutoHidePixels', container.AutoHidePixels);
-  ini.WriteInteger('base', 'LaunchInterval', container.LaunchInterval);
   ini.WriteInteger('base', 'ActivateRunning', integer(container.ActivateRunningApps));
   ini.WriteInteger('base', 'ShowRunningIndicator', integer(container.ShowRunningIndicator));
   ini.WriteInteger('base', 'ItemAnimation', container.ItemAnimationType);
@@ -300,7 +298,6 @@ begin
   ini.WriteBool   ('base', 'ZoomItems', container.ZoomEnabled);
   ini.WriteBool   ('base', 'LaunchInThread', container.launchInThread);
   ini.WriteBool   ('base', 'ActivateOnMouse', container.ActivateOnMouse);
-  ini.WriteInteger('base', 'ActivateOnMouseInterval', container.ActivateOnMouseInterval);
   ini.WriteBool   ('base', 'CloseCmdWindow', container.CloseCmdWindow);
   ini.WriteBool   ('base', 'HideTaskBar', container.HideSystemTaskbar);
   ini.WriteBool   ('base', 'ReserveScreenEdge', container.ReserveScreenEdge);

@@ -162,7 +162,7 @@ begin
       end;
     3: begin
         result.x := -round(y);
-        result.y := -round(x);
+        result.y := -round(x + ItemSize div 2);
         result.angle := 360 - result.angle;
         result.hint_align := HA_HORIZONTAL_RIGHT;
       end;
@@ -208,7 +208,7 @@ begin
       end;
     3: begin
         result.x := round(y);
-        result.y := -round(x);
+        result.y := -round(x + ItemSize div 2);
         result.angle := 360 - result.angle;
         result.hint_align := HA_HORIZONTAL_LEFT;
       end;
@@ -219,21 +219,21 @@ function TStackModeController.GetTable(Opening, ShowHint: boolean; Index: intege
     ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
 var
   cols, rows, hSpace, vSpace: integer;
-  x, y, d, s: extended;
+  x, y, di, s: extended;
 begin
   result.x := 0;
   result.y := 0;
   result.alpha := 0;
   result.angle := 0;
 
-  hSpace := 50;
-  vSpace := 40;
-  if not ShowHint then vSpace := 10;
+  hSpace := trunc(ItemSize * 1.5);
+  vSpace := ItemSize;
+  if not ShowHint then vSpace := ItemSize div 2;
   s := 0.9 + (sin(progress * PI / 2) * 0.1);
   result.alpha := round(255 * progress);
   result.hint_alpha := 255;
   result.hint_align := HA_HORIZONTAL_BOTTOM;
-  d := Distort * 3;
+  di := Distort * 3;
   result.s := ItemSize;
   cols := ceil(sqrt(ItemCount));
   rows := ceil(ItemCount / cols);
@@ -247,35 +247,33 @@ begin
     dec(cols);
     rows := ceil(ItemCount / cols);
   end;
-  Offset += 20 + vSpace;
 
   case Site of
     0: begin
-        x := (Offset + ItemSize div 2) + (ItemSize + hSpace + d) * (index mod cols);
-        if (index div cols = rows - 1) and (ItemCount mod cols <> 0) then x := x + (ItemSize + hSpace + d) * (cols - ItemCount mod cols) / 2;
+        x := (Offset + hSpace * 1.2 + ItemSize div 2) + (ItemSize + hSpace + di) * (index mod cols);
+        if (index div cols = rows - 1) and (ItemCount mod cols <> 0) then x := x + (ItemSize + hSpace + di) * (cols - ItemCount mod cols) / 2;
         y := (ItemSize + vSpace) * (index div cols) - (ItemSize + vSpace) * (rows - 1) / 2;
         result.x := round(x * s);
         result.y := round(y * s);
       end;
     2: begin
-        //x := progress * (Offset + ItemSize div 2) + (ItemSize + hSpace + d) * (cols - 1 - index mod cols);
-        x := (Offset + ItemSize div 2) + (ItemSize + hSpace + d) * (cols - 1 - index mod cols);
-        if (index div cols = rows - 1) and (ItemCount mod cols <> 0) then x := x + (ItemSize + hSpace + d) * (cols - ItemCount mod cols - 1) / 2;
+        x := (Offset + hSpace * 1.2 + ItemSize div 2) + (ItemSize + hSpace + di) * (cols - 1 - index mod cols);
+        if (index div cols = rows - 1) and (ItemCount mod cols <> 0) then x := x + (ItemSize + hSpace + di) * (cols - ItemCount mod cols - 1) / 2;
         y := (ItemSize + vSpace) * (index div cols) - (ItemSize + vSpace) * (rows - 1) / 2;
         result.x := -round(x * s);
         result.y := round(y * s);
       end;
     1: begin
-        x := (ItemSize + hSpace + d) * (index mod cols) - (ItemSize + hSpace + d) * (cols - 1) / 2;
-        if (index div cols = rows - 1) and (ItemCount mod cols <> 0) then x := x + (ItemSize + hSpace + d) * (cols - ItemCount mod cols) / 2;
-        y := (Offset + ItemSize div 2) + (ItemSize + vSpace) * (index div cols);
+        x := (ItemSize + hSpace + di) * (index mod cols) - (ItemSize + hSpace + di) * (cols - 1) / 2;
+        if (index div cols = rows - 1) and (ItemCount mod cols <> 0) then x := x + (ItemSize + hSpace + di) * (cols - ItemCount mod cols) / 2;
+        y := (Offset + vSpace * 1.2 + ItemSize div 2) + (ItemSize + vSpace) * (index div cols);
         result.x := round(x * s);
         result.y := round(y * s);
       end;
     3: begin
-        x := (ItemSize + hSpace + d) * (index mod cols) - (ItemSize + hSpace + d) * (cols - 1) / 2;
-        if (index div cols = rows - 1) and (ItemCount mod cols <> 0) then x := x + (ItemSize + hSpace + d) * (cols - ItemCount mod cols) / 2;
-        y := (Offset + ItemSize div 2) + (ItemSize + vSpace) * (rows - 1 - index div cols);
+        x := (ItemSize + hSpace + di) * (index mod cols) - (ItemSize + hSpace + di) * (cols - 1) / 2;
+        if (index div cols = rows - 1) and (ItemCount mod cols <> 0) then x := x + (ItemSize + hSpace + di) * (cols - ItemCount mod cols) / 2;
+        y := (Offset + vSpace * 2 + ItemSize div 2) + (ItemSize + vSpace) * (rows - 1 - index div cols);
         result.x := round(x * s);
         result.y := -round(y * s);
       end;
@@ -286,22 +284,21 @@ function TStackModeController.GetCards(Opening, ShowHint: boolean; Index: intege
     ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
 var
   cols, rows, hSpace, vSpace: integer;
-  x, y, d: extended;
+  x, y, di: extended;
 begin
   result.x := 0;
   result.y := 0;
   result.alpha := 0;
   result.angle := 0;
 
-  hSpace := 50;
-  vSpace := 40;
-  if not ShowHint then vSpace := 10;
-  //s := 0.9 + (sin(progress * PI / 2) * 0.1);
+  hSpace := trunc(ItemSize * 1.5);
+  vSpace := ItemSize;
+  if not ShowHint then vSpace := ItemSize div 2;
   result.alpha := round(255 * progress);
   result.hint_alpha := 0;
   if Progress = 1 then result.hint_alpha := 255;
   result.hint_align := HA_HORIZONTAL_BOTTOM;
-  d := Distort * 3;
+  di := Distort * 3;
   result.s := ItemSize;
   cols := ceil(sqrt(ItemCount));
   rows := ceil(ItemCount / cols);
@@ -315,32 +312,31 @@ begin
     dec(cols);
     rows := ceil(ItemCount / cols);
   end;
-  Offset += 20 + vSpace;
 
   case Site of
     0: begin
         y := (ItemSize + vSpace) * (index div cols) * progress - (ItemSize + vSpace) * (rows - 1) * progress / 2;
         y := y * (1 - power(cos(progress * PI / 2), 2 / 3));
-        result.x := round(progress * (Offset + ItemSize div 2) + (ItemSize + vSpace + d) * (index mod cols) * progress);
+        result.x := round(progress * (Offset + hSpace * 1.2 + ItemSize div 2) + (ItemSize + hSpace + di) * (index mod cols) * progress);
         result.y := round(y);
       end;
     2: begin
         y := (ItemSize + vSpace) * (index div cols) * progress - (ItemSize + vSpace) * (rows - 1) * progress / 2;
         y := y * (1 - power(cos(progress * PI / 2), 1 / 2));
-        result.x := -round(progress * (Offset + ItemSize div 2) + (ItemSize + vSpace + d) * (cols - 1 - index mod cols) * progress);
+        result.x := -round(progress * (Offset + hSpace * 1.2 + ItemSize div 2) + (ItemSize + hSpace + di) * (cols - 1 - index mod cols) * progress);
         result.y := round(y);
       end;
     1: begin
-        x := (ItemSize + hSpace + d) * (index mod cols) * progress - (ItemSize + hSpace + d) * (cols - 1) * progress / 2;
+        x := (ItemSize + hSpace + di) * (index mod cols) * progress - (ItemSize + hSpace + di) * (cols - 1) * progress / 2;
         x := x * (1 - power(cos(progress * PI / 2), 1 / 2));
         result.x := round(x);
-        result.y := round(progress * (Offset + ItemSize div 2) + (ItemSize + vSpace) * (index div cols) * progress);
+        result.y := round(progress * (Offset + vSpace * 1.2 + ItemSize div 2) + (ItemSize + vSpace) * (index div cols) * progress);
       end;
     3: begin
-        x := (ItemSize + hSpace + d) * (index mod cols) * progress - (ItemSize + hSpace + d) * (cols - 1) * progress / 2;
+        x := (ItemSize + hSpace + di) * (index mod cols) * progress - (ItemSize + hSpace + di) * (cols - 1) * progress / 2;
         x := x * (1 - power(cos(progress * PI / 2), 1 / 2));
         result.x := round(x);
-        result.y := -round(progress * (Offset + ItemSize div 2) + (ItemSize + vSpace) * (rows - 1 - index div cols) * progress);
+        result.y := -round(progress * (Offset + vSpace * 2 + ItemSize div 2) + (ItemSize + vSpace) * (rows - 1 - index div cols) * progress);
       end;
   end;
 end;
@@ -348,7 +344,7 @@ end;
 function TStackModeController.GetLine(Opening, ShowHint: boolean; Index: integer; Progress: extended;
     ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
 var
-  x, y, d: extended;
+  x, y, di: extended;
 begin
   result.x := 0;
   result.y := 0;
@@ -357,35 +353,35 @@ begin
   Distort *= 2;
 
   // simultaneous item count = 4 //
-  d := (progress * (ItemCount+4-1) / ItemCount - index / ItemCount) * ItemCount / 4;
-  if d < 0 then d := 0;
-  if d > 1 then d := 1;
-  d := sin(d * PI / 2);
-  result.s := round(ItemSize * d);
-  result.alpha := round(255 * d);
+  di := (progress * (ItemCount + 4 - 1) / ItemCount - index / ItemCount) * ItemCount / 4;
+  if di < 0 then di := 0;
+  if di > 1 then di := 1;
+  di := sin(di * PI / 2);
+  result.s := round(ItemSize * di);
+  result.alpha := round(255 * di);
   result.hint_alpha := trunc(max(progress - 0.5, 0) * 510);
-  x := ItemSize + 4 + Offset + (ItemSize + Distort + 4) * index;
+  x := trunc(ItemSize * 1.33) + Offset + (trunc(ItemSize * 1.33) + Distort) * index;
   y := 0;
   result.angle := 0;
   case Site of
     0: begin
-        result.x := round(x);
+        result.x := round(x + ItemSize div 2);
         result.y := round(y);
         result.hint_align := HA_VERTICAL_TOP;
       end;
     2: begin
-        result.x := -round(x);
+        result.x := -round(x + ItemSize div 2);
         result.y := round(y);
         result.hint_align := HA_VERTICAL_TOP;
       end;
     1: begin
         result.x := -round(y);
-        result.y := round(x);
+        result.y := round(x + ItemSize div 2);
         result.hint_align := HA_HORIZONTAL_RIGHT;
       end;
     3: begin
         result.x := -round(y);
-        result.y := -round(x);
+        result.y := -round(x + ItemSize div 2);
         result.hint_align := HA_HORIZONTAL_RIGHT;
       end;
   end;
@@ -394,7 +390,7 @@ end;
 function TStackModeController.GetDoubleLine(Opening, ShowHint: boolean; Index: integer; Progress: extended;
     ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
 var
-  x, y, d: extended;
+  x, y, di: extended;
 begin
   result.x := 0;
   result.y := 0;
@@ -403,39 +399,39 @@ begin
   Distort *= 2;
 
   // simultaneous item count = 4 //
-  d := (progress * (ItemCount+4-1) / ItemCount - trunc(index div 2) / ItemCount) * ItemCount / 4;
-  if d < 0 then d := 0;
-  if d > 1 then d := 1;
-  d := sin(d * PI / 2);
-  result.s := round(ItemSize * d);
-  result.alpha := round(255 * d);
+  di := (progress * (ItemCount + 4 - 1) / ItemCount - trunc(index div 2) / ItemCount) * ItemCount / 4;
+  if di < 0 then di := 0;
+  if di > 1 then di := 1;
+  di := sin(di * PI / 2);
+  result.s := round(ItemSize * di);
+  result.alpha := round(255 * di);
   result.hint_alpha := trunc(max(progress - 0.5, 0) * 510);
   result.angle := 0;
-  x := ItemSize + 4 + Offset + (ItemSize + Distort + 4) * (index div 2);
+  x := trunc(ItemSize * 1.33) + Offset + (trunc(ItemSize * 1.33) + Distort) * (index div 2);
   y := ItemSize div 2 + 2 + Distort;
   if index mod 2 = 0 then y := -y;
   case Site of
     0: begin
-        result.x := round(x);
+        result.x := round(x + ItemSize div 2);
         result.y := round(y);
         result.hint_align := HA_VERTICAL_BOTTOM;
         if index mod 2 = 0 then result.hint_align := HA_VERTICAL_TOP;
       end;
     2: begin
-        result.x := -round(x);
+        result.x := -round(x + ItemSize div 2);
         result.y := round(y);
         result.hint_align := HA_VERTICAL_BOTTOM;
         if index mod 2 = 0 then result.hint_align := HA_VERTICAL_TOP;
       end;
     1: begin
         result.x := -round(y);
-        result.y := round(x);
+        result.y := round(x + ItemSize div 2);
         result.hint_align := HA_HORIZONTAL_LEFT;
         if index mod 2 = 0 then result.hint_align := HA_HORIZONTAL_RIGHT;
       end;
     3: begin
         result.x := -round(y);
-        result.y := -round(x);
+        result.y := -round(x + ItemSize div 2);
         result.hint_align := HA_HORIZONTAL_LEFT;
         if index mod 2 = 0 then result.hint_align := HA_HORIZONTAL_RIGHT;
       end;
@@ -460,12 +456,7 @@ begin
     ItemProgress := (Progress * (ItemCount + SimultItemCount - 1) / ItemCount - index / ItemCount) * ItemCount / SimultItemCount
   else
     ItemProgress := (Progress * (ItemCount + SimultItemCount - 1) / ItemCount - index / ItemCount) * ItemCount / SimultItemCount;
-    //ItemProgress := (Progress * (ItemCount + SimultItemCount - 1) / ItemCount - (ItemCount - index - 1) / ItemCount) * ItemCount / SimultItemCount;
   ItemProgress := 0.5 + ItemProgress * 0.5;
-
-  // (0 * (14 + 28 - 1) / 14 - 0 / 14) * 14 / 28
-  // (0 * (14 + 28 - 1) / 14 - (14 - 0 - 1) / 14) * 14 / 28
-
   if ItemProgress < 0 then ItemProgress := 0;
   if ItemProgress > 1 then ItemProgress := 1;
   ItemProgress := sin(ItemProgress * PI / 2);
@@ -520,7 +511,7 @@ end;
 function TStackModeController.GetParallelWave(Opening, ShowHint: boolean; Index: integer; Progress: extended;
     ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
 var
-  x, y, d: extended;
+  x, y, di: extended;
 begin
   result.x := 0;
   result.y := 0;
@@ -528,45 +519,45 @@ begin
   result.angle := 0;
 
   // simultaneous item count = 4 //
-  if Opening then d := (progress * (ItemCount+4-1) / ItemCount - index / ItemCount) * ItemCount / 4
-  else d := (progress * (ItemCount+4-1) / ItemCount - (ItemCount - index - 1) / ItemCount) * ItemCount / 4;
-  if d < 0 then d := 0;
-  if d > 1 then d := 1;
-  d := sin(d * PI / 2);
-  x := Offset + d * ItemSize * 2.5 - ItemSize;
+  if Opening then di := (progress * (ItemCount + 4 - 1) / ItemCount - index / ItemCount) * ItemCount / 4
+  else di := (progress * (ItemCount + 4 - 1) / ItemCount - (ItemCount - index - 1) / ItemCount) * ItemCount / 4;
+  if di < 0 then di := 0;
+  if di > 1 then di := 1;
+  di := sin(di * PI / 2);
+  x := Offset + di * ItemSize * 2.5 - ItemSize;
   if Opening then
   begin
     y := (ItemSize + 3 + abs(Distort * 2)) * ((index - (ItemCount - 1) / 2));
-    result.s := round(ItemSize * d * sin(d * 1.3 * PI / 2) / sin(1.3 * PI / 2));
+    result.s := round(ItemSize * di * sin(di * 1.3 * PI / 2) / sin(1.3 * PI / 2));
   end else begin
     y := (ItemSize + 3 + abs(Distort * 2)) * ((index - (ItemCount - 1) / 2));
-    result.s := round(ItemSize * d);
+    result.s := round(ItemSize * di);
   end;
   result.angle := 0;
-  result.alpha := round(255 * d);
-  result.hint_alpha := round(max(d - 0.5, 0) * 510);
+  result.alpha := round(255 * di);
+  result.hint_alpha := round(max(di - 0.5, 0) * 510);
   case Site of
     0: begin
         result.hint_align := HA_HORIZONTAL_RIGHT;
-        result.x := round(x);
+        result.x := round(x + ItemSize div 2);
         result.y := round(y);
       end;
     2: begin
         result.hint_align := HA_HORIZONTAL_LEFT;
-        result.x := -round(x);
+        result.x := -round(x + ItemSize div 2);
         result.y := round(y);
         result.angle := -result.angle;
       end;
     1: begin
         result.hint_align := HA_VERTICAL_BOTTOM;
         result.x := round(y);
-        result.y := round(x);
+        result.y := round(x + ItemSize div 2);
         result.angle := -result.angle;
       end;
     3: begin
         result.hint_align := HA_VERTICAL_TOP;
         result.x := round(y);
-        result.y := -round(x);
+        result.y := -round(x + ItemSize div 2);
       end;
   end;
 end;
@@ -574,42 +565,42 @@ end;
 function TStackModeController.GetParallel(Opening, ShowHint: boolean; Index: integer; Progress: extended;
     ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
 var
-  x, y, p: extended;
+  x, y, progressExt: extended;
 begin
   result.x := 0;
   result.y := 0;
   result.alpha := 0;
   result.angle := 0;
 
-  p := 0.7 + (sin(progress * PI / 2) * 0.3);
+  progressExt := 0.7 + (sin(progress * PI / 2) * 0.3);
   result.alpha := round(255 * Progress);
   result.hint_alpha := round(max(Progress - 0.5, 0) * 510);
   result.s := ItemSize;
   result.angle := 0;
-  x := Offset + p * ItemSize * 2.5 - ItemSize;
-  y := (ItemSize + 3 + abs(Distort * 2)) * ((index - (ItemCount - 1) / 2)) * p;
+  x := Offset + progressExt * ItemSize * 2.5 - ItemSize;
+  y := (ItemSize + 3 + abs(Distort * 2)) * ((index - (ItemCount - 1) / 2)) * progressExt;
   case Site of
     0: begin
         result.hint_align := HA_HORIZONTAL_RIGHT;
-        result.x := round(x);
+        result.x := round(x + ItemSize div 2);
         result.y := round(y);
       end;
     2: begin
         result.hint_align := HA_HORIZONTAL_LEFT;
-        result.x := -round(x);
+        result.x := -round(x + ItemSize div 2);
         result.y := round(y);
         result.angle := -result.angle;
       end;
     1: begin
         result.hint_align := HA_VERTICAL_BOTTOM;
         result.x := round(y);
-        result.y := round(x);
+        result.y := round(x + ItemSize div 2);
         result.angle := -result.angle;
       end;
     3: begin
         result.hint_align := HA_VERTICAL_TOP;
         result.x := round(y);
-        result.y := -round(x);
+        result.y := -round(x + ItemSize div 2);
       end;
   end;
 end;

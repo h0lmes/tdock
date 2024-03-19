@@ -1,15 +1,15 @@
 msgid ""
 msgstr ""
-"Content-Type: text/plain; charset=UTF-8\n"
 "Project-Id-Version: \n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: \n"
 "Last-Translator: Holmes <roman.holmes@gmail.com>\n"
 "Language-Team: \n"
-"MIME-Version: 1.0\n"
-"Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Poedit 3.0\n"
 "Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.4.2\n"
 
 #: declu.xaddicon
 msgctxt "declu.xaddicon"
@@ -21,6 +21,7 @@ msgid "All"
 msgstr "Все"
 
 #: declu.xalphachannel
+#, object-pascal-format
 msgid "Alpha channel: %d"
 msgstr "Альфа-канал: %d"
 
@@ -49,6 +50,7 @@ msgid "Rotate"
 msgstr "Вращение"
 
 #: declu.xanimationspeed
+#, object-pascal-format
 msgid "Animation speed: %d"
 msgstr "Скорость анимации: %d"
 
@@ -92,6 +94,7 @@ msgid "Delete separator"
 msgstr "Удалить разделитель"
 
 #: declu.xdistort
+#, object-pascal-format
 msgid "Spacing/Distortion: %d"
 msgstr "Интервал/искажение: %d"
 
@@ -166,48 +169,56 @@ msgctxt "declu.xiconcollection"
 msgid "Open icon collection"
 msgstr "Коллекция иконок"
 
-#: declu.xinstalledapplication
-msgctxt "declu.xinstalledapplication"
-msgid "Installed application"
-msgstr "Установленное приложение"
-
 #: declu.xkillprocess
 msgid "Kill process"
 msgstr "Завершить процесс"
 
 #: declu.xlabelcenteroffset
+#, object-pascal-format
 msgctxt "declu.xlabelcenteroffset"
-msgid "Offset along the edge: %d %%"
+msgid "Offset along an edge: %d %%"
 msgstr "Смещение вдоль края: %d %%"
 
 #: declu.xlabeledgeoffset
+#, object-pascal-format
 msgctxt "declu.xlabeledgeoffset"
-msgid "Offset from the edge: %d pt"
-msgstr "Смещение от края: %d pt"
+msgid "Offset from an edge: %d pt"
+msgstr "Смещение от края: %d пикс"
 
 #: declu.xlabeliconsize
+#, object-pascal-format
 msgctxt "declu.xlabeliconsize"
 msgid "Icon size: %d pt"
 msgstr "Размер значков: %d pt"
 
 #: declu.xlabeliconspacing
+#, object-pascal-format
 msgid "Icon spacing: %d pt"
 msgstr "Расстояние между значками: %d pt"
 
+#: declu.xlabellivepreviewsize
+#, object-pascal-format
+msgid "Live preview size: %d px"
+msgstr "Размер миниатюр: %d пикс"
+
 #: declu.xlabelreservescreenedgepercent
+#, object-pascal-format
 msgid "Reserve screen edge: %d%%"
 msgstr "Резервировать край экрана: %d%%"
 
 #: declu.xlabelzoomediconsize
+#, object-pascal-format
 msgctxt "declu.xlabelzoomediconsize"
 msgid "Icon size max: %d pt"
 msgstr "Размер значков макс.: %d pt"
 
 #: declu.xlabelzoomtime
+#, object-pascal-format
 msgid "Zoom-in time: %d ms"
 msgstr "Время увеличения: %d мс"
 
 #: declu.xlabelzoomwidth
+#, object-pascal-format
 msgctxt "declu.xlabelzoomwidth"
 msgid "Zoom width: %d"
 msgstr "Ширина увеличения: %d"
@@ -262,6 +273,7 @@ msgid "Icon parameters changed. If you choose to proceed all changes will be los
 msgstr "Параметры значка изменены. Если вы продолжите все изменения будут утеряны. Продолжить?"
 
 #: declu.xoffsetoficons
+#, object-pascal-format
 msgid "Offset of icons: %d pt"
 msgstr "Смещение значков: %d pt"
 
@@ -284,6 +296,10 @@ msgctxt "declu.xpageactions"
 msgid "Actions"
 msgstr "Действия"
 
+#: declu.xpageautorun
+msgid "Autorun"
+msgstr ""
+
 #: declu.xpagegeneral
 msgctxt "declu.xpagegeneral"
 msgid "General"
@@ -293,11 +309,6 @@ msgstr "Общие"
 msgctxt "declu.xpageicons"
 msgid "Icons"
 msgstr "Значки"
-
-#: declu.xpagemisc
-msgctxt "declu.xpagemisc"
-msgid "Misc"
-msgstr "Разное"
 
 #: declu.xpageposition
 msgctxt "declu.xpageposition"
@@ -326,10 +337,14 @@ msgstr "Закрепить на доке"
 msgid "Place tasks here"
 msgstr "Разместить панель задач здесь"
 
+#: declu.xpreconfiguredicons
+msgid "Preconfigured icons"
+msgstr "Настроенные значки"
+
 #: declu.xprogramsettings
 msgctxt "declu.xprogramsettings"
-msgid "Program settings"
-msgstr "Настройки программы"
+msgid "Settings"
+msgstr "Настройки"
 
 #: declu.xrun
 msgid "Run  (Ctrl + Click)"
@@ -381,18 +396,14 @@ msgctxt "declu.xsitetop"
 msgid "Top"
 msgstr "Сверху"
 
-#: declu.xspecificicons
-msgid "Specific icons"
-msgstr "Настроенные значки"
-
 #: declu.xstartbuttontext
 msgid "Start"
 msgstr "Пуск"
 
 #: declu.xtaskmanager
 msgctxt "declu.xtaskmanager"
-msgid "Task manager"
-msgstr "Диспетчер задач"
+msgid "Run Task Manager"
+msgstr "Запустить Диспетчер Задач"
 
 #: declu.xundeleteicon
 msgid "Undelete icon  (Ctrl+Z)"
@@ -663,19 +674,9 @@ msgctxt "TFRMSETS.BTNDEBUG.CAPTION"
 msgid "Debug info"
 msgstr "Отладочная информация"
 
-#: tfrmsets.btnfontbold.caption
-msgctxt "tfrmsets.btnfontbold.caption"
-msgid "Bold"
-msgstr "Жирный"
-
-#: tfrmsets.btnfontitalic.caption
-msgctxt "tfrmsets.btnfontitalic.caption"
-msgid "Italic"
-msgstr "Курсив"
-
 #: tfrmsets.btnremovedock.caption
-msgid "Remove this dock"
-msgstr "Удалить этот док"
+msgid "Remove this dock. CAN NOT BE UNDONE!"
+msgstr "Удалить этот док. НЕОТМЕНЯЕМОЕ ДЕЙСТВИЕ!"
 
 #: tfrmsets.btnrestore.caption
 msgctxt "tfrmsets.btnrestore.caption"
@@ -698,11 +699,11 @@ msgid "Settings"
 msgstr "Настройки"
 
 #: tfrmsets.cbactivateonmouse.caption
-msgid "Activate dock on mouseover"
-msgstr "Активировать док при наведении мыши"
+msgid "Bring dock to foreground on mouseover"
+msgstr "Поместить док на передний план при наведении мыши"
 
 #: tfrmsets.cbautohide.caption
-msgid "Slide into screen edge when mouse is not over the dock"
+msgid "Slide into a screen edge when mouse is not above dock"
 msgstr "Уезжать за край экрана когда мышь вне дока"
 
 #: tfrmsets.cbautorun.caption
@@ -742,18 +743,28 @@ msgstr "Прятать док при полноэкранных приложен
 msgid "Enable Aero Glass"
 msgstr "Включить эффекты Aero"
 
+#: tfrmsets.chbbold.caption
+msgctxt "tfrmsets.chbbold.caption"
+msgid "Bold"
+msgstr "Жирный"
+
 #: tfrmsets.chbglobalconsole.caption
-msgid "Open console"
-msgstr "Открыть консоль"
+msgid "Open console hotkey"
+msgstr "Горячие клавиши - Открыть консоль"
 
 #: tfrmsets.chbglobalhide.caption
 msgctxt "tfrmsets.chbglobalhide.caption"
-msgid "Hide dock completely"
-msgstr "Спрятать док полностью"
+msgid "Hide dock completely hotkey"
+msgstr "Горячие клавиши - Спрятать док полностью"
 
 #: tfrmsets.chbhinteffects.caption
 msgid "Enable hint effects"
 msgstr "Включить эффекты для подсказок"
+
+#: tfrmsets.chbitalic.caption
+msgctxt "tfrmsets.chbitalic.caption"
+msgid "Italic"
+msgstr "Курсив"
 
 #: tfrmsets.chboccupyfullmonitor.caption
 msgid "Stretch to full monitor width or height"
@@ -808,44 +819,22 @@ msgctxt "tfrmsets.chbuseshellcontextmenus.caption"
 msgid "Show Windows Explorer context menus for programs"
 msgstr "Показывать контекстные меню Проводника Windows для программ"
 
-#: tfrmsets.dividerbevel4.caption
-msgctxt "tfrmsets.dividerbevel4.caption"
-msgid "Global hotkeys"
-msgstr "Глобальные горячие клавиши"
-
 #: tfrmsets.dividerbevel5.caption
 msgid "Autoslide"
 msgstr "Автослайд"
-
-#: tfrmsets.dividerbevel6.caption
-msgctxt "tfrmsets.dividerbevel6.caption"
-msgid "Autorun"
-msgstr "Автозапуск"
 
 #: tfrmsets.dividerbevel7.caption
 msgctxt "tfrmsets.dividerbevel7.caption"
 msgid "Font"
 msgstr "Шрифт"
 
-#: tfrmsets.edactivateonmouseinterval.text
-msgid "400"
-msgstr "400"
-
-#: tfrmsets.label1.caption
-msgid "Stack font size:"
-msgstr "Размер шрифта стека:"
-
 #: tfrmsets.label2.caption
-msgid "Margin at the start/end, px"
-msgstr "Отступ в начале/конце, пиксел"
+msgid "Start margin (left/top)"
+msgstr "Отступ в начале (слева/сверху)"
 
-#: tfrmsets.label3.caption
-msgid "Activation delay"
-msgstr "Задержка активации"
-
-#: tfrmsets.label4.caption
-msgid "Live preview size"
-msgstr "Размер миниатюр"
+#: tfrmsets.label5.caption
+msgid "End margin (right/bottom)"
+msgstr "Отступ в конце (справа/снизу)"
 
 #: tfrmsets.lblanimateicons.caption
 msgctxt "TFRMSETS.LBLANIMATEICONS.CAPTION"
@@ -866,7 +855,7 @@ msgid "Reflection size:"
 msgstr "Размер отражений:"
 
 #: tfrmsets.lblcenteroffsetpercent.caption
-msgid "Offset along the edge"
+msgid "Offset along an edge"
 msgstr "Смещение вдоль края"
 
 #: tfrmsets.lblcredits.caption
@@ -907,13 +896,13 @@ msgid "Edge of screen"
 msgstr "Сторона экрана"
 
 #: tfrmsets.lbledgeoffset.caption
-msgid "Offset from the edge"
+msgid "Offset from an edge"
 msgstr "Смещение от края"
 
 #: tfrmsets.lblhidedelay.caption
 msgctxt "TFRMSETS.LBLHIDEDELAY.CAPTION"
-msgid "Delay before hide down (ms)"
-msgstr "Задержка перед скрытием (мс)"
+msgid "Delay before dock hides, msec"
+msgstr "Задержка перед скрытием дока, мсек"
 
 #: tfrmsets.lbliconsize.caption
 msgid "Icon size"
@@ -923,29 +912,20 @@ msgstr "Размер значка"
 msgid "Icon spacing"
 msgstr "Расстояние между значками"
 
-#: tfrmsets.lbllaunchinterval.caption
-msgctxt "TFRMSETS.LBLLAUNCHINTERVAL.CAPTION"
-msgid "Minimum time before the next run of the program (ms)"
-msgstr "Минимальное время между запусками программ (мс)"
-
-#: tfrmsets.lbllaunchintervaltip.caption
-msgctxt "TFRMSETS.LBLLAUNCHINTERVALTIP.CAPTION"
-msgid "(Prevents accidental run of multiple copies of program)"
-msgstr "(Позволяет избежать случайного запуска нескольких копий программы)"
+#: tfrmsets.lbllivepreviewsize.caption
+msgctxt "tfrmsets.lbllivepreviewsize.caption"
+msgid "Live preview size"
+msgstr "Размер миниатюр"
 
 #: tfrmsets.lblmonitor.caption
 msgctxt "TFRMSETS.LBLMONITOR.CAPTION"
 msgid "Monitor"
 msgstr "Монитор"
 
-#: tfrmsets.lblremovedock.caption
-msgid "Caution! This action can not be undone!"
-msgstr "Внимание! Это действие не может быть отменено!"
-
 #: tfrmsets.lblshowdelay.caption
 msgctxt "TFRMSETS.LBLSHOWDELAY.CAPTION"
-msgid "Delay before show up (ms)"
-msgstr "Задержка перед показом (мс)"
+msgid "Delay before dock shows up, msec"
+msgstr "Задержка перед показом, мсек"
 
 #: tfrmsets.lbltitle.caption
 msgid "TDock"
@@ -953,8 +933,8 @@ msgstr "TDock"
 
 #: tfrmsets.lblvisiblepart.caption
 msgctxt "TFRMSETS.LBLVISIBLEPART.CAPTION"
-msgid "Visible part in pixels"
-msgstr "Видимая часть (пиксел)"
+msgid "Visible part, pixels"
+msgstr "Видимая часть, пиксел"
 
 #: tfrmsets.lblzoomediconsize.caption
 msgid "Icon size max"
@@ -967,10 +947,6 @@ msgstr "Время увеличения"
 #: tfrmsets.lblzoomwideness.caption
 msgid "Zoom width"
 msgstr "Ширина увеличения"
-
-#: tfrmsets.stmouseovertip.caption
-msgid "(Move mouse pointer to the edge of the screen to put the dock to foreground)"
-msgstr "Переместите указатель мыши к краю экрана чтобы вывести док на передний план"
 
 #: tfrmsets.tsabout.caption
 msgctxt "TFRMSETS.TSABOUT.CAPTION"
