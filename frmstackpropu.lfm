@@ -1,12 +1,12 @@
 object frmStackProp: TfrmStackProp
   Left = 974
-  Height = 856
+  Height = 873
   Top = 596
   Width = 1045
   BorderIcons = [biSystemMenu]
   BorderStyle = bsSingle
   Caption = 'Properties'
-  ClientHeight = 856
+  ClientHeight = 873
   ClientWidth = 1045
   DesignTimePPI = 144
   KeyPreview = True
@@ -15,70 +15,70 @@ object frmStackProp: TfrmStackProp
   OnKeyDown = FormKeyDown
   OnShow = FormShow
   Position = poScreenCenter
-  LCLVersion = '2.0.12.0'
+  LCLVersion = '3.2.0.0'
   object btnOK: TButton
     Left = 20
     Height = 46
-    Top = 795
+    Top = 810
     Width = 210
     Caption = 'OK'
-    OnClick = btnOKClick
     ParentFont = False
     TabOrder = 0
+    OnClick = btnOKClick
   end
   object btnApply: TButton
     Left = 240
     Height = 46
-    Top = 795
+    Top = 810
     Width = 210
     Caption = 'Apply'
-    OnClick = btnApplyClick
     ParentFont = False
     TabOrder = 1
+    OnClick = btnApplyClick
   end
   object btnCancel: TButton
     Left = 460
     Height = 46
-    Top = 795
+    Top = 810
     Width = 210
     Caption = 'Cancel'
-    OnClick = btnCancelClick
     ParentFont = False
     TabOrder = 2
+    OnClick = btnCancelClick
   end
   object iPic: TPaintBox
     Tag = 10
     Left = 35
     Height = 128
-    Top = 30
+    Top = 40
     Width = 128
     ParentFont = False
   end
   object btnBrowseImage1: TButton
     Left = 200
     Height = 46
-    Top = 40
+    Top = 30
     Width = 225
     Caption = 'Browse image'
-    OnClick = btnBrowseImage1Click
     ParentFont = False
     TabOrder = 3
+    OnClick = btnBrowseImage1Click
   end
   object btnClearImage: TButton
     Left = 200
     Height = 46
-    Top = 100
+    Top = 80
     Width = 225
     Caption = 'Clear image'
-    OnClick = btnClearImageClick
     ParentFont = False
     TabOrder = 4
+    OnClick = btnClearImageClick
   end
   object lblCaption: TLabel
     Tag = 10
     Left = 20
     Height = 25
-    Top = 175
+    Top = 190
     Width = 47
     Caption = 'Name'
     ParentColor = False
@@ -88,17 +88,17 @@ object frmStackProp: TfrmStackProp
     Tag = 10
     Left = 20
     Height = 33
-    Top = 203
+    Top = 218
     Width = 655
-    OnChange = edCaptionChange
     ParentFont = False
     TabOrder = 5
+    OnChange = edCaptionChange
   end
   object lblImage: TLabel
     Tag = 10
     Left = 20
     Height = 25
-    Top = 253
+    Top = 268
     Width = 50
     Caption = 'Image'
     ParentColor = False
@@ -108,7 +108,7 @@ object frmStackProp: TfrmStackProp
     Tag = 10
     Left = 20
     Height = 25
-    Top = 333
+    Top = 348
     Width = 107
     Caption = 'Special folder'
     ParentColor = False
@@ -117,58 +117,58 @@ object frmStackProp: TfrmStackProp
   object edImage: TEdit
     Left = 20
     Height = 33
-    Top = 283
+    Top = 298
     Width = 655
-    OnChange = edImageChange
     ParentFont = False
     TabOrder = 6
+    OnChange = edImageChange
   end
   object edSpecialFolder: TEdit
     Left = 20
     Height = 33
-    Top = 363
+    Top = 378
     Width = 655
-    OnChange = edSpecialFolderChange
     ParentFont = False
     TabOrder = 7
+    OnChange = edSpecialFolderChange
   end
   object chbSorted: TCheckBox
     Left = 20
     Height = 29
-    Top = 415
-    Width = 83
+    Top = 430
+    Width = 78
     Caption = 'Sorted'
-    OnChange = chbSortedChange
     ParentFont = False
     TabOrder = 8
+    OnChange = chbSortedChange
   end
   object chbBackground: TCheckBox
     Left = 20
     Height = 29
-    Top = 455
-    Width = 251
+    Top = 470
+    Width = 246
     Caption = 'Show background for items'
-    OnChange = chbBackgroundChange
     ParentFont = False
     TabOrder = 9
+    OnChange = chbBackgroundChange
   end
   object cboMode: TComboBox
     Left = 395
     Height = 33
-    Top = 445
+    Top = 460
     Width = 280
     DropDownCount = 20
     ItemHeight = 25
-    OnChange = cboModeChange
     ParentFont = False
     Style = csDropDownList
     TabOrder = 10
+    OnChange = cboModeChange
   end
   object lblStyle: TLabel
     Tag = 10
     Left = 395
     Height = 25
-    Top = 415
+    Top = 430
     Width = 82
     Caption = 'Animation'
     ParentColor = False
@@ -178,7 +178,7 @@ object frmStackProp: TfrmStackProp
     Tag = 10
     Left = 20
     Height = 25
-    Top = 550
+    Top = 565
     Width = 117
     Caption = 'Offset of icons'
     ParentColor = False
@@ -187,7 +187,7 @@ object frmStackProp: TfrmStackProp
   object tbOffset: TTrackBar
     Left = 20
     Height = 51
-    Top = 576
+    Top = 591
     Width = 655
     Frequency = 10
     Max = 100
@@ -204,7 +204,7 @@ object frmStackProp: TfrmStackProp
     Tag = 10
     Left = 20
     Height = 25
-    Top = 625
+    Top = 640
     Width = 149
     Caption = 'Spacing/Distortion'
     ParentColor = False
@@ -213,7 +213,7 @@ object frmStackProp: TfrmStackProp
   object tbDistort: TTrackBar
     Left = 20
     Height = 51
-    Top = 651
+    Top = 666
     Width = 655
     Frequency = 2
     Max = 50
@@ -229,7 +229,7 @@ object frmStackProp: TfrmStackProp
     Tag = 10
     Left = 20
     Height = 25
-    Top = 695
+    Top = 710
     Width = 135
     Caption = 'Animation speed'
     ParentColor = False
@@ -238,7 +238,7 @@ object frmStackProp: TfrmStackProp
   object tbAnimationSpeed: TTrackBar
     Left = 20
     Height = 51
-    Top = 723
+    Top = 738
     Width = 655
     Max = 20
     Min = 1
@@ -252,14 +252,14 @@ object frmStackProp: TfrmStackProp
   end
   object list: TListBox
     Left = 700
-    Height = 755
+    Height = 770
     Top = 85
     Width = 321
     ExtendedSelect = False
     ItemHeight = 0
-    OnDblClick = listDblClick
     ParentFont = False
     TabOrder = 14
+    OnDblClick = listDblClick
   end
   object bbAddIcon: TBitBtn
     Left = 700
@@ -501,11 +501,64 @@ object frmStackProp: TfrmStackProp
   object chbPreview: TCheckBox
     Left = 20
     Height = 29
-    Top = 495
-    Width = 184
+    Top = 510
+    Width = 179
     Caption = 'Show items overlay'
-    OnChange = chbPreviewChange
     ParentFont = False
     TabOrder = 20
+    OnChange = chbPreviewChange
+  end
+  object tbHue: TTrackBar
+    Left = 460
+    Height = 153
+    Top = 23
+    Width = 38
+    Frequency = 25
+    Max = 255
+    Orientation = trVertical
+    Position = 0
+    TabOrder = 21
+  end
+  object tbSat: TTrackBar
+    Left = 515
+    Height = 153
+    Top = 23
+    Width = 38
+    Frequency = 25
+    Max = 255
+    Orientation = trVertical
+    Position = 0
+    TabOrder = 22
+  end
+  object tbBr: TTrackBar
+    Left = 570
+    Height = 153
+    Top = 23
+    Width = 38
+    Frequency = 25
+    Max = 255
+    Orientation = trVertical
+    Position = 0
+    TabOrder = 23
+  end
+  object tbCont: TTrackBar
+    Left = 625
+    Height = 153
+    Top = 23
+    Width = 38
+    Frequency = 25
+    Max = 255
+    Orientation = trVertical
+    Position = 0
+    TabOrder = 24
+  end
+  object btnDefaultColor: TButton
+    Left = 200
+    Height = 46
+    Top = 130
+    Width = 225
+    Caption = 'Default color'
+    TabOrder = 25
+    OnClick = btnDefaultColorClick
   end
 end

@@ -19,5 +19,6 @@
 {"hash":238683198,"name":"tfrmstackprop.bbediticon.hint","sourcebytes":[67,111,110,102,105,103,117,114,101,32,105,99,111,110],"value":"Configure icon"},
 {"hash":74217360,"name":"tfrmstackprop.bbiconup.hint","sourcebytes":[77,111,118,101,32,117,112],"value":"Move up"},
 {"hash":209126078,"name":"tfrmstackprop.bbicondown.hint","sourcebytes":[77,111,118,101,32,100,111,119,110],"value":"Move down"},
-{"hash":66698921,"name":"tfrmstackprop.chbpreview.caption","sourcebytes":[83,104,111,119,32,105,116,101,109,115,32,111,118,101,114,108,97,121],"value":"Show items overlay"}
+{"hash":66698921,"name":"tfrmstackprop.chbpreview.caption","sourcebytes":[83,104,111,119,32,105,116,101,109,115,32,111,118,101,114,108,97,121],"value":"Show items overlay"},
+{"hash":215412498,"name":"tfrmstackprop.btndefaultcolor.caption","sourcebytes":[68,101,102,97,117,108,116,32,99,111,108,111,114],"value":"Default color"}
 ]}

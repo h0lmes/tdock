@@ -226,7 +226,7 @@ begin
   result.alpha := 0;
   result.angle := 0;
 
-  hSpace := trunc(ItemSize * 1.5);
+  hSpace := trunc(ItemSize * 1.3);
   vSpace := ItemSize;
   if not ShowHint then vSpace := ItemSize div 2;
   s := 0.9 + (sin(progress * PI / 2) * 0.1);
@@ -291,7 +291,7 @@ begin
   result.alpha := 0;
   result.angle := 0;
 
-  hSpace := trunc(ItemSize * 1.5);
+  hSpace := trunc(ItemSize * 1.3);
   vSpace := ItemSize;
   if not ShowHint then vSpace := ItemSize div 2;
   result.alpha := round(255 * progress);

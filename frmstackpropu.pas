@@ -20,6 +20,7 @@ type
     bbIconUp: TBitBtn;
     btnBrowseImage1: TButton;
     btnClearImage: TButton;
+    btnDefaultColor: TButton;
     btnOK: TButton;
     btnApply: TButton;
     btnCancel: TButton;
@@ -41,8 +42,12 @@ type
     lblStyle: TLabel;
     list: TListBox;
     tbAnimationSpeed: TTrackBar;
+    tbBr: TTrackBar;
+    tbCont: TTrackBar;
     tbDistort: TTrackBar;
+    tbHue: TTrackBar;
     tbOffset: TTrackBar;
+    tbSat: TTrackBar;
     procedure bbAddIconClick(Sender: TObject);
     procedure bbDelIconClick(Sender: TObject);
     procedure bbEditIconClick(Sender: TObject);
@@ -68,6 +73,8 @@ type
     procedure tbAnimationSpeedChange(Sender: TObject);
     procedure tbDistortChange(Sender: TObject);
     procedure tbOffsetChange(Sender: TObject);
+    procedure tbHueChange(Sender: TObject);
+    procedure btnDefaultColorClick(Sender: TObject);
   private
     savedCaption: WideString;
     savedImageFile: string;
@@ -162,7 +169,20 @@ begin
   edCaption.Text             := UTF8Encode(savedCaption);
   edImage.Text               := AnsiToUTF8(savedImageFile);
   edSpecialFolder.Text       := AnsiToUTF8(savedSpecialFolder);
+
   color_data                 := savedColorData;
+  tbHue.OnChange    := nil;
+  tbSat.OnChange    := nil;
+  tbBr.OnChange     := nil;
+  tbCont.OnChange   := nil;
+  tbHue.position    := byte(color_data);
+  tbSat.position    := byte(color_data shr 8);
+  tbBr.position     := byte(color_data shr 16);
+  tbCont.position   := byte(color_data shr 24);
+  tbHue.OnChange    := tbHueChange;
+  tbSat.OnChange    := tbHueChange;
+  tbBr.OnChange     := tbHueChange;
+  tbCont.OnChange   := tbHueChange;
 
   tbOffset.Position          := -1;
   tbOffset.Position          := 0;
@@ -382,6 +402,34 @@ begin
   bbEditIcon.Click;
 end;
 //------------------------------------------------------------------------------
+procedure TfrmStackProp.tbHueChange(Sender: TObject);
+begin
+  FChanged := true;
+  color_data := byte(tbHue.Position) +
+    byte(tbSat.Position) shl 8 +
+    byte(tbBr.Position) shl 16 +
+    byte(tbCont.Position) shl 24;
+  DrawFit;
+end;
+//------------------------------------------------------------------------------
+procedure TfrmStackProp.btnDefaultColorClick(Sender: TObject);
+begin
+  color_data      := DEF_COLOR_DATA;
+  tbHue.OnChange  := nil;
+  tbSat.OnChange  := nil;
+  tbBr.OnChange   := nil;
+  tbCont.OnChange := nil;
+  tbHue.position  := byte(color_data);
+  tbSat.position  := byte(color_data shr 8);
+  tbBr.position   := byte(color_data shr 16);
+  tbCont.position := byte(color_data shr 24);
+  tbHue.OnChange  := tbHueChange;
+  tbSat.OnChange  := tbHueChange;
+  tbBr.OnChange   := tbHueChange;
+  tbCont.OnChange := tbHueChange;
+  tbHueChange(nil);
+end;
+//------------------------------------------------------------------------------
 procedure TfrmStackProp.Draw;
 var
   str: WideString;
@@ -414,8 +462,9 @@ end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.DrawFit;
 var
-  hgdip, hbrush: Pointer;
+  hgdip, hbrush, hattr: Pointer;
   w_coeff, h_coeff: extended;
+  matrix: ColorMatrix;
   background: cardinal;
 begin
   if assigned(FImage) then
@@ -437,11 +486,16 @@ begin
     GdipFillRectangleI(hgdip, hbrush, 0, 0, iPic.Width, iPic.Height);
     GdipDeleteBrush(hbrush);
 
+    CreateColorMatrix(color_data, matrix);
+    GdipCreateImageAttributes(hattr);
+    GdipSetImageAttributesColorMatrix(hattr, ColorAdjustTypeBitmap, true, @matrix, nil, ColorMatrixFlagsDefault);
+
     GdipDrawImageRectRectI(hgdip, FImage,
       (iPic.Width - trunc(iPic.Width * w_coeff)) div 2, (iPic.Height - trunc(iPic.Height * h_coeff)) div 2,
       trunc(iPic.Width * w_coeff), trunc(iPic.Height * h_coeff),
-      0, 0, FIW, FIH, UnitPixel, nil, nil, nil);
+      0, 0, FIW, FIH, UnitPixel, hattr, nil, nil);
 
+    GdipDisposeImageAttributes(hattr);
     GdipDeleteGraphics(hgdip);
   except
     on e: Exception do frmmain.err('frmStackProp.DrawFit', e);

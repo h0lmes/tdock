@@ -298,7 +298,7 @@ msgstr "Действия"
 
 #: declu.xpageautorun
 msgid "Autorun"
-msgstr ""
+msgstr "Автозапуск"
 
 #: declu.xpagegeneral
 msgctxt "declu.xpagegeneral"
@@ -552,6 +552,11 @@ msgstr "Очистить иконку"
 #: tfrmitemprop.btnconvertlink.caption
 msgid "Convert .LNK"
 msgstr "Преобразовать .LNK"
+
+#: tfrmitemprop.btndefaultcolor.caption
+msgctxt "tfrmitemprop.btndefaultcolor.caption"
+msgid "Default color"
+msgstr "Сбросить цвет"
 
 #: tfrmitemprop.btndir.caption
 msgctxt "TFRMITEMPROP.BTNDIR.CAPTION"
@@ -1033,6 +1038,12 @@ msgctxt "TFRMSTACKPROP.BTNCLEARIMAGE.CAPTION"
 msgid "Clear image"
 msgstr "Очистить иконку"
 
+#: tfrmstackprop.btndefaultcolor.caption
+#, fuzzy
+msgctxt "tfrmstackprop.btndefaultcolor.caption"
+msgid "Default color"
+msgstr "Сбросить цвет"
+
 #: tfrmstackprop.btnok.caption
 msgctxt "TFRMSTACKPROP.BTNOK.CAPTION"
 msgid "OK"
@@ -1132,3 +1143,4 @@ msgstr "Дальше"
 #: tfrmtip.caption
 msgid "Tip"
 msgstr "Подсказка"
+

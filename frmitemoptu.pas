@@ -21,6 +21,7 @@ type
     btnCancel: TButton;
     btnParams: TButton;
     btnConvertLink: TButton;
+    btnDefaultColor: TButton;
     cboWindow: TComboBox;
     chbHide: TCheckBox;
     edCaption: TEdit;
@@ -37,6 +38,10 @@ type
     lblTip: TLabel;
     lblWindowSize: TLabel;
     lblWorkingDirectory: TLabel;
+    tbCont: TTrackBar;
+    tbHue: TTrackBar;
+    tbSat: TTrackBar;
+    tbBr: TTrackBar;
     procedure btnBrowseImage1Click(Sender: TObject);
     procedure btnConvertLinkClick(Sender: TObject);
     procedure cboWindowChange(Sender: TObject);
@@ -57,6 +62,8 @@ type
     procedure edCmdChange(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
 		procedure FormShow(Sender: TObject);
+    procedure tbHueChange(Sender: TObject);
+    procedure btnDefaultColorClick(Sender: TObject);
   private
     savedCaption: WideString;
     savedColorData: integer;
@@ -174,10 +181,23 @@ begin
   edImage.text      := savedImageFile;
   if savedImageFile2 <> '' then edImage.text := edImage.text + ';' + savedImageFile2;
   chbHide.Checked   := savedHide;
-  color_data        := savedColorData;
   cboWindow.ItemIndex := 0;
   if savedShowCmd = sw_showminimized then cboWindow.ItemIndex := 1
   else if savedShowCmd = sw_showmaximized then cboWindow.ItemIndex := 2;
+
+  color_data        := savedColorData;
+  tbHue.OnChange    := nil;
+  tbSat.OnChange    := nil;
+  tbBr.OnChange     := nil;
+  tbCont.OnChange   := nil;
+  tbHue.position    := byte(color_data);
+  tbSat.position    := byte(color_data shr 8);
+  tbBr.position     := byte(color_data shr 16);
+  tbCont.position   := byte(color_data shr 24);
+  tbHue.OnChange    := tbHueChange;
+  tbSat.OnChange    := tbHueChange;
+  tbBr.OnChange     := tbHueChange;
+  tbCont.OnChange   := tbHueChange;
 
   Draw;
   iPic.OnPaint := iPicPaint;
@@ -422,6 +442,34 @@ begin
   edImage.Clear;
 end;
 //------------------------------------------------------------------------------
+procedure TfrmItemProp.tbHueChange(Sender: TObject);
+begin
+  FChanged := true;
+  color_data := byte(tbHue.Position) +
+    byte(tbSat.Position) shl 8 +
+    byte(tbBr.Position) shl 16 +
+    byte(tbCont.Position) shl 24;
+  DrawFit;
+end;
+//------------------------------------------------------------------------------
+procedure TfrmItemProp.btnDefaultColorClick(Sender: TObject);
+begin
+  color_data      := DEF_COLOR_DATA;
+  tbHue.OnChange  := nil;
+  tbSat.OnChange  := nil;
+  tbBr.OnChange   := nil;
+  tbCont.OnChange := nil;
+  tbHue.position  := byte(color_data);
+  tbSat.position  := byte(color_data shr 8);
+  tbBr.position   := byte(color_data shr 16);
+  tbCont.position := byte(color_data shr 24);
+  tbHue.OnChange  := tbHueChange;
+  tbSat.OnChange  := tbHueChange;
+  tbBr.OnChange   := tbHueChange;
+  tbCont.OnChange := tbHueChange;
+  tbHueChange(nil);
+end;
+//------------------------------------------------------------------------------
 procedure TfrmItemProp.Draw;
 var
   str: string;
@@ -461,8 +509,9 @@ end;
 //------------------------------------------------------------------------------
 procedure TfrmItemProp.DrawFit;
 var
-  hgdip, hbrush: Pointer;
+  hgdip, hbrush, hattr: Pointer;
   w_coeff, h_coeff: extended;
+  matrix: ColorMatrix;
   background: cardinal;
 begin
   if assigned(FImage) then
@@ -484,11 +533,16 @@ begin
     GdipFillRectangleI(hgdip, hbrush, 0, 0, iPic.Width, iPic.Height);
     GdipDeleteBrush(hbrush);
 
+    CreateColorMatrix(color_data, matrix);
+    GdipCreateImageAttributes(hattr);
+    GdipSetImageAttributesColorMatrix(hattr, ColorAdjustTypeBitmap, true, @matrix, nil, ColorMatrixFlagsDefault);
+
     GdipDrawImageRectRectI(hgdip, FImage,
       (iPic.Width - trunc(iPic.Width * w_coeff)) div 2, (iPic.Height - trunc(iPic.Height * h_coeff)) div 2,
       trunc(iPic.Width * w_coeff), trunc(iPic.Height * h_coeff),
-      0, 0, FIW, FIH, UnitPixel, nil, nil, nil);
+      0, 0, FIW, FIH, UnitPixel, hattr, nil, nil);
 
+    GdipDisposeImageAttributes(hattr);
     GdipDeleteGraphics(hgdip);
   except
     on e: Exception do frmmain.err('frmItemProp.DrawFit', e);

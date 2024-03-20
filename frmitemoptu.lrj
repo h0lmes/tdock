@@ -17,5 +17,6 @@
 {"hash":113878453,"name":"tfrmitemprop.lblwindowsize.caption","sourcebytes":[87,105,110,100,111,119,32,115,105,122,101],"value":"Window size"},
 {"hash":127901395,"name":"tfrmitemprop.chbhide.caption","sourcebytes":[72,105,100,101,32,100,111,99,107,32,119,104,101,110,32,97,112,112,108,105,99,97,116,105,111,110,32,114,117,110,115],"value":"Hide dock when application runs"},
 {"hash":24884675,"name":"tfrmitemprop.lbltip.caption","sourcebytes":[85,115,101,32,115,101,109,105,99,111,108,111,110,32,116,111,32,115,101,112,97,114,97,116,101,32,109,117,108,116,105,112,108,101,32,99,111,109,109,97,110,100,115,32,97,110,100,32,112,97,114,97,109,101,116,101,114,115],"value":"Use semicolon to separate multiple commands and parameters"},
-{"hash":138003475,"name":"tfrmitemprop.lblparams.caption","sourcebytes":[80,97,114,97,109,101,116,101,114,115],"value":"Parameters"}
+{"hash":138003475,"name":"tfrmitemprop.lblparams.caption","sourcebytes":[80,97,114,97,109,101,116,101,114,115],"value":"Parameters"},
+{"hash":215412498,"name":"tfrmitemprop.btndefaultcolor.caption","sourcebytes":[68,101,102,97,117,108,116,32,99,111,108,111,114],"value":"Default color"}
 ]}

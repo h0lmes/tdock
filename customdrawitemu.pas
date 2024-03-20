@@ -120,12 +120,14 @@ begin
       begin
         DeleteBitmap(bmp);
       end;
+
       GdipCreateSolidFill(ITEM_BACKGROUND, brush);
       if (FSite = 1) or (FSite = 3) then
         GdipFillRectangleI(dst, brush, ItemRect.Left - FItemSpacing div 2, ItemRect.Top - 1, ItemRect.Right - ItemRect.Left + FItemSpacing, ItemRect.Bottom - ItemRect.Top + 1)
       else
         GdipFillRectangleI(dst, brush, ItemRect.Left - 1, ItemRect.Top - FItemSpacing div 2, ItemRect.Right - ItemRect.Left + 1, ItemRect.Bottom - ItemRect.Top + FItemSpacing);
       GdipDeleteBrush(brush);
+
       GdipSetInterpolationMode(dst, InterpolationModeHighQualityBicubic);
 
       // draw the button
