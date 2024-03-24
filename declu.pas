@@ -194,7 +194,7 @@ type
   function MonitorFromWindow(HWND: hwnd; dwFlags: DWORD): THandle; stdcall; external 'user32.dll';
   function MonitorFromPoint(pt: windows.TPoint; dwFlags: DWORD): THandle; stdcall; external 'user32.dll';
   function GetMonitorInfoA(hMonitor: THandle; lpmi: pointer): bool; stdcall; external 'user32.dll';
-  function SHGetNameFromIDList(_para1:LPCITEMIDLIST; sigdnName: longint; _para2:LPTSTR):WINBOOL; external 'shell32.dll' name 'SHGetNameFromIDList';
+  function SHGetNameFromIDList(_para1:LPCITEMIDLIST; sigdnName: longint; _para2:LPTSTR): WINBOOL; external 'shell32.dll' name 'SHGetNameFromIDList';
 
 const
   PROGRAM_NAME = 'TDock';
@@ -280,18 +280,18 @@ resourcestring
   XMinimizeRestoreAllWindows = 'Minimize/restore all windows (Alt+Click)';
   XEmptyBin = 'Empty bin';
   XOpenThemesFolder = 'Open themes folder';
-  XUndeleteIcon = 'Undelete icon  (Ctrl+Z)';
+  XUndeleteIcon = 'Undelete icon (Ctrl+Z)';
   XMsgPlaceTargetFileInsteadOfShortcut = 'Put target file onto the dock instead of a shortcut?';
   XShortcut = 'Shortcut';
   XFile = 'File';
   XErrorInvalidProgramDataStructureSize = 'Invalid program data structure size.';
   // items //
-  XRun = 'Run  (Ctrl + Click)';
-  XConfigureIcon = 'Configure icon';
-  XOpenFolderOf = 'Open folder of';
+  XRun = 'Run  (Click/Ctrl+Click)';
+  XConfigureIcon = 'Properties';
+  XOpenFolderOf = 'Open containing folder';
   XCopy = 'Copy';
   XPaste = 'Paste';
-  XDeleteIcon = 'Delete icon';
+  XDeleteIcon = 'Delete';
   XDeleteSeparator = 'Delete separator';
   XPinToDock = 'Pin to dock';
   XKillProcess = 'Kill process';
@@ -306,7 +306,7 @@ resourcestring
   XLabelZoomWidth = 'Zoom width: %d';
   XLabelZoomTime = 'Zoom-in time: %d ms';
   XLabelReserveScreenEdgePercent = 'Reserve screen edge: %d%%';
-  XLabelLivePreviewSize = 'Live preview size: %d px';
+  XLabelLivePreviewSize = 'Live previews'' size: %d px';
   XPageGeneral = 'General';
   XPageTaskbar = 'Taskbar';
   XPagePosition = 'Position';
@@ -335,7 +335,7 @@ resourcestring
   XShowCmdMinimized = 'Minimized to taskbar';
   XShowCmdMaximized = 'Maximized to fullscreen';
   XSelectWorkingDirectory = 'Select working directory';
-  XMsgUnsavedIconParams = 'Icon parameters changed. If you choose to proceed all changes will be lost. Proceed?';
+  XMsgUnsavedIconParams = 'Icon parameters changed. If you choose to proceed all changes will be lost.';
   XOffsetOfIcons = 'Offset of icons: %d pt';
   XDistort = 'Spacing/Distortion: %d';
   XAnimationSpeed = 'Animation speed: %d';
@@ -343,7 +343,7 @@ resourcestring
   // frmAddCommand //
   XErrorCommandListNotFound = 'Command list file not found. Try reinstalling the program.';
   // frmTip //
-  XErrorTipsNotFound = 'Tips file not found. Try reinstalling the program.';
+  XErrorTipsNotFound = 'Usage tips file not found. Try reinstalling the program.';
   // trayController //
   XMsgNotificationAreaIcons = 'After you close this message you will see "Notification area icons" window. To use this function uncheck "Always show all icons" at the bottom of the window and set all behaviors to "Only show notifications".';
 

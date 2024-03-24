@@ -59,7 +59,7 @@ object frmItemProp: TfrmItemProp
   end
   object iPic: TPaintBox
     Tag = 10
-    Left = 25
+    Left = 30
     Height = 128
     Top = 30
     Width = 128
@@ -70,7 +70,7 @@ object frmItemProp: TfrmItemProp
     ParentFont = False
   end
   object btnBrowseImage1: TButton
-    Left = 180
+    Left = 190
     Height = 46
     Top = 20
     Width = 225
@@ -84,7 +84,7 @@ object frmItemProp: TfrmItemProp
     OnClick = btnBrowseImage1Click
   end
   object btnClearImage: TButton
-    Left = 180
+    Left = 190
     Height = 46
     Top = 70
     Width = 225
@@ -379,7 +379,7 @@ object frmItemProp: TfrmItemProp
     ParentFont = False
   end
   object tbHue: TTrackBar
-    Left = 435
+    Left = 445
     Height = 153
     Top = 20
     Width = 38
@@ -390,7 +390,7 @@ object frmItemProp: TfrmItemProp
     TabOrder = 17
   end
   object tbSat: TTrackBar
-    Left = 490
+    Left = 500
     Height = 153
     Top = 20
     Width = 38
@@ -401,7 +401,7 @@ object frmItemProp: TfrmItemProp
     TabOrder = 18
   end
   object tbBr: TTrackBar
-    Left = 545
+    Left = 555
     Height = 153
     Top = 20
     Width = 38
@@ -412,7 +412,7 @@ object frmItemProp: TfrmItemProp
     TabOrder = 19
   end
   object tbCont: TTrackBar
-    Left = 600
+    Left = 610
     Height = 153
     Top = 20
     Width = 38
@@ -423,7 +423,7 @@ object frmItemProp: TfrmItemProp
     TabOrder = 20
   end
   object btnDefaultColor: TButton
-    Left = 180
+    Left = 190
     Height = 46
     Top = 120
     Width = 225

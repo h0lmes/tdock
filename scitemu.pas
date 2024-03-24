@@ -242,7 +242,7 @@ begin
           FIsPIDL := assigned(FPIDL);
           if FIsPIDL and (FCaption = '::::') then FCaption := PIDL_GetDisplayName3(FPIDL);
 
-          // check if this is the shortcut to an executable file
+          // check if this is a shortcut to an executable file
           if not FIsPIDL then
           begin
             FExecutable := toolu.UnzipPath(FCommand);

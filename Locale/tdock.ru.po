@@ -77,8 +77,8 @@ msgstr "Закрыть окно"
 
 #: declu.xconfigureicon
 msgctxt "declu.xconfigureicon"
-msgid "Configure icon"
-msgstr "Настроить значок"
+msgid "Properties"
+msgstr "Свойства"
 
 #: declu.xcopy
 msgid "Copy"
@@ -86,8 +86,8 @@ msgstr "Копировать"
 
 #: declu.xdeleteicon
 msgctxt "declu.xdeleteicon"
-msgid "Delete icon"
-msgstr "Удалить значок"
+msgid "Delete"
+msgstr "Удалить"
 
 #: declu.xdeleteseparator
 msgid "Delete separator"
@@ -152,7 +152,7 @@ msgid "Restore operation failed."
 msgstr "Не удалось восстановить резервную копию файла настроек."
 
 #: declu.xerrortipsnotfound
-msgid "Tips file not found. Try reinstalling the program."
+msgid "Usage tips file not found. Try reinstalling the program."
 msgstr "Файл с советами не найден. Переустановите программу."
 
 #: declu.xexit
@@ -198,7 +198,7 @@ msgstr "Расстояние между значками: %d pt"
 
 #: declu.xlabellivepreviewsize
 #, object-pascal-format
-msgid "Live preview size: %d px"
+msgid "Live previews' size: %d px"
 msgstr "Размер миниатюр: %d пикс"
 
 #: declu.xlabelreservescreenedgepercent
@@ -269,8 +269,8 @@ msgid "Theme saved."
 msgstr "Тема сохранена."
 
 #: declu.xmsgunsavediconparams
-msgid "Icon parameters changed. If you choose to proceed all changes will be lost. Proceed?"
-msgstr "Параметры значка изменены. Если вы продолжите все изменения будут утеряны. Продолжить?"
+msgid "Icon parameters changed. If you choose to proceed all changes will be lost."
+msgstr "Параметры значка изменены. Если вы продолжите все изменения будут утеряны."
 
 #: declu.xoffsetoficons
 #, object-pascal-format
@@ -279,7 +279,7 @@ msgstr "Смещение значков: %d pt"
 
 #: declu.xopenfolderof
 msgctxt "declu.xopenfolderof"
-msgid "Open folder of"
+msgid "Open containing folder"
 msgstr "Открыть папку"
 
 #: declu.xopenthemesfolder
@@ -347,8 +347,8 @@ msgid "Settings"
 msgstr "Настройки"
 
 #: declu.xrun
-msgid "Run  (Ctrl + Click)"
-msgstr "Выполнить  (Ctrl + Click)"
+msgid "Run  (Click/Ctrl+Click)"
+msgstr "Выполнить  (Click/Ctrl+Click)"
 
 #: declu.xselectworkingdirectory
 msgid "Select working directory"
@@ -406,7 +406,7 @@ msgid "Run Task Manager"
 msgstr "Запустить Диспетчер Задач"
 
 #: declu.xundeleteicon
-msgid "Undelete icon  (Ctrl+Z)"
+msgid "Undelete icon (Ctrl+Z)"
 msgstr "Отменить удаление значка  (Ctrl+Z)"
 
 #: tfrmaddcommand.btnadd.caption
@@ -1039,7 +1039,6 @@ msgid "Clear image"
 msgstr "Очистить иконку"
 
 #: tfrmstackprop.btndefaultcolor.caption
-#, fuzzy
 msgctxt "tfrmstackprop.btndefaultcolor.caption"
 msgid "Default color"
 msgstr "Сбросить цвет"
@@ -1143,4 +1142,3 @@ msgstr "Дальше"
 #: tfrmtip.caption
 msgid "Tip"
 msgstr "Подсказка"
-
