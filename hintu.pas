@@ -279,7 +279,7 @@ begin
       points[2].y := FH;
       points[3].x := 0;
       points[3].y := FH;
-      GdipAddPathClosedCurve2I(path, points, 4, 15 / FW);
+      GdipAddPathClosedCurve2I(path, points, 4, 8 / FW);
       // fill
       GdipCreateSolidFill($ff000000 + FFont.backcolor and $ffffff, brush);
       GdipFillPath(dst, brush, path);

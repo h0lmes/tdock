@@ -5,7 +5,7 @@ interface
 uses
   Windows, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   DefaultTranslator, Dialogs, StdCtrls, ExtCtrls, ComCtrls, Menus, Buttons,
-  GDIPAPI, gfx, PIDL, stackitemu, themeu, DividerBevel;
+  GDIPAPI, gfx, PIDL, stackitemu, themeu;
 
 type
   _uproc = procedure(AData: string) of object;

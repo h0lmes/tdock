@@ -7,7 +7,7 @@ interface
 uses Classes, SysUtils, Math, declu;
 
 const
-  MODE_COUNT = 9;
+  MODE_COUNT = 6;
   MAX_DISTORT = 10;
   PI = 3.14159;
   DEFMODE_BIG = 4;
@@ -35,13 +35,7 @@ type
         ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
     function GetCards(Opening, ShowHint: boolean; Index: integer; Progress: extended;
         ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
-    function GetLine(Opening, ShowHint: boolean; Index: integer; Progress: extended;
-        ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
-    function GetDoubleLine(Opening, ShowHint: boolean; Index: integer; Progress: extended;
-        ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
     function GetSun(Opening, ShowHint: boolean; Index: integer; Progress: extended;
-        ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
-    function GetParallelWave(Opening, ShowHint: boolean; Index: integer; Progress: extended;
         ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
     function GetParallel(Opening, ShowHint: boolean; Index: integer; Progress: extended;
         ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
@@ -66,11 +60,8 @@ begin
   names[2] := 'Fan Alt';
   names[3] := 'Table';
   names[4] := 'Cards';
-  names[5] := 'Line';
-  names[6] := 'Double Line';
-  names[7] := 'Sun';
-  names[8] := 'Parallel Wave';
-  names[9] := 'Parallel';
+  names[5] := 'Sun';
+  names[6] := 'Parallel';
 end;
 //------------------------------------------------------------------------------
 function TStackModeController.GetModeCount: integer;
@@ -99,8 +90,17 @@ begin
   end;
 end;
 //------------------------------------------------------------------------------
-function TStackModeController.GetItemData(Mode: integer; Opening, ShowHint: boolean; Progress: extended;
-    Index, ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
+function TStackModeController.GetItemData(
+    Mode: integer;
+    Opening,
+    ShowHint: boolean;
+    Progress: extended;
+    Index,
+    ItemCount,
+    Site,
+    ItemSize,
+    Offset,
+    Distort: integer): TStackItemData;
 begin
   if Mode = 0 then
   begin
@@ -115,16 +115,21 @@ begin
     2: result := GetFanAlt      (Opening, ShowHint, Index, Progress, ItemCount, Site, ItemSize, Offset, Distort);
     3: result := GetTable       (Opening, ShowHint, Index, Progress, ItemCount, Site, ItemSize, Offset, Distort);
     4: result := GetCards       (Opening, ShowHint, Index, Progress, ItemCount, Site, ItemSize, Offset, Distort);
-    5: result := GetLine        (Opening, ShowHint, Index, Progress, ItemCount, Site, ItemSize, Offset, Distort);
-    6: result := GetDoubleLine  (Opening, ShowHint, Index, Progress, ItemCount, Site, ItemSize, Offset, Distort);
-    7: result := GetSun         (Opening, ShowHint, Index, Progress, ItemCount, Site, ItemSize, Offset, Distort);
-    8: result := GetParallelWave(Opening, ShowHint, Index, Progress, ItemCount, Site, ItemSize, Offset, Distort);
-    9: result := GetParallel    (Opening, ShowHint, Index, Progress, ItemCount, Site, ItemSize, Offset, Distort);
+    5: result := GetSun         (Opening, ShowHint, Index, Progress, ItemCount, Site, ItemSize, Offset, Distort);
+    6: result := GetParallel    (Opening, ShowHint, Index, Progress, ItemCount, Site, ItemSize, Offset, Distort);
   end;
 end;
 //------------------------------------------------------------------------------
-function TStackModeController.GetFan(Opening, ShowHint: boolean; Index: integer; Progress: extended;
-    ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
+function TStackModeController.GetFan(
+    Opening,
+    ShowHint: boolean;
+    Index: integer;
+    Progress: extended;
+    ItemCount,
+    Site,
+    ItemSize,
+    Offset,
+    Distort: integer): TStackItemData;
 var
   x, y: extended;
 begin
@@ -153,7 +158,7 @@ begin
         result.x := -round(x);
         result.y := round(y);
         result.angle := 360 - result.angle;
-        result.hint_align := HA_VERTICAL_TOP;
+        result.hint_align := HA_VERTICAL_BOTTOM;
       end;
     1: begin
         result.x := -round(y);
@@ -169,8 +174,16 @@ begin
   end;
 end;
 //------------------------------------------------------------------------------
-function TStackModeController.GetFanAlt(Opening, ShowHint: boolean; Index: integer; Progress: extended;
-    ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
+function TStackModeController.GetFanAlt(
+    Opening,
+    ShowHint: boolean;
+    Index: integer;
+    Progress: extended;
+    ItemCount,
+    Site,
+    ItemSize,
+    Offset,
+    Distort: integer): TStackItemData;
 var
   x, y: extended;
 begin
@@ -199,7 +212,7 @@ begin
         result.x := -round(x);
         result.y := -round(y);
         result.angle := 360 - result.angle;
-        result.hint_align := HA_VERTICAL_BOTTOM;
+        result.hint_align := HA_VERTICAL_TOP;
       end;
     1: begin
         result.x := round(y);
@@ -215,8 +228,16 @@ begin
   end;
 end;
 //------------------------------------------------------------------------------
-function TStackModeController.GetTable(Opening, ShowHint: boolean; Index: integer; Progress: extended;
-    ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
+function TStackModeController.GetTable(
+    Opening,
+    ShowHint: boolean;
+    Index: integer;
+    Progress: extended;
+    ItemCount,
+    Site,
+    ItemSize,
+    Offset,
+    Distort: integer): TStackItemData;
 var
   cols, rows, hSpace, vSpace: integer;
   x, y, di, s: extended;
@@ -280,8 +301,16 @@ begin
   end;
 end;
 //------------------------------------------------------------------------------
-function TStackModeController.GetCards(Opening, ShowHint: boolean; Index: integer; Progress: extended;
-    ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
+function TStackModeController.GetCards(
+    Opening,
+    ShowHint: boolean;
+    Index: integer;
+    Progress: extended;
+    ItemCount,
+    Site,
+    ItemSize,
+    Offset,
+    Distort: integer): TStackItemData;
 var
   cols, rows, hSpace, vSpace: integer;
   x, y, di: extended;
@@ -341,106 +370,16 @@ begin
   end;
 end;
 //------------------------------------------------------------------------------
-function TStackModeController.GetLine(Opening, ShowHint: boolean; Index: integer; Progress: extended;
-    ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
-var
-  x, y, di: extended;
-begin
-  result.x := 0;
-  result.y := 0;
-  result.alpha := 0;
-  result.angle := 0;
-  Distort *= 2;
-
-  // simultaneous item count = 4 //
-  di := (progress * (ItemCount + 4 - 1) / ItemCount - index / ItemCount) * ItemCount / 4;
-  if di < 0 then di := 0;
-  if di > 1 then di := 1;
-  di := sin(di * PI / 2);
-  result.s := round(ItemSize * di);
-  result.alpha := round(255 * di);
-  result.hint_alpha := trunc(max(progress - 0.5, 0) * 510);
-  x := trunc(ItemSize * 1.33) + Offset + (trunc(ItemSize * 1.33) + Distort) * index;
-  y := 0;
-  result.angle := 0;
-  case Site of
-    0: begin
-        result.x := round(x + ItemSize div 2);
-        result.y := round(y);
-        result.hint_align := HA_VERTICAL_TOP;
-      end;
-    2: begin
-        result.x := -round(x + ItemSize div 2);
-        result.y := round(y);
-        result.hint_align := HA_VERTICAL_TOP;
-      end;
-    1: begin
-        result.x := -round(y);
-        result.y := round(x + ItemSize div 2);
-        result.hint_align := HA_HORIZONTAL_RIGHT;
-      end;
-    3: begin
-        result.x := -round(y);
-        result.y := -round(x + ItemSize div 2);
-        result.hint_align := HA_HORIZONTAL_RIGHT;
-      end;
-  end;
-end;
-//------------------------------------------------------------------------------
-function TStackModeController.GetDoubleLine(Opening, ShowHint: boolean; Index: integer; Progress: extended;
-    ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
-var
-  x, y, di: extended;
-begin
-  result.x := 0;
-  result.y := 0;
-  result.alpha := 0;
-  result.angle := 0;
-  Distort *= 2;
-
-  // simultaneous item count = 4 //
-  di := (progress * (ItemCount + 4 - 1) / ItemCount - trunc(index div 2) / ItemCount) * ItemCount / 4;
-  if di < 0 then di := 0;
-  if di > 1 then di := 1;
-  di := sin(di * PI / 2);
-  result.s := round(ItemSize * di);
-  result.alpha := round(255 * di);
-  result.hint_alpha := trunc(max(progress - 0.5, 0) * 510);
-  result.angle := 0;
-  x := trunc(ItemSize * 1.33) + Offset + (trunc(ItemSize * 1.33) + Distort) * (index div 2);
-  y := ItemSize div 2 + 2 + Distort;
-  if index mod 2 = 0 then y := -y;
-  case Site of
-    0: begin
-        result.x := round(x + ItemSize div 2);
-        result.y := round(y);
-        result.hint_align := HA_VERTICAL_BOTTOM;
-        if index mod 2 = 0 then result.hint_align := HA_VERTICAL_TOP;
-      end;
-    2: begin
-        result.x := -round(x + ItemSize div 2);
-        result.y := round(y);
-        result.hint_align := HA_VERTICAL_BOTTOM;
-        if index mod 2 = 0 then result.hint_align := HA_VERTICAL_TOP;
-      end;
-    1: begin
-        result.x := -round(y);
-        result.y := round(x + ItemSize div 2);
-        result.hint_align := HA_HORIZONTAL_LEFT;
-        if index mod 2 = 0 then result.hint_align := HA_HORIZONTAL_RIGHT;
-      end;
-    3: begin
-        result.x := -round(y);
-        result.y := -round(x + ItemSize div 2);
-        result.hint_align := HA_HORIZONTAL_LEFT;
-        if index mod 2 = 0 then result.hint_align := HA_HORIZONTAL_RIGHT;
-      end;
-  end;
-end;
-//------------------------------------------------------------------------------
 function TStackModeController.GetSun(
-    Opening, ShowHint: boolean; Index: integer; Progress: extended;
-    ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
+    Opening,
+    ShowHint: boolean;
+    Index: integer;
+    Progress: extended;
+    ItemCount,
+    Site,
+    ItemSize,
+    Offset,
+    Distort: integer): TStackItemData;
 var
   x, y, ItemProgress, r, degreesPerStep, radiusMultiplier: extended;
   SimultItemCount: integer;
@@ -508,62 +447,16 @@ begin
   end;
 end;
 //------------------------------------------------------------------------------
-function TStackModeController.GetParallelWave(Opening, ShowHint: boolean; Index: integer; Progress: extended;
-    ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
-var
-  x, y, di: extended;
-begin
-  result.x := 0;
-  result.y := 0;
-  result.alpha := 0;
-  result.angle := 0;
-
-  // simultaneous item count = 4 //
-  if Opening then di := (progress * (ItemCount + 4 - 1) / ItemCount - index / ItemCount) * ItemCount / 4
-  else di := (progress * (ItemCount + 4 - 1) / ItemCount - (ItemCount - index - 1) / ItemCount) * ItemCount / 4;
-  if di < 0 then di := 0;
-  if di > 1 then di := 1;
-  di := sin(di * PI / 2);
-  x := Offset + di * ItemSize * 2.5 - ItemSize;
-  if Opening then
-  begin
-    y := (ItemSize + 3 + abs(Distort * 2)) * ((index - (ItemCount - 1) / 2));
-    result.s := round(ItemSize * di * sin(di * 1.3 * PI / 2) / sin(1.3 * PI / 2));
-  end else begin
-    y := (ItemSize + 3 + abs(Distort * 2)) * ((index - (ItemCount - 1) / 2));
-    result.s := round(ItemSize * di);
-  end;
-  result.angle := 0;
-  result.alpha := round(255 * di);
-  result.hint_alpha := round(max(di - 0.5, 0) * 510);
-  case Site of
-    0: begin
-        result.hint_align := HA_HORIZONTAL_RIGHT;
-        result.x := round(x + ItemSize div 2);
-        result.y := round(y);
-      end;
-    2: begin
-        result.hint_align := HA_HORIZONTAL_LEFT;
-        result.x := -round(x + ItemSize div 2);
-        result.y := round(y);
-        result.angle := -result.angle;
-      end;
-    1: begin
-        result.hint_align := HA_VERTICAL_BOTTOM;
-        result.x := round(y);
-        result.y := round(x + ItemSize div 2);
-        result.angle := -result.angle;
-      end;
-    3: begin
-        result.hint_align := HA_VERTICAL_TOP;
-        result.x := round(y);
-        result.y := -round(x + ItemSize div 2);
-      end;
-  end;
-end;
-//------------------------------------------------------------------------------
-function TStackModeController.GetParallel(Opening, ShowHint: boolean; Index: integer; Progress: extended;
-    ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
+function TStackModeController.GetParallel(
+    Opening,
+    ShowHint: boolean;
+    Index: integer;
+    Progress: extended;
+    ItemCount,
+    Site,
+    ItemSize,
+    Offset,
+    Distort: integer): TStackItemData;
 var
   x, y, progressExt: extended;
 begin

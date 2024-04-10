@@ -4,13 +4,10 @@ interface
 
 uses Windows, ShellApi, ShlObj, ComObj, SysUtils, Forms, ActiveX;
 
-type
-  PPItemIDList = ^PItemIDList;
-
 function PIDL_CountFromCIDA(ida: PCIDA): longint;
 function PIDL_FromCIDA(index: longint; ida: PCIDA; var size: longint): PItemIDList;
-function PIDL_ToString(p: Pointer): string; overload;
-function PIDL_ToString(p: Pointer; size: uint): string; overload;
+function PIDL_ToString(pidl: PItemIDList): string; overload;
+function PIDL_ToString(pidl: PItemIDList; size: uint): string; overload;
 function PIDL_FromString(Data: string): PItemIDList;
 function PIDL_GetSize(pidl: PITEMIDLIST): integer;
 function PIDL_Create(size: uint): PItemIDList;
@@ -35,13 +32,11 @@ var
 
 implementation
 //------------------------------------------------------------------------------
-// get PIDL count from CIDA structure
 function PIDL_CountFromCIDA(ida: PCIDA): longint;
 begin
   result := ida.cidl;
 end;
 //------------------------------------------------------------------------------
-// converts CIDA structure to a PIDL
 function PIDL_FromCIDA(index: longint; ida: PCIDA; var size: longint): PItemIDList;
 var
   buf: array [0..4095] of byte;
@@ -82,23 +77,23 @@ begin
   end;
 end;
 //------------------------------------------------------------------------------
-function PIDL_ToString(p: Pointer): string;
+function PIDL_ToString(pidl: PItemIDList): string;
 begin
-  Result := PIDL_ToString(p, PIDL_GetSize(p));
+  Result := PIDL_ToString(pidl, PIDL_GetSize(pidl));
 end;
 //------------------------------------------------------------------------------
-function PIDL_ToString(p: Pointer; size: uint): string;
+function PIDL_ToString(pidl: PItemIDList; size: uint): string;
 var
   i: uint;
 begin
   Result := '';
-  if p <> nil then
+  if pidl <> nil then
   begin
     if size > 0 then result := '::::';
     i := 0;
     while i < size do
     begin
-      Result := Result + inttohex(byte(pbyte(PChar(p) + i)^), 2);
+      Result := Result + inttohex(byte(pbyte(PChar(pidl) + i)^), 2);
       inc(i);
     end;
   end;
