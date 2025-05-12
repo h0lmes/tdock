@@ -66,7 +66,7 @@ end;
 //------------------------------------------------------------------------------
 procedure TfrmAddCommand.FormCreate(Sender: TObject);
 begin
-  Caption := XPreconfiguredIcons;
+  Caption := XSpecificIcons;
 end;
 //------------------------------------------------------------------------------
 procedure TfrmAddCommand.FormClose(Sender: TObject; var CloseAction: TCloseAction);

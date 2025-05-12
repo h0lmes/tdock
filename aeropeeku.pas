@@ -420,10 +420,12 @@ begin
       FTextColor := $ffffffff;
       if (FColor1 shr 16 and $ff + FColor1 shr 8 and $ff + FColor1 and $ff) div 3 > $90 then FTextColor := $ff000000;
 
+      // add items
       AddItems(AppList);
+      // register thumbnails
       RegisterThumbnails;
+      // set items' positions, calulate window size, update workarea
       SetItems;
-
       FAlphaTarget := 255;
       FAlpha := 255;
       FHover := false;
@@ -473,7 +475,7 @@ begin
       crs.Leave;
     end;
   except
-    on e: Exception do err('AeroPeekWindow.OpenAPWindow', e);
+    on e: Exception do err('AeroPeekWindow.OpenWindow', e);
   end;
 
   // fix window icons bug

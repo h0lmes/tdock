@@ -5,7 +5,7 @@ interface
 uses
   Windows, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   DefaultTranslator, Dialogs, StdCtrls, ExtCtrls, ComCtrls, Menus, Buttons,
-  GDIPAPI, gfx, PIDL, stackitemu, themeu;
+  GDIPAPI, gfx, PIDL, stackitemu, themeu, DividerBevel;
 
 type
   _uproc = procedure(AData: string) of object;
@@ -24,29 +24,39 @@ type
     btnOK: TButton;
     btnApply: TButton;
     btnCancel: TButton;
+    btnProperties: TButton;
+    btnSelectColor: TButton;
     cboMode: TComboBox;
+    cboPreview: TComboBox;
     chbBackground: TCheckBox;
-    chbPreview: TCheckBox;
     chbSorted: TCheckBox;
-    edCaption: TEdit;
     edImage: TEdit;
+    edCaption: TEdit;
     edSpecialFolder: TEdit;
     iPic: TPaintBox;
-    lblAnimationSpeed: TLabel;
-    lblCaption: TLabel;
-    lblDir: TLabel;
-    lblDistort: TLabel;
+    Label1: TLabel;
+    Label2: TLabel;
+    Label3: TLabel;
+    Label4: TLabel;
+    Label5: TLabel;
     lblImage: TLabel;
-    lblOffset: TLabel;
+    lblDistort: TLabel;
+    lblCaption: TLabel;
+    lblAnimationSpeed: TLabel;
     lblSpecialFolder: TLabel;
     lblStyle: TLabel;
+    lblDir: TLabel;
+    lblOffset: TLabel;
     list: TListBox;
+    pages: TPageControl;
     tbAnimationSpeed: TTrackBar;
+    tbDistort: TTrackBar;
+    tbOffset: TTrackBar;
+    tsProperties: TTabSheet;
+    tsColor: TTabSheet;
     tbBr: TTrackBar;
     tbCont: TTrackBar;
-    tbDistort: TTrackBar;
     tbHue: TTrackBar;
-    tbOffset: TTrackBar;
     tbSat: TTrackBar;
     procedure bbAddIconClick(Sender: TObject);
     procedure bbDelIconClick(Sender: TObject);
@@ -54,15 +64,18 @@ type
     procedure bbIconDownClick(Sender: TObject);
     procedure bbIconUpClick(Sender: TObject);
     procedure btnBrowseImage1Click(Sender: TObject);
+    procedure btnDefaultColorClick(Sender: TObject);
+    procedure btnPropertiesClick(Sender: TObject);
     procedure cboModeChange(Sender: TObject);
+    procedure cboPreviewChange(Sender: TObject);
     procedure chbBackgroundChange(Sender: TObject);
-    procedure chbPreviewChange(Sender: TObject);
     procedure chbSortedChange(Sender: TObject);
     procedure edCaptionChange(Sender: TObject);
     procedure edImageChange(Sender: TObject);
     procedure edSpecialFolderChange(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure btnClearImageClick(Sender: TObject);
+    procedure btnSelectColorClick(Sender: TObject);
     procedure btnCancelClick(Sender: TObject);
     procedure btnOKClick(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: word; Shift: TShiftState);
@@ -72,9 +85,8 @@ type
     procedure listDblClick(Sender: TObject);
     procedure tbAnimationSpeedChange(Sender: TObject);
     procedure tbDistortChange(Sender: TObject);
-    procedure tbOffsetChange(Sender: TObject);
     procedure tbHueChange(Sender: TObject);
-    procedure btnDefaultColorClick(Sender: TObject);
+    procedure tbOffsetChange(Sender: TObject);
   private
     savedCaption: WideString;
     savedImageFile: string;
@@ -84,7 +96,7 @@ type
     savedOffset: integer;
     savedAnimationSpeed: integer;
     savedDistort: integer;
-    savedPreview: boolean;
+    savedPreview: integer;
     savedShowBackground: boolean;
     savedSorted: boolean;
     //
@@ -118,7 +130,11 @@ class procedure TfrmStackProp.Open(wnd: HWND);
 begin
   try
     if not assigned(frmStackProp) then Application.CreateForm(self, frmStackProp);
-    if frmStackProp.SetData(wnd) then frmStackProp.Show;
+    if frmStackProp.SetData(wnd) then
+    begin
+      frmStackProp.Show;
+      frmStackProp.edCaption.SetFocus;
+    end;
   except
     on e: Exception do frmmain.err('frmStackProp.Open', e);
   end;
@@ -129,7 +145,12 @@ var
   idx: integer;
 begin
   FChanged := false;
+
   for idx := 0 to mc.GetModeCount - 1 do cboMode.Items.Add(mc.GetModeName(idx));
+  cboPreview.Clear;
+  cboPreview.Items.Add(XStackPreviewNone);
+  cboPreview.Items.Add(XStackPreviewFour);
+  cboPreview.Items.Add(XStackPreviewNine);
 end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.FormShow(Sender: TObject);
@@ -150,6 +171,7 @@ begin
   if not (Item is TStackItem) then exit;
 
   result := true;
+  pages.ActivePageIndex := 0;
 
   ItemHWnd                   := wnd;
   savedCaption               := Item.Caption;
@@ -171,18 +193,18 @@ begin
   edSpecialFolder.Text       := AnsiToUTF8(savedSpecialFolder);
 
   color_data                 := savedColorData;
-  tbHue.OnChange    := nil;
-  tbSat.OnChange    := nil;
-  tbBr.OnChange     := nil;
-  tbCont.OnChange   := nil;
-  tbHue.position    := byte(color_data);
-  tbSat.position    := byte(color_data shr 8);
-  tbBr.position     := byte(color_data shr 16);
-  tbCont.position   := byte(color_data shr 24);
-  tbHue.OnChange    := tbHueChange;
-  tbSat.OnChange    := tbHueChange;
-  tbBr.OnChange     := tbHueChange;
-  tbCont.OnChange   := tbHueChange;
+  tbHue.OnChange             := nil;
+  tbSat.OnChange             := nil;
+  tbBr.OnChange              := nil;
+  tbCont.OnChange            := nil;
+  tbHue.position             := byte(color_data);
+  tbSat.position             := byte(color_data shr 8);
+  tbBr.position              := byte(color_data shr 16);
+  tbCont.position            := byte(color_data shr 24);
+  tbHue.OnChange             := tbHueChange;
+  tbSat.OnChange             := tbHueChange;
+  tbBr.OnChange              := tbHueChange;
+  tbCont.OnChange            := tbHueChange;
 
   tbOffset.Position          := -1;
   tbOffset.Position          := 0;
@@ -194,7 +216,7 @@ begin
   tbOffset.Position          := savedOffset;
   tbAnimationSpeed.Position  := savedAnimationSpeed;
   tbDistort.Position         := savedDistort;
-  chbPreview.Checked         := savedPreview;
+  cboPreview.ItemIndex       := savedPreview;
   chbBackground.checked      := savedShowBackground;
   chbSorted.checked          := savedSorted;
 
@@ -232,6 +254,7 @@ end;
 procedure TfrmStackProp.btnOKClick(Sender: TObject);
 begin
   if FChanged then btnApply.Click;
+  // save settings !!!
   frmmain.BaseCmd(tcSaveSets, 0);
   Close;
 end;
@@ -239,17 +262,17 @@ end;
 procedure TfrmStackProp.btnApplyClick(Sender: TObject);
 begin
   try
-    Item.Caption        := UTF8Decode(edCaption.Text);
-    Item.ImageFile      := UTF8ToAnsi(edImage.Text);
-    Item.SpecialFolder  := UTF8ToAnsi(edSpecialFolder.Text);
-    Item.ColorData      := color_data;
-    Item.Mode           := cboMode.ItemIndex;
-    Item.Offset         := tbOffset.Position;
-    Item.AnimationSpeed := tbAnimationSpeed.Position;
-    Item.Distort        := tbDistort.Position;
-    Item.Preview        := chbPreview.Checked;
-    Item.ShowBackground := chbBackground.Checked;
-    Item.Sorted         := chbSorted.Checked;
+    Item.Caption               := UTF8Decode(edCaption.Text);
+    Item.ImageFile             := UTF8ToAnsi(edImage.Text);
+    Item.SpecialFolder         := UTF8ToAnsi(edSpecialFolder.Text);
+    Item.ColorData             := color_data;
+    Item.Mode                  := cboMode.ItemIndex;
+    Item.Offset                := tbOffset.Position;
+    Item.AnimationSpeed        := tbAnimationSpeed.Position;
+    Item.Distort               := tbDistort.Position;
+    Item.Preview               := cboPreview.ItemIndex;
+    Item.ShowBackground        := chbBackground.Checked;
+    Item.Sorted                := chbSorted.Checked;
     Item.Update;
     FChanged := false;
   except
@@ -261,17 +284,17 @@ procedure TfrmStackProp.btnCancelClick(Sender: TObject);
 begin
   if FChanged then
   begin
-    Item.Caption        := savedCaption;
-    Item.ImageFile      := savedImageFile;
-    Item.SpecialFolder  := savedSpecialFolder;
-    Item.ColorData      := savedColorData;
-    Item.Mode           := savedMode;
-    Item.Offset         := savedOffset;
-    Item.AnimationSpeed := savedAnimationSpeed;
-    Item.Distort        := savedDistort;
-    Item.Preview        := savedPreview;
-    Item.ShowBackground := savedShowBackground;
-    Item.Sorted         := savedSorted;
+    Item.Caption               := savedCaption;
+    Item.ImageFile             := savedImageFile;
+    Item.SpecialFolder         := savedSpecialFolder;
+    Item.ColorData             := savedColorData;
+    Item.Mode                  := savedMode;
+    Item.Offset                := savedOffset;
+    Item.AnimationSpeed        := savedAnimationSpeed;
+    Item.Distort               := savedDistort;
+    Item.Preview               := savedPreview;
+    Item.ShowBackground        := savedShowBackground;
+    Item.Sorted                := savedSorted;
     Item.Update;
   end;
   FChanged := false;
@@ -290,6 +313,16 @@ end;
 procedure TfrmStackProp.btnClearImageClick(Sender: TObject);
 begin
   edImage.Clear;
+end;
+//------------------------------------------------------------------------------
+procedure TfrmStackProp.btnSelectColorClick(Sender: TObject);
+begin
+  pages.ActivePageIndex := 1;
+end;
+//------------------------------------------------------------------------------
+procedure TfrmStackProp.btnPropertiesClick(Sender: TObject);
+begin
+  pages.ActivePageIndex := 0;
 end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.btnBrowseImage1Click(Sender: TObject);
@@ -343,12 +376,12 @@ begin
   FChanged := true;
 end;
 //------------------------------------------------------------------------------
-procedure TfrmStackProp.chbBackgroundChange(Sender: TObject);
+procedure TfrmStackProp.cboPreviewChange(Sender: TObject);
 begin
   FChanged := true;
 end;
 //------------------------------------------------------------------------------
-procedure TfrmStackProp.chbPreviewChange(Sender: TObject);
+procedure TfrmStackProp.chbBackgroundChange(Sender: TObject);
 begin
   FChanged := true;
 end;
@@ -356,6 +389,35 @@ end;
 procedure TfrmStackProp.chbSortedChange(Sender: TObject);
 begin
   FChanged := true;
+end;
+//------------------------------------------------------------------------------
+procedure TfrmStackProp.tbHueChange(Sender: TObject);
+begin
+  FChanged := true;
+  color_data := byte(tbHue.Position) +
+    byte(tbSat.Position) shl 8 +
+    byte(tbBr.Position) shl 16 +
+    byte(tbCont.Position) shl 24;
+  DrawFit;
+end;
+//------------------------------------------------------------------------------
+procedure TfrmStackProp.btnDefaultColorClick(Sender: TObject);
+begin
+  FChanged := true;
+  color_data      := DEF_COLOR_DATA;
+  tbHue.OnChange  := nil;
+  tbSat.OnChange  := nil;
+  tbBr.OnChange   := nil;
+  tbCont.OnChange := nil;
+  tbHue.position  := byte(color_data);
+  tbSat.position  := byte(color_data shr 8);
+  tbBr.position   := byte(color_data shr 16);
+  tbCont.position := byte(color_data shr 24);
+  tbHue.OnChange  := tbHueChange;
+  tbSat.OnChange  := tbHueChange;
+  tbBr.OnChange   := tbHueChange;
+  tbCont.OnChange := tbHueChange;
+  tbHueChange(nil);
 end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.bbIconUpClick(Sender: TObject);
@@ -400,34 +462,6 @@ end;
 procedure TfrmStackProp.listDblClick(Sender: TObject);
 begin
   bbEditIcon.Click;
-end;
-//------------------------------------------------------------------------------
-procedure TfrmStackProp.tbHueChange(Sender: TObject);
-begin
-  FChanged := true;
-  color_data := byte(tbHue.Position) +
-    byte(tbSat.Position) shl 8 +
-    byte(tbBr.Position) shl 16 +
-    byte(tbCont.Position) shl 24;
-  DrawFit;
-end;
-//------------------------------------------------------------------------------
-procedure TfrmStackProp.btnDefaultColorClick(Sender: TObject);
-begin
-  color_data      := DEF_COLOR_DATA;
-  tbHue.OnChange  := nil;
-  tbSat.OnChange  := nil;
-  tbBr.OnChange   := nil;
-  tbCont.OnChange := nil;
-  tbHue.position  := byte(color_data);
-  tbSat.position  := byte(color_data shr 8);
-  tbBr.position   := byte(color_data shr 16);
-  tbCont.position := byte(color_data shr 24);
-  tbHue.OnChange  := tbHueChange;
-  tbSat.OnChange  := tbHueChange;
-  tbBr.OnChange   := tbHueChange;
-  tbCont.OnChange := tbHueChange;
-  tbHueChange(nil);
 end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.Draw;

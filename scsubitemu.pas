@@ -352,7 +352,7 @@ begin
       ptsBackground[3].y := IconY + BackgroundRect.Bottom;
       GdipSetSmoothingMode(dst, SmoothingModeAntiAlias);
 	    GdipCreatePath(FillModeWinding, path);
-      GdipAddPathClosedCurve2I(path, ptsBackground, 4, 0.01);
+      GdipAddPathClosedCurve2I(path, ptsBackground, 4, 0.1);
 	    GdipCreateSolidFill(AHintAlpha shl 24 + FFont.backcolor and $ffffff, brush);
       GdipFillPath(dst, brush, path);
 	    GdipDeleteBrush(brush);

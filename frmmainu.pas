@@ -121,7 +121,6 @@ type
     function  GetMonitorWorkareaRect(pMonitor: PInteger = nil): Windows.TRect;
     function  GetMonitorBoundsRect(pMonitor: PInteger = nil): Windows.TRect;
     procedure MoveDock(iDirection: integer);
-    procedure MoveDockAlongEdge(iDirection: integer);
     procedure OnDragEnter(list: TStrings; hWnd: THandle);
     procedure OnDragOver;
     procedure OnDragLeave;
@@ -215,7 +214,17 @@ begin
 
     // create ItemManager //
     try
-      ItemMgr := TItemManager.Create(Handle, BaseCmd, sets.container);
+      ItemMgr := TItemManager.Create(Handle, BaseCmd,
+          sets.container.ItemSize, sets.container.BigItemSize, sets.container.ZoomWidth,
+          sets.container.ZoomTime, sets.container.ItemSpacing, sets.container.ZoomEnabled,
+          sets.container.ReflectionEnabled, sets.container.ReflectionSize, sets.container.LaunchInterval,
+          sets.container.ItemAnimationType, sets.container.SeparatorAlpha,
+          sets.container.ActivateRunningApps, sets.container.UseShellContextMenus, sets.container.LockDragging,
+          sets.container.StackAnimationEnabled,
+          sets.container.AeroPeekEnabled, sets.container.TaskLivePreviews,
+          sets.container.TaskGrouping, sets.container.TaskSystemMenus,
+          sets.container.TaskThumbSize, sets.container.TaskSpot,
+          sets.container.ShowHint, sets.container.Font);
       {$ifdef EXT_DEBUG} AddLog('TItemManager.Create'); {$endif}
     except
       notify(UTF8Decode(XErrorCritical + ' ' + XErrorContactDeveloper));
@@ -603,9 +612,9 @@ begin
 
   // take some actions after notifying ItemMgr //
   case id of
-    gpLockMouseEffect: WHMouseMove(0);
+    gpLockMouseEffect:       WHMouseMove(0);
     gpOccupyFullMonitor, gpStartOffset, gpEndOffset: BaseCmd(tcThemeChanged, 0);
-    gpTaskbar: UpdateRunning;
+    gpTaskbar:               UpdateRunning;
   end;
 end;
 //------------------------------------------------------------------------------
@@ -772,20 +781,13 @@ begin
     if key = 39 then MoveDock(2);
     if key = 40 then MoveDock(3);
   end
-  else if shift = [ssShift] then
-  begin
-    if key = 37 then MoveDockAlongEdge(0);
-    if key = 38 then MoveDockAlongEdge(1);
-    if key = 39 then MoveDockAlongEdge(2);
-    if key = 40 then MoveDockAlongEdge(3);
-  end
   else if shift = [ssCtrl] then
   begin
     if key = 90 {Ctrl+Z} then execute_cmdline('/undelete');
   end;
 end;
 //------------------------------------------------------------------------------
-// moves the dock to another edge and/or monitor
+// moves dock to another edge and/or monitor
 procedure Tfrmmain.MoveDock(iDirection: integer);
 begin
   if iDirection = 0 then
@@ -816,22 +818,6 @@ begin
 
   if iDirection = 1 then SetParam(gpSite, 1);
   if iDirection = 3 then SetParam(gpSite, 3);
-end;
-//------------------------------------------------------------------------------
-// moves the dock along an edge
-procedure Tfrmmain.MoveDockAlongEdge(iDirection: integer);
-begin
-  if (sets.container.Site = bsTop) or (sets.container.Site = bsBottom) then
-  begin
-    if iDirection = 0 then SetParam(gpCenterOffsetPercent, sets.container.CenterOffsetPercent - 1);
-    if iDirection = 2 then SetParam(gpCenterOffsetPercent, sets.container.CenterOffsetPercent + 1);
-  end;
-
-  if (sets.container.Site = bsLeft) or (sets.container.Site = bsRight) then
-  begin
-    if iDirection = 1 then SetParam(gpCenterOffsetPercent, sets.container.CenterOffsetPercent - 1);
-    if iDirection = 3 then SetParam(gpCenterOffsetPercent, sets.container.CenterOffsetPercent + 1);
-  end;
 end;
 //------------------------------------------------------------------------------
 procedure Tfrmmain.WMUser(var msg: TMessage);
@@ -1221,7 +1207,7 @@ begin
   FMenuCreate := CreatePopupMenu;
   AppendMenuW(FMenuCreate, MF_STRING + ifthen(ItemMgr._itemsDeleted.Count > 0, 0, MF_DISABLED),
     $f026, pwchar(UTF8Decode(XUndeleteIcon)));
-  AppendMenuW(FMenuCreate, MF_STRING, $f023, pwchar(UTF8Decode(XPreconfiguredIcons)));
+  AppendMenuW(FMenuCreate, MF_STRING, $f023, pwchar(UTF8Decode(XSpecificIcons)));
   AppendMenuW(FMenuCreate, MF_STRING, $f021, pwchar(UTF8Decode(XEmptyIcon)));
   AppendMenuW(FMenuCreate, MF_STRING, $f022, pwchar(UTF8Decode(XFile)));
   AppendMenuW(FMenuCreate, MF_STRING, $f024, pwchar(UTF8Decode(XSeparator)));

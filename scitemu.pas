@@ -242,7 +242,7 @@ begin
           FIsPIDL := assigned(FPIDL);
           if FIsPIDL and (FCaption = '::::') then FCaption := PIDL_GetDisplayName3(FPIDL);
 
-          // check if this is a shortcut to an executable file
+          // check if this is the shortcut to an executable file
           if not FIsPIDL then
           begin
             FExecutable := toolu.UnzipPath(FCommand);
@@ -278,48 +278,42 @@ begin
   except end;
   FImage := nil;
 
-  // if recycle bin
-  if FDynObjectRecycleBin and (FImageFile <> '') then
+  if FDynObjectRecycleBin and (FImageFile <> '') then // the recycle bin
   begin
     if FDynObjectState = 0 then
       LoadImage(UnzipPath(FImageFile), FBigItemSize, false, true, FImage, FIW, FIH)
     else
       LoadImage(UnzipPath(FImageFile2), FBigItemSize, false, true, FImage, FIW, FIH);
-    exit;
-  end;
-
-  // if a dynamic state object
-  if FDynObject then
+  end
+  else
+  if FDynObject then // if a dynamic state object
   begin
     LoadDynObjectImage(FImageFile, FBigItemSize, false, true, FImage, FIW, FIH);
-    exit;
-  end;
-
-  // if custom image is set
-  if FImageFile <> '' then
+  end
+  else
+  if FImageFile <> '' then // if custom image file specified
   begin
     LoadImage(UnzipPath(FImageFile), FBigItemSize, false, true, FImage, FIW, FIH);
-    exit;
-  end;
-
-  if IsImmersiveApp(FCommand) then
+  end
+  else // if no custom image set - load from object itself (Immersive App, PIDL or File)
   begin
-    imgPIDL := PIDL_GetFromPath(pchar(FCommand));
-    if assigned(imgPIDL) then
+    if IsImmersiveApp(FCommand) then
     begin
-      LoadImageFromPIDL(imgPIDL, FBigItemSize, false, true, FImage, FIW, FIH);
-      PIDL_Free(imgPIDL);
+      imgPIDL := PIDL_GetFromPath(pchar(FCommand));
+      if assigned(imgPIDL) then
+      begin
+        LoadImageFromPIDL(imgPIDL, FBigItemSize, false, true, FImage, FIW, FIH);
+        PIDL_Free(imgPIDL);
+      end;
+    end
+    else
+    begin
+      if FIsPIDL then
+        LoadImageFromPIDL(FPIDL, FBigItemSize, false, true, FImage, FIW, FIH)
+      else
+        LoadImage(UnzipPath(FCommand), FBigItemSize, false, true, FImage, FIW, FIH);
     end;
-    exit;
   end;
-
-  if FIsPIDL then
-  begin
-    LoadImageFromPIDL(FPIDL, FBigItemSize, false, true, FImage, FIW, FIH);
-    exit;
-  end;
-
-  LoadImage(UnzipPath(FCommand), FBigItemSize, false, true, FImage, FIW, FIH);
 end;
 //--------------------------------------------------------------------------------------------------
 procedure TShortcutItem.LoadDynObjectImage(imagefile: string; MaxSize: integer; exact, default: boolean; var image: pointer; var srcwidth, srcheight: uint);

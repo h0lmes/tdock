@@ -509,7 +509,7 @@ begin
   // multi-dock support //
 
   TMultiDock.CCreate();
-  // read sets filename from command line params
+  // read sets filename from params
   ProgramPath := IncludeTrailingPathDelimiter(ExtractFilePath(Paramstr(0)));
   SetsFilename := '';
   idx := 1;

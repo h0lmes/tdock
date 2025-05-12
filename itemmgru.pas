@@ -5,7 +5,7 @@ unit itemmgru;
 interface
 uses
   Windows, Messages, Classes, SysUtils, Forms, IniFiles, Math,
-  declu, DockH, toolu, setsu, gfx, GDIPAPI, processhlp, iniproc,
+  declu, DockH, toolu, gfx, GDIPAPI, processhlp, iniproc,
   customitemu, scitemu, sepitemu, plgitemu, stackitemu, taskitemu, loggeru;
 
 const
@@ -146,7 +146,14 @@ type
     property WndOffset: integer read FWndOffset write SetWndOffset;
     property ItemCount: integer read FItemCount;
 
-    constructor Create(Handle: THandle; ABaseCmd: TDBaseCmd; container: TDSetsContainer);
+    constructor Create(Handle: THandle; ABaseCmd: TDBaseCmd;
+      ItemSize, BigItemSize, ZoomWidth, ZoomTime, ItemSpacing: integer;
+      ZoomItems, Reflection: boolean;
+      ReflectionSize, LaunchInterval, ItemAnimation, SeparatorAlpha: integer;
+      ActivateRunning, UseShellContextMenus, LockDragging, StackAnimationEnabled: boolean;
+      AeroPeekEnabled, TaskLivePreviews, TaskGrouping, TaskSystemMenus: boolean;
+      TaskThumbSize, TaskSpot: integer;
+      ShowHint: boolean; Font: TDFontData);
     destructor Destroy; override;
     procedure Enable(value: boolean);
     procedure SetParam(id: TDParam; value: PtrInt);
@@ -207,38 +214,46 @@ end;
 
 implementation
 //------------------------------------------------------------------------------
-constructor TItemManager.Create(Handle: THandle; ABaseCmd: TDBaseCmd; container: TDSetsContainer);
+constructor TItemManager.Create(Handle: THandle; ABaseCmd: TDBaseCmd;
+      ItemSize, BigItemSize, ZoomWidth, ZoomTime, ItemSpacing: integer;
+      ZoomItems, Reflection: boolean;
+      ReflectionSize, LaunchInterval, ItemAnimation, SeparatorAlpha: integer;
+      ActivateRunning, UseShellContextMenus, LockDragging, StackAnimationEnabled: boolean;
+      AeroPeekEnabled, TaskLivePreviews, TaskGrouping, TaskSystemMenus: boolean;
+      TaskThumbSize, TaskSpot: integer;
+      ShowHint: boolean; Font: TDFontData);
 begin
   inherited Create;
 
   // creation parameters
   FEnabled := false;
   FVisible := false;
-  FParentHWnd            := Handle;
-  FBaseCmd               := ABaseCmd;
-  FItemSize              := container.ItemSize;
-  FBigItemSize           := container.BigItemSize;
-  FZoomWidth             := container.ZoomWidth;
-  FZoomTime              := SetRange(container.ZoomTime, 1, 1000);
-  FItemSpacing           := container.ItemSpacing;
-  FZoomItems             := container.ZoomEnabled;
-  FReflection            := container.ReflectionEnabled;
-  FReflectionSize        := container.ReflectionSize;
-  FLaunchInterval        := container.LaunchInterval;
-  FItemAnimation         := container.ItemAnimationType;
-  FSeparatorAlpha        := container.SeparatorAlpha;
-  FActivateRunning       := container.ActivateRunningApps;
-  FUseShellContextMenus  := container.UseShellContextMenus;
-  FLockDragging          := container.LockDragging;
-  FStackAnimationEnabled := container.StackAnimationEnabled;
-  FAeroPeekEnabled       := container.AeroPeekEnabled;
-  FTaskLivePreviews      := container.TaskLivePreviews;
-  FTaskGrouping          := container.TaskGrouping;
-  FTaskSystemMenus       := container.TaskSystemMenus;
-  FTaskThumbSize         := container.TaskThumbSize;
-  FTaskSpot              := container.TaskSpot;
-  FShowHint              := container.ShowHint;
-  CopyFontData(container.Font, FFont);
+  FParentHWnd := Handle;
+  FBaseCmd := ABaseCmd;
+  FItemSize := ItemSize;
+  FBigItemSize := BigItemSize;
+  FZoomWidth := ZoomWidth;
+  FZoomTime := ZoomTime;
+  if FZoomTime < 1 then FZoomTime := 1;
+  FItemSpacing := ItemSpacing;
+  FZoomItems := ZoomItems;
+  FReflection := Reflection;
+  FReflectionSize := ReflectionSize;
+  FLaunchInterval := LaunchInterval;
+  FItemAnimation := ItemAnimation;
+  FSeparatorAlpha := SeparatorAlpha;
+  FActivateRunning := ActivateRunning;
+  FUseShellContextMenus := UseShellContextMenus;
+  FLockDragging := LockDragging;
+  FStackAnimationEnabled := StackAnimationEnabled;
+  FAeroPeekEnabled := AeroPeekEnabled;
+  FTaskLivePreviews := TaskLivePreviews;
+  FTaskGrouping := TaskGrouping;
+  FTaskSystemMenus := TaskSystemMenus;
+  FTaskThumbSize := TaskThumbSize;
+  FTaskSpot := TaskSpot;
+  FShowHint := ShowHint;
+  CopyFontData(Font, FFont);
 
   // init
   FItemCount := 0;

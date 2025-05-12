@@ -1031,7 +1031,7 @@ end;
 procedure LoadImageFromPIDL(pidl: PItemIDList; MaxSize: integer; exact: boolean; default: boolean; var image: pointer; var srcwidth, srcheight: uint);
 var
   sfi: TSHFileInfoW;
-  imageList: HIMAGELIST;
+  hil: HIMAGELIST;
   ico: HICON;
   shil: cardinal;
   jumbo: boolean;
@@ -1046,8 +1046,8 @@ begin
     if bIsWindowsVistaOrHigher then shil := SHIL_JUMBO;
 
     SHGetFileInfoW(pwchar(pidl), 0, sfi, sizeof(sfi), SHGFI_PIDL or SHGFI_ICON or SHGFI_SYSICONINDEX or SHGFI_SHELLICONSIZE);
-    if S_OK = SHGetImageList(shil, IID_IImageList, @imageList) then
-        ico := ImageList_GetIcon(imageList, sfi.iIcon, ILD_TRANSPARENT + ILD_IMAGE);
+    if S_OK = SHGetImageList(shil, IID_IImageList, @hil) then
+        ico := ImageList_GetIcon(hil, sfi.iIcon, ILD_TRANSPARENT);
 
     jumbo := false;
     if bIsWindowsVistaOrHigher then jumbo := IsJumboIcon(ico);
@@ -1396,14 +1396,13 @@ var
   w, h: uint;
 begin
   result := false;
-  if (image = nil) or not assigned(image) then exit;
+  srcwidth := 32;
+  srcheight := 32;
+  if not assigned(image) then exit;
 
   try
-    srcwidth := 32;
-    srcheight := 32;
     GdipGetImageWidth(image, w);
     GdipGetImageHeight(image, h);
-    if (w = 0) or (h = 0) then exit;
     if h > w then h := w;
     if w > h then w := h;
     srcwidth := w;
@@ -1425,7 +1424,6 @@ begin
       end;
       imgTemp := image;
       GdipCreateBitmapFromScan0(srcwidth, srcheight, 0, PixelFormat32bppPARGB, nil, image);
-      if image = nil then exit;
       GdipGetImageGraphicsContext(image, g);
       GdipSetInterpolationMode(g, InterpolationModeHighQualityBicubic);
       GdipSetPixelOffsetMode(g, PixelOffsetModeHighQuality);
@@ -1442,7 +1440,6 @@ begin
       end;
       imgTemp := image;
       GdipCreateBitmapFromScan0(srcwidth, srcheight, 0, PixelFormat32bppPARGB, nil, image);
-      if image = nil then exit;
       GdipGetImageGraphicsContext(image, g);
       GdipSetInterpolationMode(g, InterpolationModeHighQualityBicubic);
       GdipSetPixelOffsetMode(g, PixelOffsetModeHighQuality);
@@ -1453,7 +1450,7 @@ begin
       result := true;
     end;
   except
-    on e: Exception do raise Exception.Create('DownscaleImage(image=' + IntToStr(QWord(image)) + ') ' + LineEnding + e.message);
+    on e: Exception do raise Exception.Create('DownscaleImage ' + LineEnding + e.message);
   end;
 end;
 //--------------------------------------------------------------------------------------------------

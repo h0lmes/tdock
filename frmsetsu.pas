@@ -12,12 +12,12 @@ type
   { Tfrmsets }
 
   Tfrmsets = class(TForm)
-    Bevel1: TBevel;
     btnAutoRunAdd: TSpeedButton;
     btnAutoRunAddMinimized: TSpeedButton;
     btnBackColor: TButton;
-    btnBrowseShell: TButton;
     btnDebug: TButton;
+    btnFontBold: TSpeedButton;
+    btnFontItalic: TSpeedButton;
     btnRemoveDock: TButton;
     btnRestore: TButton;
     btnRunNow: TButton;
@@ -25,9 +25,6 @@ type
     btnColor: TButton;
     cbAutoHide: TCheckBox;
 		cbShowHint: TCheckBox;
-    cbUseShell: TCheckBox;
-    chbItalic: TCheckBox;
-    chbRunInThread: TCheckBox;
     chbTaskbarSystemMenus: TCheckBox;
 		chbAutoHideOnFullScreenApp: TCheckBox;
     chbGlobalConsole: TCheckBox;
@@ -36,6 +33,7 @@ type
     chbReserveScreenEdge: TCheckBox;
     cboItemAnimationType: TComboBox;
     chbStackOpenAnimation: TCheckBox;
+    chbRunInThread: TCheckBox;
     chbOccupyFullMonitor: TCheckBox;
     chbTaskbar: TCheckBox;
     chbAeroPeekEnabled: TCheckBox;
@@ -44,22 +42,26 @@ type
     chbTaskbarSameMonitor: TCheckBox;
     chbUseShellContextMenus: TCheckBox;
     chbReflection: TCheckBox;
-    chbBold: TCheckBox;
+    DividerBevel4: TDividerBevel;
     DividerBevel5: TDividerBevel;
+    DividerBevel6: TDividerBevel;
     DividerBevel7: TDividerBevel;
     edAutoHideTime: TEdit;
     edAutoShowTime: TEdit;
     edFontSize: TEdit;
+    edFontSize2: TEdit;
+		edActivateOnMouseInterval: TEdit;
     edRolledVisiblePixels: TEdit;
-    edShell: TEdit;
     edStartOffset: TEdit;
     edEndOffset: TEdit;
     hkConsole: TEdit;
     hkHide: TEdit;
+    Label1: TLabel;
     Label2: TLabel;
-    lblLivePreviewSize: TLabel;
-    Label5: TLabel;
+    Label3: TLabel;
+    Label4: TLabel;
     lblHideDelay: TLabel;
+    lblRemoveDock: TLabel;
     lblBackgroundTransparency1: TLabel;
     lblBackgroundTransparency2: TLabel;
     lblCredits6: TLabel;
@@ -82,6 +84,7 @@ type
     pages: TPageControl;
     btnAutoRunDel: TSpeedButton;
     pbox: TPaintBox;
+    stMouseOverTip: TStaticText;
     tbAeroPeekThumbSize: TTrackBar;
     tsTaskbar: TTabSheet;
     tv: TTreeView;
@@ -108,6 +111,12 @@ type
     lblZoomWideness: TLabel;
     lblIconSize: TLabel;
     cbActivateOnMouse: TCheckBox;
+    lblLaunchInterval: TLabel;
+    edLaunchInterval: TEdit;
+    lblLaunchIntervalTip: TLabel;
+    cbUseShell: TCheckBox;
+    edShell: TEdit;
+    btnBrowseShell: TButton;
     cboBaseSite: TComboBox;
     lblCenterOffsetPercent: TLabel;
     lblEdge: TLabel;
@@ -128,6 +137,7 @@ type
     btn_cancel: TBitBtn;
     images: TImageList;
     udFontSize: TUpDown;
+    udFontSize2: TUpDown;
     procedure btnAutoRunAddMinimizedClick(Sender: TObject);
     procedure btnBackColorClick(Sender: TObject);
     procedure btnColorClick(Sender: TObject);
@@ -153,6 +163,7 @@ type
     procedure chbOccupyFullMonitorChange(Sender: TObject);
     procedure chbTaskbarSystemMenusChange(Sender: TObject);
     procedure chbUseShellContextMenusChange(Sender: TObject);
+		procedure edActivateOnMouseIntervalChange(Sender: TObject);
     procedure edEndOffsetChange(Sender: TObject);
     procedure edStartOffsetChange(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -183,6 +194,7 @@ type
     procedure lblMailToClick(Sender: TObject);
     procedure tbCenterOffsetPercentChange(Sender: TObject);
     procedure cbShowHintChange(Sender: TObject);
+    procedure edLaunchIntervalChange(Sender: TObject);
     procedure cboBaseSiteChange(Sender: TObject);
     procedure tbIconSizeChange(Sender: TObject);
     procedure tbBigIconSizeChange(Sender: TObject);
@@ -206,7 +218,6 @@ type
     procedure UpdateReserveScreenEdgePercentLabel;
     procedure UpdateLblCenterOffsetPercent;
     procedure UpdateItemSizeLabels;
-    procedure UpdateLivePreviewSizeLabel;
     procedure ReadAutorun;
     procedure SaveAutorun;
     procedure ApplyFont(Sender: TObject);
@@ -269,7 +280,7 @@ begin
   tv.Items.Item[2].Text := XPagePosition;
   tv.Items.Item[3].Text := XPageStyle;
   tv.Items.Item[4].Text := XPageIcons;
-  tv.Items.Item[5].Text := XPageAutorun;
+  tv.Items.Item[5].Text := XPageMisc;
   tv.Items.Item[6].Text := XPageActions;
   tv.Items.Item[7].Text := XPageAbout;
 
@@ -386,15 +397,12 @@ begin
     SetInitValue(tbReserveScreenEdgePercent, sets.container.ReserveScreenEdgePercent);
     UpdateReserveScreenEdgePercentLabel;
     SetInitValue(cbActivateOnMouse, sets.container.ActivateOnMouse);
+    SetInitValue(edActivateOnMouseInterval, inttostr(sets.container.ActivateOnMouseInterval));
     SetInitValue(chbAutoHideOnFullScreenApp, sets.container.AutoHideOnFullScreenApp);
     SetInitValue(hkHide, TShortCut(sets.container.GlobalHotkeyValue_Hide));
     SetInitValue(hkConsole, TShortCut(sets.container.GlobalHotkeyValue_Console));
     SetInitValue(chbGlobalHide, sets.container.GlobalHotkeyFlag_Hide);
     SetInitValue(chbGlobalConsole, sets.container.GlobalHotkeyFlag_Console);
-
-    SetInitValue(chbRunInThread, sets.container.RunInThread);
-    SetInitValue(cbUseShell, sets.container.useshell);
-    SetInitValue(edShell, AnsiToUTF8(sets.container.shell));
   except
     on e: Exception do frmmain.err('frmSets.Show.General', e);
   end;
@@ -411,7 +419,6 @@ begin
     SetInitValue(chbTaskbarSystemMenus, sets.container.TaskSystemMenus);
     SetInitValue(chbTaskbarLivePreviews, sets.container.TaskLivePreviews);
     SetInitValue(tbAeroPeekThumbSize, sets.container.TaskThumbSize);
-    UpdateLivePreviewSizeLabel;
   except
     on e: Exception do frmmain.err('frmSets.Show.Taskbar', e);
   end;
@@ -470,13 +477,20 @@ begin
     listFont.Items := screen.Fonts;
     listFont.ItemIndex := listFont.items.IndexOf(PChar(@FFont.Name));
     listFont.OnClick := ApplyFont;
+
     edFontSize.OnChange := nil;
     udFontSize.Position := FFont.size;
     edFontSize.OnChange := ApplyFont;
-    chbBold.Checked := FFont.bold;
-    chbBold.OnChange := ApplyFont;
-    chbItalic.Checked := FFont.Italic;
-    chbItalic.OnChange := ApplyFont;
+
+    edFontSize2.OnChange := nil;
+    udFontSize2.Position := FFont.size2;
+    edFontSize2.OnChange := ApplyFont;
+
+    btnFontBold.Down := FFont.bold;
+    btnFontBold.OnClick := ApplyFont;
+
+    btnFontItalic.Down := FFont.Italic;
+    btnFontItalic.OnClick := ApplyFont;
   except
     on e: Exception do frmmain.err('frmSets.Show.Style', e);
   end;
@@ -505,8 +519,24 @@ begin
     on e: Exception do frmmain.err('frmSets.Show.Icons', e);
   end;
 
+  //
+  // tsSystem //
+  //
+
   try
-    ReadAutorun;
+    SetInitValue(chbRunInThread, sets.container.RunInThread);
+    SetInitValue(cbUseShell, sets.container.useshell);
+    SetInitValue(edShell, AnsiToUTF8(sets.container.shell));
+    SetInitValue(edLaunchInterval, inttostr(sets.container.LaunchInterval));
+  except
+    on e: Exception do frmmain.err('frmSets.Show.Misc', e);
+  end;
+
+  //
+  // tsAutorun //
+  //
+
+  try ReadAutorun;
   except
     on e: Exception do frmmain.err('frmSets.Show.Autorun', e);
   end;
@@ -607,6 +637,13 @@ end;
 procedure Tfrmsets.cbActivateOnMouseChange(Sender: TObject);
 begin
   frmmain.SetParam(gpActivateOnMouse, integer(TCheckBox(Sender).Checked));
+end;
+//------------------------------------------------------------------------------
+procedure Tfrmsets.edActivateOnMouseIntervalChange(Sender: TObject);
+var
+  value: integer;
+begin
+  if trystrtoint(edActivateOnMouseInterval.Text, value) then frmmain.SetParam(gpActivateOnMouseInterval, value);
 end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.tbCenterOffsetPercentChange(Sender: TObject);
@@ -713,11 +750,6 @@ end;
 procedure Tfrmsets.tbAeroPeekThumbSizeChange(Sender: TObject);
 begin
   frmmain.SetParam(gpTaskThumbSize, tbAeroPeekThumbSize.Position);
-end;
-//------------------------------------------------------------------------------
-procedure Tfrmsets.UpdateLivePreviewSizeLabel;
-begin
-  lblLivePreviewSize.Caption := format(XLabelLivePreviewSize, [sets.container.TaskThumbSize]);
 end;
 //------------------------------------------------------------------------------
 //
@@ -890,14 +922,12 @@ end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.ApplyFont(Sender: TObject);
 begin
-  if listFont.ItemIndex >= 0 then
-  begin
-    StrCopy(pchar(@FFont.Name), PChar(listFont.Items[listFont.ItemIndex]));
-  end;
+  if listFont.ItemIndex >= 0 then StrCopy(pchar(@FFont.Name), PChar(listFont.Items[listFont.ItemIndex]));
   FFont.size := StrToInt(edFontSize.Text);
-  FFont.size2 := FFont.size;
-  FFont.bold := chbBold.Checked;
-  FFont.italic := chbItalic.Checked;
+  FFont.size2 := StrToInt(edFontSize2.Text);
+  FFont.bold := btnFontBold.down;
+  FFont.italic := btnFontItalic.down;
+
   if FontPreview then frmmain.SetFont(FFont);
 end;
 //------------------------------------------------------------------------------
@@ -1026,6 +1056,13 @@ begin
   finally
     Free;
   end;
+end;
+//------------------------------------------------------------------------------
+procedure Tfrmsets.edLaunchIntervalChange(Sender: TObject);
+var
+  value: integer;
+begin
+  if trystrtoint(edLaunchInterval.text, value) then frmmain.SetParam(gpLaunchInterval, value);
 end;
 //------------------------------------------------------------------------------
 //

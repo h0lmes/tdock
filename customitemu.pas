@@ -540,6 +540,7 @@ begin
   inc(result.Bottom, r.Top);
 end;
 //------------------------------------------------------------------------------
+// item rect in screen coordinates
 function TCustomItem.ExpandRect(r: windows.TRect; value: integer): windows.TRect;
 begin
   result := r;
