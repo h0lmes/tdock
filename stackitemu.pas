@@ -1045,6 +1045,13 @@ begin
     FState := stsOpening; // further progress is being done by timer //
     FHideHint := true;
     Redraw;
+    if not FOpenAnimation then
+    begin
+      FStateProgress := 1;
+      FState := stsOpen;
+      ShowStackState;
+      ShowAllItems(true);
+    end;
     LME(true);
   end;
 end;
@@ -1056,10 +1063,16 @@ begin
     cmd(icSelect, 0);
     FStateProgress := 1;
     FState := stsClosing;  // further progress is being done by timer //
-    if immediate then
+    if immediate or not FOpenAnimation then
     begin
       FStateProgress := 0;
-      DoStateProgress;
+      FState := stsClosed;
+      ShowStackState;
+      LME(false);
+      FHideHint := false;
+      Redraw;
+      ShowAllItems(false);
+      CheckDeleteSubitems;
 		end;
 	end;
 end;
