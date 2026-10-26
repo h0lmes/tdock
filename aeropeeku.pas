@@ -5,7 +5,7 @@ unit aeropeeku;
 interface
 
 uses Windows, Messages, Classes, SysUtils, Forms, lazutf8, Syncobjs,
-  declu, dwm_unit, GDIPAPI, gfx, toolu, processhlp, loggeru;
+  declu, dwm_unit, GDIPAPI, gfx, iconserviceu, toolu, processhlp, loggeru, docktimingu;
 
 const
   TITLE_PART = 63;
@@ -35,7 +35,7 @@ type
   { TAeroPeekWindow }
 
   TAeroPeekWindow = class
-  private
+  {$ifdef ANIMATION_TIMING_TESTS}protected{$else}private{$endif}
     FHWnd: THandle;
     FHostWnd: THandle;
     FPt: windows.TPoint;
@@ -88,6 +88,10 @@ type
     FAeroPeekAllowedInt: boolean;
     FAeroPeekEnabled: boolean;
     FState: TAPWState;
+    FFrameTimerActive: boolean;
+    FLastFrameAt: QWord;
+    FCloseDeadline, FPeekDeadline, FTrackDeadline: TDeadline;
+    FTitleDeadline: TDeadline;
     crs: TCriticalSection;
     items: array of TAeroPeekWindowItem;
     procedure AddItems(AppList: TFPList);
@@ -98,7 +102,6 @@ type
     function InTransition: boolean;
     procedure InvokeAeroPeek(index: integer);
     procedure MouseEnter;
-    procedure Paint;
     function GetMonitorRect(AMonitor: integer): Windows.TRect;
     procedure PositionThumbnails;
     procedure RegisterThumbnails;
@@ -108,8 +111,19 @@ type
     procedure TimerClose;
     procedure TrackMouse;
     procedure UnRegisterThumbnails;
-    procedure UpdateTitles;
     procedure err(where: string; e: Exception);
+  protected
+    function AnimationNow: QWord; virtual;
+    procedure Paint; virtual;
+    procedure StartFrameTimer;
+    procedure StopFrameTimer;
+    procedure SchedulePeek(Delay: QWord);
+    procedure CancelPeek;
+    procedure ScheduleClose(Delay: QWord);
+    procedure CancelClose;
+    function PointerInside: boolean; virtual;
+    procedure ApplyWindowPosition; virtual;
+    procedure UpdateTitles; virtual;
   public
     property Handle: THandle read FHWnd;
     property HostHandle: THandle read FHostWnd;
@@ -141,6 +155,58 @@ type
 var AeroPeekWindow: TAeroPeekWindow;
 
 implementation
+function TAeroPeekWindow.AnimationNow: QWord;
+begin Result := GetTickCount64; end;
+
+procedure TAeroPeekWindow.StartFrameTimer;
+begin
+  if FFrameTimerActive then exit;
+  FLastFrameAt := AnimationNow;
+  FFrameTimerActive := SetTimer(FHWnd, ID_TIMER, 10, nil) <> 0;
+end;
+
+procedure TAeroPeekWindow.StopFrameTimer;
+begin
+  KillTimer(FHWnd, ID_TIMER);
+  FFrameTimerActive := false;
+end;
+
+procedure TAeroPeekWindow.SchedulePeek(Delay: QWord);
+begin
+  FPeekDeadline.Schedule(AnimationNow, Delay);
+  SetTimer(FHWnd, ID_TIMER_AEROPEEK, UINT(Delay), nil);
+end;
+
+procedure TAeroPeekWindow.CancelPeek;
+begin
+  FPeekDeadline.Cancel;
+  KillTimer(FHWnd, ID_TIMER_AEROPEEK);
+end;
+
+procedure TAeroPeekWindow.ScheduleClose(Delay: QWord);
+begin
+  FCloseDeadline.Schedule(AnimationNow, Delay);
+  SetTimer(FHWnd, ID_TIMER_CLOSE, UINT(Delay), nil);
+end;
+
+procedure TAeroPeekWindow.CancelClose;
+begin
+  FCloseDeadline.Cancel;
+  KillTimer(FHWnd, ID_TIMER_CLOSE);
+end;
+
+function TAeroPeekWindow.PointerInside: boolean;
+var pt: windows.TPoint;
+begin
+  GetCursorPos(pt);
+  Result := WindowFromPoint(pt) = FHWnd;
+end;
+
+procedure TAeroPeekWindow.ApplyWindowPosition;
+begin
+  if FCompositionEnabled then UpdateLWindowPosAlpha(FHWnd, Fx, Fy, 255)
+  else SetWindowPos(FHWnd, $ffffffff, Fx, Fy, 0, 0, swp_nosize + swp_noactivate + swp_showwindow);
+end;
 //------------------------------------------------------------------------------
 // open (show) AeroPeekWindow
 class function TAeroPeekWindow.Open(HostWnd: THandle; AppList: TFPList; FlashWnd: THandle; AX, AY, Site, TaskThumbSize: integer; LivePreviews, AeroPeekEnabled: boolean): boolean;
@@ -372,11 +438,13 @@ begin
       FAeroPeekEnabled := AeroPeekEnabled;
       FFlashWnd := FlashWnd;
       FState := apwsOpen;
-      KillTimer(FHWnd, ID_TIMER_CLOSE);
+      CancelClose;
       KillTimer(FHWnd, ID_TIMER_TRACKMOUSE);
-      KillTimer(FHWnd, ID_TIMER_AEROPEEK);
-      KillTimer(FHWnd, ID_TIMER);
+      FTrackDeadline.Cancel;
+      CancelPeek;
+      StopFrameTimer;
       KillTimer(FHWnd, ID_TIMER_SLOW);
+      FTitleDeadline.Cancel;
       UnRegisterThumbnails;
       ClearImages;
       if AppList.Count = 0 then
@@ -467,7 +535,8 @@ begin
       // set it as foreground
       SetWindowPos(FHWnd, HWND_TOPMOST, 0, 0, 0, 0, swp_nomove + swp_nosize + swp_noactivate);
       ShowWindow(FHWnd, SW_SHOW);
-      if FAnimate then SetTimer(FHWnd, ID_TIMER, 10, nil);
+      if FAnimate then StartFrameTimer;
+      FTitleDeadline.Schedule(AnimationNow, 1000);
       SetTimer(FHWnd, ID_TIMER_SLOW, 1000, nil);
       FActive := true;
     finally
@@ -485,9 +554,15 @@ end;
 procedure TAeroPeekWindow.CloseAPWindow(Timeout: cardinal = 0);
 begin
   try
-    KillTimer(FHWnd, ID_TIMER_AEROPEEK);
+    CancelPeek;
     KillTimer(FHWnd, ID_TIMER_TRACKMOUSE);
-    KillTimer(FHWnd, ID_TIMER_CLOSE);
+    FTrackDeadline.Cancel;
+    CancelClose;
+    if not FActive then
+    begin
+      StopFrameTimer;
+      exit;
+    end;
 
     if Timeout = 0 then
     begin
@@ -500,13 +575,14 @@ begin
             else if FSite = 0 then FXTarget := Fx - 20
             else if FSite = 2 then FXTarget := Fx + 20;
             FState := apwsClose;
+            StartFrameTimer;
         end else begin
             CloseAPWindowInt;
         end;
     end
     else
     begin
-        SetTimer(Handle, ID_TIMER_CLOSE, Timeout, nil);
+        ScheduleClose(Timeout);
     end;
   except
     on e: Exception do err('AeroPeekWindow.CloseAPWindow', e);
@@ -517,11 +593,13 @@ procedure TAeroPeekWindow.CloseAPWindowInt;
 begin
   try
     InvokeAeroPeek(-1);
-    KillTimer(FHWnd, ID_TIMER_AEROPEEK);
+    CancelPeek;
     KillTimer(FHWnd, ID_TIMER_TRACKMOUSE);
-    KillTimer(FHWnd, ID_TIMER_CLOSE);
+    FTrackDeadline.Cancel;
+    CancelClose;
     KillTimer(FHWnd, ID_TIMER_SLOW);
-    KillTimer(FHWnd, ID_TIMER);
+    FTitleDeadline.Cancel;
+    StopFrameTimer;
     UnRegisterThumbnails;
     ClearImages;
     FActive := false;
@@ -534,10 +612,6 @@ end;
 //------------------------------------------------------------------------------
 procedure TAeroPeekWindow.SetAPWindowPosition(AX, AY: integer);
 begin
-  KillTimer(FHWnd, ID_TIMER_CLOSE);
-  KillTimer(FHWnd, ID_TIMER_TRACKMOUSE);
-  KillTimer(FHWnd, ID_TIMER_AEROPEEK);
-
   if FActive and not (FState = apwsClose) then
   begin
     FXTarget := AX - FWTarget div 2;
@@ -564,20 +638,17 @@ begin
     Fx := FXTarget;
     Fy := FYTarget;
 
-    if FCompositionEnabled then UpdateLWindowPosAlpha(FHWnd, Fx, Fy, 255)
-    else SetWindowPos(FHWnd, $ffffffff, Fx, Fy, 0, 0, swp_nosize + swp_noactivate + swp_showwindow);
+    ApplyWindowPosition;
+    if FAnimate and InTransition then StartFrameTimer;
   end;
 end;
 //------------------------------------------------------------------------------
 procedure TAeroPeekWindow.TrackMouse;
-var
-  pt: windows.TPoint;
-  wnd: THandle;
 begin
+  if not FActive or not FHover or not FTrackDeadline.IsDue(AnimationNow) then exit;
+  FTrackDeadline.Schedule(AnimationNow, 150);
   try
-    GetCursorPos(pt);
-    wnd := WindowFromPoint(pt);
-    if wnd = FHWnd then
+    if PointerInside then
     begin
       if not FHover then MouseEnter;
     end else begin
@@ -590,11 +661,13 @@ end;
 //------------------------------------------------------------------------------
 procedure TAeroPeekWindow.MouseEnter;
 begin
+  CancelClose;
   if not FHover then
   try
     FHover := true;
+    FTrackDeadline.Schedule(AnimationNow, 150);
     SetTimer(FHWnd, ID_TIMER_TRACKMOUSE, 150, nil);
-    SetTimer(FHWnd, ID_TIMER_AEROPEEK, 1000, nil);
+    SchedulePeek(1000);
   except
     on e: Exception do err('AeroPeekWindow.MouseEnter', e);
   end;
@@ -608,7 +681,8 @@ begin
       FHover := false;
       FHoverIndex := -1;
       KillTimer(FHWnd, ID_TIMER_TRACKMOUSE);
-      KillTimer(FHWnd, ID_TIMER_AEROPEEK);
+      FTrackDeadline.Cancel;
+      CancelPeek;
       InvokeAeroPeek(-1);
       CloseAPWindow(500);
     end;
@@ -706,7 +780,7 @@ begin
           if FHoverIndex <> index then
           begin
             FHoverIndex := index;
-            if not FAeroPeekAllowedInt then SetTimer(FHWnd, ID_TIMER_AEROPEEK, 1000, nil);
+            if not FAeroPeekAllowedInt then SchedulePeek(1000);
             Paint;
             InvokeAeroPeek(FHoverIndex);
           end;
@@ -724,7 +798,14 @@ begin
     else
     if wParam = ID_TIMER_CLOSE then TimerClose
     else
-    if wParam = ID_TIMER_SLOW then UpdateTitles
+    if wParam = ID_TIMER_SLOW then
+    begin
+      if FActive and FTitleDeadline.IsDue(AnimationNow) then
+      begin
+        FTitleDeadline.Schedule(AnimationNow, 1000);
+        UpdateTitles;
+      end;
+    end
     else
     if wParam = ID_TIMER_AEROPEEK then TimerAeroPeek
     else
@@ -735,20 +816,17 @@ begin
 end;
 //------------------------------------------------------------------------------
 procedure TAeroPeekWindow.TimerClose;
-var
-  pt: windows.TPoint;
 begin
-  GetCursorPos(pt);
-  if WindowFromPoint(pt) <> FHWnd then CloseAPWindow;
+  if not FActive or not FCloseDeadline.Consume(AnimationNow) then exit;
+  KillTimer(FHWnd, ID_TIMER_CLOSE);
+  if not PointerInside then CloseAPWindow;
 end;
 //------------------------------------------------------------------------------
 procedure TAeroPeekWindow.TimerAeroPeek;
-var
-  pt: windows.TPoint;
 begin
+  if not FActive or not FHover or not FPeekDeadline.Consume(AnimationNow) then exit;
   KillTimer(FHWnd, ID_TIMER_AEROPEEK);
-  GetCursorPos(pt);
-  if WindowFromPoint(pt) = FHWnd then
+  if PointerInside then
   begin
     FAeroPeekAllowedInt := true;
     if FAeroPeekIndex <> FHoverIndex then InvokeAeroPeek(FHoverIndex);
@@ -756,14 +834,27 @@ begin
 end;
 //------------------------------------------------------------------------------
 procedure TAeroPeekWindow.Timer;
+var now, elapsedFrames: QWord; frame, frames: integer;
 begin
-  if FActive and not FActivating then
+  if FActive and not FActivating and FFrameTimerActive then
   try
-    if InTransition then
+    now := AnimationNow;
+    if now < FLastFrameAt then exit;
+    elapsedFrames := (now - FLastFrameAt) div 10;
+    if elapsedFrames > 1000 then frames := 1000 else frames := elapsedFrames;
+    FLastFrameAt := now - ((now - FLastFrameAt) mod 10);
+    for frame := 1 to frames do
     begin
+      if not InTransition then break;
       DoTransition;
-      if (FState = apwsClose) and (Fx = FXTarget) and (Fy = FYTarget) then CloseAPWindowInt;
     end;
+    if frames > 0 then Paint;
+    if (FState = apwsClose) and not InTransition then
+    begin
+      CloseAPWindowInt;
+      exit;
+    end;
+    if not InTransition then StopFrameTimer;
   except
     on e: Exception do err('AeroPeekWindow.Timer', e);
   end;
@@ -825,7 +916,6 @@ begin
       if FAlpha < FAlphaTarget then Inc(FAlpha, delta);
     end;
 
-    Paint;
   except
     on e: Exception do err('AeroPeekWindow.DoTransition', e);
   end;

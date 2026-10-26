@@ -33,31 +33,68 @@ type
     ['{2E941141-7F97-4756-BA1D-9DECDE894A3D}']
     // Activates the specified immersive application for the "Launch" contract, passing the provided arguments
     // string into the application.  Callers can obtain the process Id of the application instance fulfilling this contract.
-    function ActivateApplication(appUserModelId: LPCWSTR; arguments: LPCWSTR; options: UInt32; out processId: UInt32): HRESULT; safecall;
-    function ActivateForFile(appUserModelId: LPCWSTR; itemArray: IShellItemArray; verb: LPCWSTR; out processId: UInt32): HRESULT; safecall;
-    function ActivateForProtocol(appUserModelId: LPCWSTR; itemArray: IShellItemArray; out processId: UInt32): HRESULT; safecall;
+    function ActivateApplication(appUserModelId: LPCWSTR; arguments: LPCWSTR; options: UInt32; out processId: UInt32): HRESULT; stdcall;
+    function ActivateForFile(appUserModelId: LPCWSTR; itemArray: IShellItemArray; verb: LPCWSTR; out processId: UInt32): HRESULT; stdcall;
+    function ActivateForProtocol(appUserModelId: LPCWSTR; itemArray: IShellItemArray; out processId: UInt32): HRESULT; stdcall;
   end;
 
   ApplicationActivationManager = class
   private
     intf: IApplicationActivationManager;
+    FCreationStatus: HRESULT;
   public
-    constructor Create;
-    function ActivateApplication(appUserModelId: LPCWSTR; out processId: UInt32): HRESULT;
+    constructor Create; overload;
+    constructor Create(const Manager: IApplicationActivationManager; CreationStatus: HRESULT); overload;
+    function ActivateApplication(appUserModelId: LPCWSTR; out processId: UInt32;
+      arguments: LPCWSTR = nil): HRESULT;
+    function ActivateForFile(appUserModelId: LPCWSTR; Items: IShellItemArray;
+      out processId: UInt32): HRESULT;
+    function ActivateForProtocol(appUserModelId: LPCWSTR; Items: IShellItemArray;
+      out processId: UInt32): HRESULT;
   end;
 
 implementation
 
 constructor ApplicationActivationManager.Create;
 begin
-  if not SUCCEEDED(CoCreateInstance(CLASS_ApplicationActivationManager, nil, CLSCTX_LOCAL_SERVER, IApplicationActivationManager, intf)) then
-    raise Exception.Create('Not succeeded CoCreateInstance(CLASS_ApplicationActivationManager)');
+  inherited Create;
+  FCreationStatus := CoCreateInstance(CLASS_ApplicationActivationManager, nil, CLSCTX_LOCAL_SERVER, IApplicationActivationManager, intf);
 end;
 
-function ApplicationActivationManager.ActivateApplication(appUserModelId: LPCWSTR; out processId: UInt32): HRESULT;
+constructor ApplicationActivationManager.Create(const Manager: IApplicationActivationManager; CreationStatus: HRESULT);
 begin
-  if assigned(intf) then
-    result := intf.ActivateApplication(appUserModelId, nil, 0, processId);
+  inherited Create;
+  intf := Manager;
+  FCreationStatus := CreationStatus;
+end;
+
+function ApplicationActivationManager.ActivateApplication(appUserModelId: LPCWSTR; out processId: UInt32;
+  arguments: LPCWSTR): HRESULT;
+begin
+  processId := 0;
+  if FCreationStatus < 0 then Exit(FCreationStatus);
+  if not Assigned(intf) then Exit(E_NOINTERFACE);
+  Result := intf.ActivateApplication(appUserModelId, arguments, ActivateOptionNoErrorUI, processId);
+end;
+
+function ApplicationActivationManager.ActivateForFile(appUserModelId: LPCWSTR;
+  Items: IShellItemArray; out processId: UInt32): HRESULT;
+begin
+  processId := 0;
+  if FCreationStatus < 0 then Exit(FCreationStatus);
+  if not Assigned(intf) then Exit(E_NOINTERFACE);
+  if Items = nil then Exit(E_INVALIDARG);
+  Result := intf.ActivateForFile(appUserModelId, Items, 'open', processId);
+end;
+
+function ApplicationActivationManager.ActivateForProtocol(appUserModelId: LPCWSTR;
+  Items: IShellItemArray; out processId: UInt32): HRESULT;
+begin
+  processId := 0;
+  if FCreationStatus < 0 then Exit(FCreationStatus);
+  if not Assigned(intf) then Exit(E_NOINTERFACE);
+  if Items = nil then Exit(E_INVALIDARG);
+  Result := intf.ActivateForProtocol(appUserModelId, Items, processId);
 end;
 
 end.

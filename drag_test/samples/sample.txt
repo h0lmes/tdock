@@ -1,0 +1,1 @@
+tdock drag-test document

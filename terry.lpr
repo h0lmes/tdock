@@ -22,12 +22,12 @@ uses
   frmthemeeditoru {frmLayersEditor},
   frmColorU {frmColor},
   frmDebugU {frmDebug},
-  themeu, setsu, GDIPAPI, gfx, toolu, itemmgru, customitemu, scitemu, sepitemu,
+  themeu, setsu, GDIPAPI, gfx, iconserviceu, toolu, itemmgru, customitemu, scitemu, sepitemu,
   plgitemu, stackitemu, customsubitemu, scsubitemu, hintu, droptgtu, shcontextu,
   notifieru, PIDL, dwm_unit, trayu, frmAddCommandU, frmstackpropu, stackmodeu,
   processhlp, taskitemu, frmhellou, frmtipu, multidocku, aeropeeku,
   shelltraywndu, MMDevApi_tlb, mixeru, networksu, customdrawitemu, frmrestoreu,
-  iniproc, loggeru, UWP_TLB;
+  iniproc, loggeru, UWP_TLB, pluginhostu, itemmodelu, itemhostu, shelltextu;
 
 {$R *.res}
 
@@ -44,7 +44,7 @@ end;
 //------------------------------------------------------------------------------
 function DockletIsVisible(id: HWND): bool; stdcall;
 begin
-  result := IsWindowVisible(frmmain.Handle);
+  result := assigned(PluginHost) and PluginHost.Visible;
   {$ifdef DEBUG_EXPORTS} inf('DockletIsVisible', inttostr(id) + ', ' + inttostr(integer(result))); {$endif}
 end;
 //------------------------------------------------------------------------------
@@ -53,11 +53,9 @@ begin
   {$ifdef DEBUG_EXPORTS} inf('DockletIsUndocked', inttostr(id)); {$endif}
   result := false;
   try
-    if assigned(frmmain) then
-      if assigned(frmmain.ItemMgr) then
-        result:= frmmain.ItemMgr.IsPluginUndocked(id);
+    if assigned(PluginHost) then result := PluginHost.IsUndocked(id);
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockletIsUndocked', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockletIsUndocked', e);
   end;
 end;
 //------------------------------------------------------------------------------
@@ -68,17 +66,16 @@ begin
   {$ifdef DEBUG_EXPORTS} inf('DockletGetRect', inttostr(id)); {$endif}
   result := false;
   try
-    if assigned(frmmain) then
-      if assigned(frmmain.ItemMgr) then
+    if assigned(PluginHost) and (r <> nil) then
       begin
-        result := frmmain.ItemMgr.GetPluginRect(id, tmp);
+        result := PluginHost.GetItemRect(id, tmp);
         r.Left := tmp.left;
         r.Top := tmp.top;
         r.Right := tmp.right;
         r.Bottom := tmp.bottom;
       end;
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockletGetRect', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockletGetRect', e);
   end;
 end;
 //------------------------------------------------------------------------------
@@ -89,34 +86,37 @@ begin
   {$ifdef DEBUG_EXPORTS} inf('DockletGetLabel', inttostr(id)); {$endif}
   result := 0;
   try
-    if assigned(frmmain) then
-      if assigned(frmmain.ItemMgr) then
+    if assigned(PluginHost) then
       begin
-        capt := frmmain.ItemMgr.GetPluginCaption(id);
+        capt := PluginHost.GetCaption(id);
         result := length(capt);
         if szCaption <> nil then StrLCopy(szCaption, pchar(capt), result);
         inc(result);
       end;
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockletGetLabel', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockletGetLabel', e);
   end;
 end;
 //------------------------------------------------------------------------------
 function DockletSetLabel(id: HWND; szCaption: pchar): integer; stdcall;
 var
-  pw: array [0..255] of wchar;
+  caption: WideString;
+  required: integer;
 begin
   {$ifdef DEBUG_EXPORTS} inf('DockletSetLabel', inttostr(id) + ', ' + strpas(szCaption)); {$endif}
   result := 0;
   try
-    if assigned(frmmain) then
-      if assigned(frmmain.ItemMgr) then
+    if assigned(PluginHost) and (szCaption <> nil) then
       begin
-        MultiByteToWideChar(CP_ACP, 0, pchar(szCaption), length(szCaption) + 1, pw, 255);
-        result := frmmain.ItemMgr.SetPluginCaption(id, strpas(pwchar(@pw))) + 1;
+        required := MultiByteToWideChar(CP_ACP, 0, szCaption, -1, nil, 0);
+        if required = 0 then exit;
+        SetLength(caption, required);
+        if MultiByteToWideChar(CP_ACP, 0, szCaption, -1, PWideChar(caption), required) = 0 then exit;
+        SetLength(caption, required - 1);
+        result := PluginHost.SetCaption(id, caption) + 1;
       end;
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockletSetLabel', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockletSetLabel', e);
   end;
 end;
 //------------------------------------------------------------------------------
@@ -133,7 +133,7 @@ begin
       GdipCreateBitmapFromFile(PWideChar(imagefile), result);
     end;
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockletLoadGDIPlusImage', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockletLoadGDIPlusImage', e);
   end;
   {$ifdef DEBUG_EXPORTS} inf('DockletLoadGDIPlusImage', '0x' + inttohex(dword(result), 8)); {$endif}
 end;
@@ -142,11 +142,9 @@ procedure DockletSetImage(id: HWND; image: Pointer; AutoDelete: bool); stdcall;
 begin
   {$ifdef DEBUG_EXPORTS} inf('DockletSetImage', inttostr(id) + ', 0x' + inttohex(dword(image), 8)); {$endif}
   try
-    if assigned(frmmain) then
-      if assigned(frmmain.ItemMgr) then
-        frmmain.ItemMgr.SetPluginImage(id, image, AutoDelete);
+    if assigned(PluginHost) then PluginHost.SetImage(id, image, AutoDelete);
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockletSetImage', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockletSetImage', e);
   end;
 end;
 //------------------------------------------------------------------------------
@@ -157,7 +155,7 @@ begin
     if szImage <> nil then
       DockletSetImage(id, DockletLoadGDIPlusImage(szImage), true);
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockletSetImageFile', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockletSetImageFile', e);
   end;
 end;
 //------------------------------------------------------------------------------
@@ -165,37 +163,39 @@ procedure DockletSetImageOverlay(id: HWND; overlay: Pointer; AutoDelete: bool); 
 begin
   {$ifdef DEBUG_EXPORTS} inf('DockletSetImageOverlay', inttostr(id) + ', 0x' + inttohex(dword(overlay), 8)); {$endif}
   try
-    if assigned(frmmain) then
-      if assigned(frmmain.ItemMgr) then
-        frmmain.ItemMgr.SetPluginOverlay(id, overlay, AutoDelete);
+    if assigned(PluginHost) then PluginHost.SetOverlay(id, overlay, AutoDelete);
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockletSetImageOverlay', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockletSetImageOverlay', e);
   end;
 end;
 //------------------------------------------------------------------------------
 function DockletBrowseForImage(id: HWND; szImage: pchar; szRoot: pchar): bool; stdcall;
 var
   sTemp: string;
+  scope: TItemHostScope;
+  imageDialog: TOpenDialog;
 begin
   {$ifdef DEBUG_EXPORTS} inf('DockletBrowseForImage1', inttostr(id) + ', ' + strpas(szImage) + ', ' + strpas(szRoot)); {$endif}
   result:= false;
   try
-    if szImage <> nil then
-      with TOpenDialog.Create(nil) do
-      begin
+    if (szImage = nil) or not assigned(PluginHost) then exit;
+    if not PluginHost.BeginUiOperation(scope) then exit;
+    try
+      imageDialog := TOpenDialog.Create(nil);
+      try
         if szRoot <> nil then sTemp:= strpas(szRoot)
         else sTemp:= IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)));
-        InitialDir := sTemp;
-        if Execute then
+        imageDialog.InitialDir := sTemp;
+        if imageDialog.Execute then
         begin
-          sTemp := FileName;
+          sTemp := imageDialog.FileName;
           StrLCopy(szImage, pchar(sTemp), MAX_PATH);
           result := true;
         end;
-        Free;
-      end;
+      finally imageDialog.Free; end;
+    finally EndItemHostOperation(scope); end;
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockletBrowseForImage', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockletBrowseForImage', e);
   end;
   {$ifdef DEBUG_EXPORTS} if result then inf('DockletBrowseForImage2', inttostr(id) + ', ' + strpas(szImage) + ', ' + strpas(szRoot)); {$endif}
 end;
@@ -204,9 +204,9 @@ procedure DockletLockMouseEffect(id: HWND; lock: bool); stdcall;
 begin
   {$ifdef DEBUG_EXPORTS} inf('DockletLockMouseEffect', inttostr(id) + ', ' + inttostr(integer(lock))); {$endif}
   try
-    if assigned(frmmain) then frmmain.LockMouseEffect(id, lock);
+    if assigned(PluginHost) then PluginHost.LockMouseEffect(id, lock);
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockletLockMouseEffect', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockletLockMouseEffect', e);
   end;
 end;
 //------------------------------------------------------------------------------
@@ -214,9 +214,9 @@ procedure DockletDoAttensionAnimation(id: HWND); stdcall;
 begin
   {$ifdef DEBUG_EXPORTS} inf('DockletDoAttensionAnimation', inttostr(id)); {$endif}
   try
-    if assigned(frmmain) then if assigned(frmmain.ItemMgr) then frmmain.ItemMgr.PluginAnimate(id);
+    if assigned(PluginHost) then PluginHost.Animate(id);
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockletDoAttensionAnimation', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockletDoAttensionAnimation', e);
   end;
 end;
 //------------------------------------------------------------------------------
@@ -226,14 +226,11 @@ var
 begin
   {$ifdef DEBUG_EXPORTS} inf('DockletGetRelativeFolder1', inttostr(id)); {$endif}
   try
-    rel := frmmain.ItemMgr.GetPluginFile(id);
-    {$ifdef DEBUG_EXPORTS} inf('GetPluginFile', inttostr(id) + ', ' + rel); {$endif}
-    rel := IncludeTrailingPathDelimiter(extractfilepath(rel));
-    {$ifdef DEBUG_EXPORTS} inf('extractfilepath', inttostr(id) + ', ' + rel); {$endif}
-    rel := cutafter(rel, UnzipPath('%pp%\'));
+    rel := '';
+    if assigned(PluginHost) then rel := PluginHost.RelativeFolder(id);
     if assigned(szFolder) then StrLCopy(szFolder, pchar(rel), length(rel));
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockletGetRelativeFolder', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockletGetRelativeFolder', e);
   end;
   {$ifdef DEBUG_EXPORTS} inf('DockletGetRelativeFolder2', inttostr(id) + ', ' + strpas(szFolder)); {$endif}
 end;
@@ -244,10 +241,11 @@ var
 begin
   {$ifdef DEBUG_EXPORTS} inf('DockletGetRootFolder1', inttostr(id)); {$endif}
   try
-    rel := UnzipPath('%pp%\');
+    rel := '';
+    if assigned(PluginHost) then rel := PluginHost.RootFolder;
     if assigned(szFolder) then StrLCopy(szFolder, pchar(rel), MAX_PATH);
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockletGetRootFolder', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockletGetRootFolder', e);
   end;
   {$ifdef DEBUG_EXPORTS} inf('DockletGetRootFolder2', inttostr(id) + ', ' + strpas(szFolder)); {$endif}
 end;
@@ -255,68 +253,47 @@ end;
 function DockletQueryDockEdge(id: HWND): integer; stdcall;
 begin
   result := 0;
-  if assigned(sets) then
-    case sets.container.site of
-      bsLeft: result := 2;
-      bsTop: result := 1;
-      bsRight: result := 3;
-      bsBottom: result := 0;
-    end;
+  if assigned(PluginHost) then result := PluginHost.QueryDockEdge;
 end;
 //------------------------------------------------------------------------------
 function DockletSetDockEdge(id: HWND; Edge: integer): integer; stdcall;
 begin
   result := 0;
-  if assigned(sets) and assigned(frmmain) then
-  begin
-    case Edge of
-      0: sets.container.site := bsBottom;
-      1: sets.container.site := bsTop;
-      2: sets.container.site := bsLeft;
-      3: sets.container.site := bsRight;
-    end;
-    frmmain.SetParam(gpSite, Edge);
-    case sets.container.site of
-      bsLeft: result := 2;
-      bsTop: result := 1;
-      bsRight: result := 3;
-      bsBottom: result := 0;
-    end;
-  end;
+  if assigned(PluginHost) then result := PluginHost.SetDockEdge(Edge);
 end;
 //------------------------------------------------------------------------------
 function DockletQueryDockAlign(id: HWND): integer; stdcall;
 begin
   result := 1;
-  if assigned(sets) then result:= (sets.container.CenterOffsetPercent + 25) div 50;
+  if assigned(PluginHost) then result := PluginHost.QueryDockAlign;
 end;
 //------------------------------------------------------------------------------
 function DockletSetDockAlign(id: HWND; Offset: integer): integer; stdcall;
 begin
   result := 1;
-  if assigned(sets) and assigned(frmmain) then
-  begin
-    frmmain.SetParam(gpCenterOffsetPercent, Offset * 50);
-    result:= (sets.container.CenterOffsetPercent + 25) div 50;
-  end;
+  if assigned(PluginHost) then result := PluginHost.SetDockAlign(Offset);
 end;
 //------------------------------------------------------------------------------
 function DockColorDialog(AColor: puint): bool; stdcall;
+var scope: TItemHostScope; colorDialog: TColorDialog;
 begin
   result := false;
   try
-    with TColorDialog.Create(nil) do
-    begin
-      Color := AColor^ and $FFFFFF;
-      if Execute then
-      begin
-        AColor^ := Color;
-        result := true;
-      end;
-      free;
-    end;
+    if (AColor = nil) or not assigned(PluginHost) then exit;
+    if not PluginHost.BeginUiOperation(scope) then exit;
+    try
+      colorDialog := TColorDialog.Create(nil);
+      try
+        colorDialog.Color := AColor^ and $FFFFFF;
+        if colorDialog.Execute then
+        begin
+          AColor^ := colorDialog.Color;
+          result := true;
+        end;
+      finally colorDialog.Free; end;
+    finally EndItemHostOperation(scope); end;
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockColorDialog', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockColorDialog', e);
   end;
 end;
 //------------------------------------------------------------------------------
@@ -326,17 +303,15 @@ begin
   result.Top := 0;
   result.Right := 0;
   result.Bottom := 0;
-  if assigned(frmmain) then
-    if assigned(frmmain.ItemMgr) then
-      result := frmmain.ItemMgr.Rect;
+  if assigned(PluginHost) then result := PluginHost.DockRect;
 end;
 //------------------------------------------------------------------------------
 procedure DockExecute(id: HWND; exename, params, dir: pchar; showcmd: integer); stdcall;
 begin
   try
-    if assigned(frmmain) then frmmain.execute_multi(exename, params, dir, showcmd, id);
+    if assigned(PluginHost) then PluginHost.Execute(id, exename, params, dir, showcmd);
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockExecute', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockExecute', e);
   end;
 end;
 //------------------------------------------------------------------------------
@@ -344,75 +319,208 @@ function DockAddMenu(hMenu: THandle): THandle; stdcall;
 begin
   result := 0;
   try
-    if assigned(frmmain) then result := frmmain.GetHMenu(hMenu);
+    if assigned(PluginHost) then result := PluginHost.AddMenu(hMenu);
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockAddMenu', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockAddMenu', e);
   end;
 end;
 //------------------------------------------------------------------------------
 procedure Undock(id: HWND); stdcall;
 begin
-  if assigned(frmmain) then
-    if assigned(frmmain.ItemMgr) then
-      frmmain.ItemMgr.Undock(id);
+  if assigned(PluginHost) then PluginHost.Undock(id);
 end;
 //------------------------------------------------------------------------------
 procedure Dock(id: HWND); stdcall;
 begin
-  if assigned(frmmain) then
-    if assigned(frmmain.ItemMgr) then frmmain.ItemMgr.Dock(id);
+  if assigned(PluginHost) then PluginHost.Dock(id);
 end;
 //------------------------------------------------------------------------------
 function DockCreateItem(data: pchar): HWND; stdcall;
 begin
   result := 0;
   try
-    if assigned(frmmain) then
-      if assigned(frmmain.ItemMgr) then
-        result := frmmain.ItemMgr.CreateItemFromString(data);
+    if assigned(PluginHost) then result := PluginHost.CreateItem(data);
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockCreateItem', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockCreateItem', e);
   end;
 end;
 //------------------------------------------------------------------------------
 procedure DockDeleteItem(id: HWND); stdcall;
 begin
-  if assigned(frmmain) then if assigned(frmmain.ItemMgr) then frmmain.ItemMgr.DeleteItem(id);
+  if assigned(PluginHost) then PluginHost.DeleteItem(id);
 end;
 //------------------------------------------------------------------------------
 function DockAddProgram(data: pchar): THandle; stdcall;
 begin
   try
     result := 0;
-    if assigned(frmmain) then frmmain.AddFile(strpas(data));
+    if assigned(PluginHost) then PluginHost.AddProgram(strpas(data));
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('DockAddProgram', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('DockAddProgram', e);
   end;
 end;
 //------------------------------------------------------------------------------
 procedure Notify(id: HWND; Message: PAnsiChar); stdcall;
 begin
-  if assigned(frmmain) then frmmain.Notify(WideString(strpas(Message)));
+  if assigned(PluginHost) then PluginHost.Notify(WideString(strpas(Message)));
 end;
 //------------------------------------------------------------------------------
 procedure ActivateHint(id: HWND; Caption: PWideChar; x, y: integer); stdcall;
 begin
-  if assigned(frmmain) then frmmain.ActivateHint(id, Caption, x, y);
+  if assigned(PluginHost) then PluginHost.ActivateHint(id, Caption, x, y);
 end;
 //------------------------------------------------------------------------------
 procedure DeactivateHint(id: HWND); stdcall;
 begin
-  if assigned(frmmain) then frmmain.DeactivateHint(id);
+  if assigned(PluginHost) then PluginHost.DeactivateHint(id);
 end;
 //------------------------------------------------------------------------------
 procedure ExcludeFromPeek(id: HWND); stdcall;
 begin
-  if assigned(dwm) then dwm.ExcludeFromPeek(id);
+  if assigned(PluginHost) then PluginHost.ExcludeFromPeek(id);
 end;
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
+function TDockApiVersion: Cardinal; stdcall;
+begin
+  result := 1;
+end;
+
+function TDockItemCreateV1(Data: PAnsiChar): TDockItemId; stdcall;
+begin
+  result := 0;
+  if (Data = nil) or not assigned(PluginHost) then exit;
+  try result := TDockItemId(PluginHost.CreateItemId(StrPas(Data)));
+  except
+    on E: Exception do if assigned(PluginHost) then PluginHost.ReportError('TDockItemCreateV1', E);
+  end;
+end;
+
+function TDockItemInsertV1(Id: TDockItemId): TDockItemId; stdcall;
+begin
+  result := 0;
+  if not assigned(PluginHost) then exit;
+  try result := TDockItemId(PluginHost.InsertItemId(TItemId(Id)));
+  except
+    on E: Exception do if assigned(PluginHost) then PluginHost.ReportError('TDockItemInsertV1', E);
+  end;
+end;
+
+function TDockItemDeleteV1(Id: TDockItemId): BOOL; stdcall;
+begin
+  result := false;
+  if not assigned(PluginHost) then exit;
+  try result := PluginHost.DeleteItemId(TItemId(Id));
+  except
+    on E: Exception do if assigned(PluginHost) then PluginHost.ReportError('TDockItemDeleteV1', E);
+  end;
+end;
+
+function TDockItemGetWindowV1(Id: TDockItemId): HWND; stdcall;
+begin
+  result := 0;
+  if not assigned(PluginHost) then exit;
+  try result := PluginHost.WindowFromItemId(TItemId(Id));
+  except
+    on E: Exception do if assigned(PluginHost) then PluginHost.ReportError('TDockItemGetWindowV1', E);
+  end;
+end;
+
+function TDockItemFromWindowV1(Window: HWND): TDockItemId; stdcall;
+begin
+  result := 0;
+  if not assigned(PluginHost) then exit;
+  try result := TDockItemId(PluginHost.ItemIdFromWindow(Window));
+  except
+    on E: Exception do if assigned(PluginHost) then PluginHost.ReportError('TDockItemFromWindowV1', E);
+  end;
+end;
+
+function TDockItemGetCaptionV1(Id: TDockItemId; Buffer: PWideChar; Capacity: Cardinal): Cardinal; stdcall;
+begin
+  result := 0;
+  if not assigned(PluginHost) then exit;
+  try result := PluginHost.CopyCaptionById(TItemId(Id), Buffer, Capacity);
+  except
+    on E: Exception do if assigned(PluginHost) then PluginHost.ReportError('TDockItemGetCaptionV1', E);
+  end;
+end;
+
+function TDockItemSetCaptionV1(Id: TDockItemId; Caption: PWideChar): BOOL; stdcall;
+begin
+  result := false;
+  if (Caption = nil) or not assigned(PluginHost) then exit;
+  try result := PluginHost.SetCaptionById(TItemId(Id), WideString(Caption));
+  except
+    on E: Exception do if assigned(PluginHost) then PluginHost.ReportError('TDockItemSetCaptionV1', E);
+  end;
+end;
+
+function TDockItemSetImageV1(Id: TDockItemId; Image: Pointer; AutoDelete: BOOL): BOOL; stdcall;
+begin
+  result := false;
+  if not assigned(PluginHost) then exit;
+  try result := PluginHost.SetImageById(TItemId(Id), Image, AutoDelete);
+  except
+    on E: Exception do if assigned(PluginHost) then PluginHost.ReportError('TDockItemSetImageV1', E);
+  end;
+end;
+
+function TDockItemSetOverlayV1(Id: TDockItemId; Image: Pointer; AutoDelete: BOOL): BOOL; stdcall;
+begin
+  result := false;
+  if not assigned(PluginHost) then exit;
+  try result := PluginHost.SetOverlayById(TItemId(Id), Image, AutoDelete);
+  except
+    on E: Exception do if assigned(PluginHost) then PluginHost.ReportError('TDockItemSetOverlayV1', E);
+  end;
+end;
+
+function TDockItemDockV1(Id: TDockItemId): BOOL; stdcall;
+begin
+  result := false;
+  if not assigned(PluginHost) then exit;
+  try result := PluginHost.DockById(TItemId(Id));
+  except
+    on E: Exception do if assigned(PluginHost) then PluginHost.ReportError('TDockItemDockV1', E);
+  end;
+end;
+
+function TDockItemUndockV1(Id: TDockItemId): BOOL; stdcall;
+begin
+  result := false;
+  if not assigned(PluginHost) then exit;
+  try result := PluginHost.UndockById(TItemId(Id));
+  except
+    on E: Exception do if assigned(PluginHost) then PluginHost.ReportError('TDockItemUndockV1', E);
+  end;
+end;
+
+function TDockItemAnimateV1(Id: TDockItemId): BOOL; stdcall;
+begin
+  result := false;
+  if not assigned(PluginHost) then exit;
+  try result := PluginHost.AnimateById(TItemId(Id));
+  except
+    on E: Exception do if assigned(PluginHost) then PluginHost.ReportError('TDockItemAnimateV1', E);
+  end;
+end;
+
 exports
+  TDockApiVersion,
+  TDockItemCreateV1,
+  TDockItemInsertV1,
+  TDockItemDeleteV1,
+  TDockItemGetWindowV1,
+  TDockItemFromWindowV1,
+  TDockItemGetCaptionV1,
+  TDockItemSetCaptionV1,
+  TDockItemSetImageV1,
+  TDockItemSetOverlayV1,
+  TDockItemDockV1,
+  TDockItemUndockV1,
+  TDockItemAnimateV1,
   DockletIsVisible,
   DockletIsUndocked,
   DockletGetRect,
@@ -447,7 +555,7 @@ exports
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
-function TDWindowProc(wnd: HWND; message: uint; wParam: integer; lParam: integer): integer; stdcall;
+function TDWindowProc(wnd: HWND; message: uint; wParam: WPARAM; lParam: LPARAM): LRESULT; stdcall;
 begin
   result := DefWindowProc(wnd, message, wParam, lParam);
 end;
@@ -469,7 +577,7 @@ begin
     wndClass.lpszClassName  := TDWCLASS;
     windows.RegisterClass(wndClass);
   except
-    on e: Exception do if assigned(frmmain) then frmmain.err('RegisterWindowItemClass', e);
+    on e: Exception do if assigned(PluginHost) then PluginHost.ReportError('RegisterWindowItemClass', e);
   end;
 end;
 //------------------------------------------------------------------------------

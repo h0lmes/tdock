@@ -10,7 +10,7 @@ const
 
 type
   THint = class
-  private
+  {$ifdef ANIMATION_TIMING_TESTS}protected{$else}private{$endif}
     wndClass: TWndClass;
     FHWnd: THandle;
     FHWndOwner: THandle;
@@ -30,8 +30,14 @@ type
     FWTarget: integer;
     FHTarget: integer;
     FBorder: integer;
+    FFrameTimerActive: boolean;
+    FLastFrameAt: QWord;
     procedure err(where: string; e: Exception);
-    procedure Paint;
+  protected
+    function AnimationNow: QWord; virtual;
+    procedure Paint; virtual;
+    procedure StartFrameTimer;
+    procedure StopFrameTimer;
   public
     constructor Create;
     destructor Destroy; override;
@@ -43,6 +49,21 @@ type
   end;
 
 implementation
+function THint.AnimationNow: QWord;
+begin Result := GetTickCount64; end;
+
+procedure THint.StartFrameTimer;
+begin
+  if FFrameTimerActive then exit;
+  FLastFrameAt := AnimationNow;
+  FFrameTimerActive := SetTimer(FHWnd, ID_TIMER, 10, nil) <> 0;
+end;
+
+procedure THint.StopFrameTimer;
+begin
+  KillTimer(FHWnd, ID_TIMER);
+  FFrameTimerActive := false;
+end;
 //------------------------------------------------------------------------------
 function WndProc(wnd: HWND; message: uint; wParam: WPARAM; lParam: LPARAM): LRESULT; stdcall;
 var
@@ -230,7 +251,10 @@ begin
 
     try
       Paint;
-      if not FVisible and sets.container.HintEffects then SetTimer(FHWnd, ID_TIMER, 10, nil);
+      if sets.container.HintEffects and ((FAlpha <> FAlphaTarget) or
+        (FX <> FXTarget) or (FY <> FYTarget) or (FW <> FWTarget) or (FH <> FHTarget)) then
+        StartFrameTimer
+      else StopFrameTimer;
       FVisible := True;
     except
       on e: Exception do
@@ -320,11 +344,22 @@ const
   ASTEP = 5;
   AITER = 3;
 var
-  delta: integer;
+  delta, frame, frames: integer;
+  now, elapsedFrames: QWord;
+  changed: boolean;
 begin
+  if not FFrameTimerActive or FActivating then exit;
   try
+    now := AnimationNow;
+    if now < FLastFrameAt then exit;
+    elapsedFrames := (now - FLastFrameAt) div 10;
+    if elapsedFrames > 1000 then frames := 1000 else frames := elapsedFrames;
+    FLastFrameAt := now - ((now - FLastFrameAt) mod 10);
+    changed := false;
+    for frame := 1 to frames do
     if (not FVisible and (FAlpha > 0)) or (FVisible and (FAlpha < 255)) or (FXTarget <> FX) or (FYTarget <> FY) or (FWTarget <> FW) or (FHTarget <> FH) then
     begin
+      changed := true;
       delta := abs(255 - FAlpha) div AITER;
       if FVisible then FAlpha += ifthen(delta < ASTEP, ASTEP, delta)
       else FAlpha -= ifthen(delta < ASTEP, ASTEP, delta);
@@ -351,14 +386,15 @@ begin
       else if FHTarget > FH then FH += ifthen(delta < STEP, STEP, delta)
       else if FHTarget < FH then FH -= ifthen(delta < STEP, STEP, delta);
 
-      Paint;
-
-      if not FVisible and (FAlpha = 0) then
-      begin
-        KillTimer(FHWnd, ID_TIMER);
-        ShowWindow(FHWnd, 0);
-      end;
     end;
+    if changed then Paint;
+    if not FVisible and (FAlpha = 0) then
+    begin
+      StopFrameTimer;
+      ShowWindow(FHWnd, 0);
+    end;
+    if FVisible and (FAlpha = 255) and (FXTarget = FX) and (FYTarget = FY)
+      and (FWTarget = FW) and (FHTarget = FH) then StopFrameTimer;
   except
     on e: Exception do err('Hint.Timer', e);
   end;
@@ -369,8 +405,10 @@ begin
   if hwndOwner = FHWndOwner then
   try
     FVisible := false;
+    FAlphaTarget := 0;
     if sets.container.HintEffects then
     begin
+      StartFrameTimer;
       {if (FSite = bsTop) or (FSite = bsBottom) then
       begin
         FWTarget := 10;
@@ -382,7 +420,7 @@ begin
     end else
     begin
       FAlpha := 0;
-      KillTimer(FHWnd, ID_TIMER);
+      StopFrameTimer;
       ShowWindow(FHWnd, 0);
     end;
   except
@@ -395,7 +433,7 @@ begin
   try
     FVisible := false;
     FAlpha := 0;
-    KillTimer(FHWnd, ID_TIMER);
+    StopFrameTimer;
     ShowWindow(FHWnd, 0);
   except
     on e: Exception do err('Hint.DeactivateImmediate', e);

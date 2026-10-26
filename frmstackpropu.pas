@@ -5,7 +5,7 @@ interface
 uses
   Windows, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   DefaultTranslator, Dialogs, StdCtrls, ExtCtrls, ComCtrls, Menus, Buttons,
-  GDIPAPI, gfx, PIDL, stackitemu, themeu, DividerBevel;
+  GDIPAPI, gfx, iconserviceu, PIDL, stackitemu, themeu, DividerBevel, itemmodelu, itemserializationu;
 
 type
   _uproc = procedure(AData: string) of object;
@@ -103,17 +103,19 @@ type
     color_data: uint;
     background_color: uint;
     SpecialFolder: string;
-    ItemHWnd: HWND;
-    Item: TStackItem;
+    FItemId: TItemId;
     FChanged: boolean;
     FImage: Pointer;
     FIW: cardinal;
     FIH: cardinal;
-    function SetData(wnd: HWND): boolean;
-    procedure ReadSubitems;
+    function AcquireItem(out Item: TStackItem; out Id: TItemId): boolean;
+    procedure ItemUnavailable;
+    procedure ReadSubitems(Item: TStackItem);
     procedure iPicPaint(Sender: TObject);
     procedure Draw;
     procedure DrawFit;
+  protected
+    function SetData(wnd: HWND): boolean;
   public
     class procedure Open(wnd: HWND);
   end;
@@ -123,7 +125,7 @@ var
 
 {$t+}
 implementation
-uses declu, toolu, frmmainu, stackmodeu;
+uses declu, toolu, frmmainu, stackmodeu, itemviewu, shelltextu;
 {$R *.lfm}
 //------------------------------------------------------------------------------
 class procedure TfrmStackProp.Open(wnd: HWND);
@@ -158,8 +160,11 @@ begin
 end;
 //------------------------------------------------------------------------------
 function TfrmStackProp.SetData(wnd: HWND): boolean;
+var
+  Model: TItemModel;
+  Item: TStackItem;
+  Id: TItemId;
 begin
-  Item := nil;
   result := false;
 
   if FChanged then
@@ -167,82 +172,129 @@ begin
     if not confirm(Handle, UTF8Decode(XMsgUnsavedIconParams)) then exit;
   end;
 
-  Item := TStackItem(GetWindowLongPtr(wnd, GWL_USERDATA));
-  if not (Item is TStackItem) then exit;
+  Id := ItemViews.ItemIdOf(wnd);
+  if not AcquireItemModel(Id, Model) then
+  begin
+    ItemUnavailable;
+    exit;
+  end;
+  try
+    if not (Model is TStackItem) or (Model.State in [imsDeleted, imsRetiring]) then
+    begin
+      ItemUnavailable;
+      exit;
+    end;
+    Item := TStackItem(Model);
 
-  result := true;
-  pages.ActivePageIndex := 0;
+    result := true;
+    pages.ActivePageIndex := 0;
 
-  ItemHWnd                   := wnd;
-  savedCaption               := Item.Caption;
-  savedImageFile             := Item.ImageFile;
-  savedSpecialFolder         := Item.SpecialFolder;
-  savedColorData             := Item.ColorData;
-  savedMode                  := Item.Mode;
-  savedOffset                := Item.Offset;
-  savedAnimationSpeed        := Item.AnimationSpeed;
-  savedDistort               := Item.Distort;
-  savedPreview               := Item.Preview;
-  savedShowBackground        := Item.ShowBackground;
-  savedSorted                := Item.Sorted;
+    FItemId                    := Id;
+    pages.Enabled              := true;
+    btnApply.Enabled           := true;
+    btnOK.Enabled              := true;
+    savedCaption               := Item.Caption;
+    savedImageFile             := Item.ImageFile;
+    savedSpecialFolder         := Item.SpecialFolder;
+    savedColorData             := Item.ColorData;
+    savedMode                  := Item.Mode;
+    savedOffset                := Item.Offset;
+    savedAnimationSpeed        := Item.AnimationSpeed;
+    savedDistort               := Item.Distort;
+    savedPreview               := Item.Preview;
+    savedShowBackground        := Item.ShowBackground;
+    savedSorted                := Item.Sorted;
 
-  // show parameters //
+    // show parameters //
 
-  edCaption.Text             := UTF8Encode(savedCaption);
-  edImage.Text               := AnsiToUTF8(savedImageFile);
-  edSpecialFolder.Text       := AnsiToUTF8(savedSpecialFolder);
+    edCaption.Text             := UTF8Encode(savedCaption);
+    edImage.Text               := savedImageFile;
+    edSpecialFolder.Text       := savedSpecialFolder;
 
-  color_data                 := savedColorData;
-  tbHue.OnChange             := nil;
-  tbSat.OnChange             := nil;
-  tbBr.OnChange              := nil;
-  tbCont.OnChange            := nil;
-  tbHue.position             := byte(color_data);
-  tbSat.position             := byte(color_data shr 8);
-  tbBr.position              := byte(color_data shr 16);
-  tbCont.position            := byte(color_data shr 24);
-  tbHue.OnChange             := tbHueChange;
-  tbSat.OnChange             := tbHueChange;
-  tbBr.OnChange              := tbHueChange;
-  tbCont.OnChange            := tbHueChange;
+    color_data                 := savedColorData;
+    tbHue.OnChange             := nil;
+    tbSat.OnChange             := nil;
+    tbBr.OnChange              := nil;
+    tbCont.OnChange            := nil;
+    tbHue.position             := byte(color_data);
+    tbSat.position             := byte(color_data shr 8);
+    tbBr.position              := byte(color_data shr 16);
+    tbCont.position            := byte(color_data shr 24);
+    tbHue.OnChange             := tbHueChange;
+    tbSat.OnChange             := tbHueChange;
+    tbBr.OnChange              := tbHueChange;
+    tbCont.OnChange            := tbHueChange;
 
-  tbOffset.Position          := -1;
-  tbOffset.Position          := 0;
-  tbAnimationSpeed.Position  := tbAnimationSpeed.Min;
-  tbDistort.Position         := -1;
-  tbDistort.Position         := 0;
+    tbOffset.Position          := -1;
+    tbOffset.Position          := 0;
+    tbAnimationSpeed.Position  := tbAnimationSpeed.Min;
+    tbDistort.Position         := -1;
+    tbDistort.Position         := 0;
 
-  cboMode.ItemIndex          := savedMode;
-  tbOffset.Position          := savedOffset;
-  tbAnimationSpeed.Position  := savedAnimationSpeed;
-  tbDistort.Position         := savedDistort;
-  cboPreview.ItemIndex       := savedPreview;
-  chbBackground.checked      := savedShowBackground;
-  chbSorted.checked          := savedSorted;
+    cboMode.ItemIndex          := savedMode;
+    tbOffset.Position          := savedOffset;
+    tbAnimationSpeed.Position  := savedAnimationSpeed;
+    tbDistort.Position         := savedDistort;
+    cboPreview.ItemIndex       := savedPreview;
+    chbBackground.checked      := savedShowBackground;
+    chbSorted.checked          := savedSorted;
 
-  Draw;
-  iPic.OnPaint := iPicPaint;
+    Draw;
+    iPic.OnPaint := iPicPaint;
 
-  ReadSubitems;
+    ReadSubitems(Item);
 
-  // reset 'changed' state //
-  FChanged := false;
+    // reset 'changed' state //
+    FChanged := false;
+  finally
+    ReleaseItemModel(Id);
+  end;
 end;
 //------------------------------------------------------------------------------
-procedure TfrmStackProp.ReadSubitems;
+function TfrmStackProp.AcquireItem(out Item: TStackItem; out Id: TItemId): boolean;
+var
+  Model: TItemModel;
+begin
+  Item := nil;
+  Id := FItemId;
+  result := AcquireItemModel(Id, Model);
+  if result then
+  begin
+    result := (Model is TStackItem)
+      and not (Model.State in [imsDeleted, imsRetiring]);
+    if result then Item := TStackItem(Model)
+    else ReleaseItemModel(Id);
+  end;
+  if not result then ItemUnavailable;
+end;
+//------------------------------------------------------------------------------
+procedure TfrmStackProp.ItemUnavailable;
+begin
+  FItemId := NO_ITEM_ID;
+  FChanged := false;
+  pages.Enabled := false;
+  btnApply.Enabled := false;
+  btnOK.Enabled := false;
+  Close;
+end;
+//------------------------------------------------------------------------------
+procedure TfrmStackProp.ReadSubitems(Item: TStackItem);
 var
   idx: integer;
 begin
   list.Items.BeginUpdate;
-  list.Clear;
-  if item.ItemCount > 0 then
-  begin
-    for idx := 0 to item.ItemCount - 1 do
+  try
+    list.Clear;
+    if item.ItemCount > 0 then
     begin
-      list.Items.Add(UTF8Encode(Item.GetSubitemCaption(idx)));
+      for idx := 0 to item.ItemCount - 1 do
+      begin
+        list.Items.Add(UTF8Encode(Item.GetSubitemCaption(idx)));
+      end;
     end;
+  finally
+    list.Items.EndUpdate;
   end;
-  list.Items.EndUpdate;
 end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.FormKeyDown(Sender: TObject; var Key: word; Shift: TShiftState);
@@ -260,42 +312,72 @@ begin
 end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.btnApplyClick(Sender: TObject);
+var
+  Item: TStackItem;
+  Id: TItemId;
+  Draft: TStackDtoV1;
 begin
   try
-    Item.Caption               := UTF8Decode(edCaption.Text);
-    Item.ImageFile             := UTF8ToAnsi(edImage.Text);
-    Item.SpecialFolder         := UTF8ToAnsi(edSpecialFolder.Text);
-    Item.ColorData             := color_data;
-    Item.Mode                  := cboMode.ItemIndex;
-    Item.Offset                := tbOffset.Position;
-    Item.AnimationSpeed        := tbAnimationSpeed.Position;
-    Item.Distort               := tbDistort.Position;
-    Item.Preview               := cboPreview.ItemIndex;
-    Item.ShowBackground        := chbBackground.Checked;
-    Item.Sorted                := chbSorted.Checked;
-    Item.Update;
-    FChanged := false;
+    if not AcquireItem(Item, Id) then exit;
+    try
+      Draft := DefaultStackDto;
+      Draft.Caption := UTF8Decode(edCaption.Text);
+      Draft.Image := edImage.Text;
+      Draft.SpecialFolder := edSpecialFolder.Text;
+      Draft.ColorData := color_data;
+      Draft.Mode := cboMode.ItemIndex;
+      Draft.Offset := tbOffset.Position;
+      Draft.AnimationSpeed := tbAnimationSpeed.Position;
+      Draft.Distort := tbDistort.Position;
+      Draft.Preview := cboPreview.ItemIndex;
+      Draft.Background := chbBackground.Checked;
+      Draft.Sorted := chbSorted.Checked;
+      WriteStackText(Draft);
+      Item.Caption               := UTF8Decode(edCaption.Text);
+      Item.ImageFile             := edImage.Text;
+      Item.SpecialFolder         := edSpecialFolder.Text;
+      Item.ColorData             := color_data;
+      Item.Mode                  := cboMode.ItemIndex;
+      Item.Offset                := tbOffset.Position;
+      Item.AnimationSpeed        := tbAnimationSpeed.Position;
+      Item.Distort               := tbDistort.Position;
+      Item.Preview               := cboPreview.ItemIndex;
+      Item.ShowBackground        := chbBackground.Checked;
+      Item.Sorted                := chbSorted.Checked;
+      Item.Update;
+      FChanged := false;
+    finally
+      ReleaseItemModel(Id);
+    end;
   except
     on e: Exception do frmmain.err('frmStackProp.btnApplyClick', e);
   end;
 end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.btnCancelClick(Sender: TObject);
+var
+  Item: TStackItem;
+  Id: TItemId;
 begin
   if FChanged then
   begin
-    Item.Caption               := savedCaption;
-    Item.ImageFile             := savedImageFile;
-    Item.SpecialFolder         := savedSpecialFolder;
-    Item.ColorData             := savedColorData;
-    Item.Mode                  := savedMode;
-    Item.Offset                := savedOffset;
-    Item.AnimationSpeed        := savedAnimationSpeed;
-    Item.Distort               := savedDistort;
-    Item.Preview               := savedPreview;
-    Item.ShowBackground        := savedShowBackground;
-    Item.Sorted                := savedSorted;
-    Item.Update;
+    if not AcquireItem(Item, Id) then exit;
+    try
+      Item.Caption               := savedCaption;
+      Item.ImageFile             := savedImageFile;
+      Item.SpecialFolder         := savedSpecialFolder;
+      Item.ColorData             := savedColorData;
+      Item.Mode                  := savedMode;
+      Item.Offset                := savedOffset;
+      Item.AnimationSpeed        := savedAnimationSpeed;
+      Item.Distort               := savedDistort;
+      Item.Preview               := savedPreview;
+      Item.ShowBackground        := savedShowBackground;
+      Item.Sorted                := savedSorted;
+      Item.Update;
+    finally
+      ReleaseItemModel(Id);
+    end;
   end;
   FChanged := false;
   Close;
@@ -306,6 +388,7 @@ begin
   try if assigned(FImage) then GdipDisposeImage(FImage);
   except end;
   FImage := nil;
+  FItemId := NO_ITEM_ID;
   action := caFree;
   frmStackProp := nil;
 end;
@@ -423,40 +506,78 @@ end;
 procedure TfrmStackProp.bbIconUpClick(Sender: TObject);
 var
   idx: integer;
+  Item: TStackItem;
+  Id: TItemId;
 begin
-  idx := list.ItemIndex;
-  Item.SubitemMoveUp(idx);
-  ReadSubitems;
-  if idx > 0 then dec(idx);
-  list.ItemIndex := idx;
+  if not AcquireItem(Item, Id) then exit;
+  try
+    idx := list.ItemIndex;
+    Item.SubitemMoveUp(idx);
+    ReadSubitems(Item);
+    if idx > 0 then dec(idx);
+    list.ItemIndex := idx;
+  finally
+    ReleaseItemModel(Id);
+  end;
 end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.bbIconDownClick(Sender: TObject);
 var
   idx: integer;
+  Item: TStackItem;
+  Id: TItemId;
 begin
-  idx := list.ItemIndex;
-  Item.SubitemMoveDown(idx);
-  ReadSubitems;
-  if idx < list.Items.Count - 1 then inc(idx);
-  list.ItemIndex := idx;
+  if not AcquireItem(Item, Id) then exit;
+  try
+    idx := list.ItemIndex;
+    Item.SubitemMoveDown(idx);
+    ReadSubitems(Item);
+    if idx < list.Items.Count - 1 then inc(idx);
+    list.ItemIndex := idx;
+  finally
+    ReleaseItemModel(Id);
+  end;
 end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.bbAddIconClick(Sender: TObject);
+var
+  Item: TStackItem;
+  Id: TItemId;
 begin
-  Item.AddSubitemDefault;
-  ReadSubitems;
+  if not AcquireItem(Item, Id) then exit;
+  try
+    Item.AddSubitemDefault;
+    ReadSubitems(Item);
+  finally
+    ReleaseItemModel(Id);
+  end;
 end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.bbDelIconClick(Sender: TObject);
+var
+  Item: TStackItem;
+  Id: TItemId;
 begin
-  Item.DeleteSubitem(list.ItemIndex);
-  ReadSubitems;
+  if not AcquireItem(Item, Id) then exit;
+  try
+    Item.DeleteSubitem(list.ItemIndex);
+    ReadSubitems(Item);
+  finally
+    ReleaseItemModel(Id);
+  end;
 end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.bbEditIconClick(Sender: TObject);
+var
+  Item: TStackItem;
+  Id: TItemId;
 begin
-  Item.SubitemConfigure(list.ItemIndex);
+  if not AcquireItem(Item, Id) then exit;
+  try
+    Item.SubitemConfigure(list.ItemIndex);
+  finally
+    ReleaseItemModel(Id);
+  end;
 end;
 //------------------------------------------------------------------------------
 procedure TfrmStackProp.listDblClick(Sender: TObject);
@@ -473,7 +594,7 @@ begin
     except end;
     FImage := nil;
 
-    str := WideString(UnzipPath(UTF8ToAnsi(edImage.Text)));
+    str := ShellUTF16(UnzipPath(edImage.Text));
     LoadImage(str, 128, true, false, FImage, FIW, FIH);
 
     // default stack image //

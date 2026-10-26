@@ -4,7 +4,7 @@ unit taskitemu;
 
 interface
 uses Windows, Messages, SysUtils, Controls, Classes, Math,
-  GDIPAPI, gfx, declu, dockh, customdrawitemu, processhlp, aeropeeku, loggeru;
+  GDIPAPI, gfx, iconserviceu, declu, dockh, customdrawitemu, processhlp, aeropeeku, loggeru, tasksyncu;
 
 type
 
@@ -42,6 +42,9 @@ type
     procedure UpdateTaskItem(hwnd: THandle);
     procedure RemoveNonExisting;
     procedure UpdateItem;
+    function TaskSnapshot: TTaskDockEntry;
+    procedure RemoveSnapshotWindow(hwnd: THandle);
+    procedure RefreshSnapshotGroup;
 
     constructor Create(wndParent: HWND; var AParams: TDItemCreateParams); override;
     destructor Destroy; override;
@@ -52,11 +55,14 @@ type
     procedure WndMessage(var msg: TMessage); override;
     procedure WMCommand(wParam: WPARAM; lParam: LPARAM; var Result: LRESULT); override;
     procedure Save(ini, section: string); override;
+    procedure PrepareDeletion; override;
+    procedure ForegroundChanged(wnd: HWND); override;
     //
     class function Make: string;
   end;
 
 implementation
+uses itemviewu;
 //------------------------------------------------------------------------------
 constructor TTaskItem.Create(wndParent: HWND; var AParams: TDItemCreateParams);
 begin
@@ -76,14 +82,12 @@ begin
   OnBeforeUndock        := BeforeUndock;
   OnAfterDraw           := AfterDraw;
   OnDrawOverlay         := DrawOverlay;
-  SetTimer(FHWnd, ID_TIMER, 1000, nil);
 end;
 //------------------------------------------------------------------------------
 destructor TTaskItem.Destroy;
 begin
   FFreed := true;
   if FAeroPeekWindowActive then TAeroPeekWindow.Close(0);
-  KillTimer(FHWnd, ID_TIMER);
   FAppList.free;
   try GdipDisposeImage(FImage);
   except end;
@@ -99,6 +103,40 @@ end;
 function TTaskItem.IsEmpty: boolean;
 begin
   result := FAppList.Count = 0;
+end;
+//------------------------------------------------------------------------------
+function TTaskItem.TaskSnapshot: TTaskDockEntry;
+var Index: integer; Window: THandle;
+begin
+  Result.ItemId := ItemId;
+  Result.IsTask := true;
+  Result.Grouping := FTaskGrouping;
+  Result.IsNew := FIsNew;
+  Result.RegisteredExecutable := '';
+  Result.GroupExecutable := FExecutable;
+  SetLength(Result.Windows, FAppList.Count);
+  for Index := 0 to FAppList.Count - 1 do
+  begin
+    Window := THandle(FAppList.Items[Index]);
+    Result.Windows[Index].Handle := Window;
+    Result.Windows[Index].Visible := IsWindowVisible(Window);
+    if assigned(ProcessHelper) then
+      Result.Windows[Index].Executable := ProcessHelper.GetWindowProcessName(Window)
+    else Result.Windows[Index].Executable := '';
+  end;
+end;
+//------------------------------------------------------------------------------
+procedure TTaskItem.RemoveSnapshotWindow(hwnd: THandle);
+var Index: integer;
+begin
+  if FFreed then exit;
+  Index := FAppList.IndexOf(pointer(hwnd));
+  if Index >= 0 then FAppList.Delete(Index);
+end;
+//------------------------------------------------------------------------------
+procedure TTaskItem.RefreshSnapshotGroup;
+begin
+  if not FFreed and (FAppList.Count > 0) then UpdateItemInternal;
 end;
 //------------------------------------------------------------------------------
 procedure TTaskItem.UpdateTaskItem(hwnd: THandle);
@@ -241,7 +279,7 @@ begin
           FFlashedWindow := param;
           Animate;
           Attention(true);
-          SetTimer(Handle, ID_TIMER_WINDOWACTIVATED, 500, nil);
+          ItemViews.SetItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED, 1000);
         end;
 
       icIsItem: result := 0;
@@ -271,13 +309,6 @@ begin
     inherited;
     if FFreed or FUpdating then exit;
 
-    // animation //
-    if FAnimationProgress > 0 then
-    begin
-      inc(FAnimationProgress);
-      if FAnimationProgress >= FAnimationEnd then FAnimationProgress := 0;
-      Redraw;
-    end;
   except
     on e: Exception do raise Exception.Create('TTaskItem.Timer ' + LineEnding + e.message);
   end;
@@ -320,7 +351,7 @@ begin
   else
 	if FAppList.Count = 1 then
   begin
-      KillTimer(FHWnd, ID_TIMER_OPEN);
+      ItemViews.KillItemTimer(ItemId, ID_TIMER_OPEN);
       ProcessHelper.ActivateWindow(THandle(FAppList.First), FAttention);
   end
   else
@@ -435,9 +466,11 @@ begin
         if msg = WM_TIMER then
         begin
           // open AeroPeekWindow
-          if wParam = ID_TIMER_OPEN then ShowPeekWindow;
+          if (wParam = ID_TIMER_OPEN) and
+            ItemViews.ConsumeItemTimer(ItemId, ID_TIMER_OPEN, ClockNow) then ShowPeekWindow;
           // check if should cancel attention
-          if wParam = ID_TIMER_WINDOWACTIVATED then CheckWindowActivated;
+          if (wParam = ID_TIMER_WINDOWACTIVATED) and
+            ItemViews.ConsumeItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED, ClockNow) then CheckWindowActivated;
         end;
     end;
 end;
@@ -456,11 +489,11 @@ begin
 
     if Timeout > 0 then
     begin
-      SetTimer(FHWnd, ID_TIMER_OPEN, Timeout, nil);
+      ItemViews.SetItemTimer(ItemId, ID_TIMER_OPEN, Timeout);
       exit;
     end;
 
-    KillTimer(FHWnd, ID_TIMER_OPEN);
+    ItemViews.KillItemTimer(ItemId, ID_TIMER_OPEN);
 
     pt := GetScreenRect.TopLeft;
     if (FSite = 1) or (FSite = 3) then inc(pt.x, FSize div 2);
@@ -482,9 +515,20 @@ begin
   end;
 end;
 //------------------------------------------------------------------------------
+procedure TTaskItem.PrepareDeletion;
+begin
+  try
+    if TAeroPeekWindow.ActivatedBy(FHWnd) then TAeroPeekWindow.Close(0);
+    FAeroPeekWindowActive := false;
+    FHideHint := false;
+  finally
+    inherited;
+  end;
+end;
+
 procedure TTaskItem.ClosePeekWindow(Timeout: cardinal = 0);
 begin
-  KillTimer(FHWnd, ID_TIMER_OPEN);
+  ItemViews.KillItemTimer(ItemId, ID_TIMER_OPEN);
   if FHideHint then
   begin
     FHideHint := false;
@@ -517,16 +561,22 @@ end;
 //------------------------------------------------------------------------------
 procedure TTaskItem.CheckWindowActivated;
 begin
+  ForegroundChanged(GetForegroundWindow);
+end;
+
+procedure TTaskItem.ForegroundChanged(wnd: HWND);
+begin
+  if FFreed then exit;
   if FAttention then
   begin
-    if FAppList.IndexOf(pointer(GetForegroundWindow)) >= 0 then
+    if FAppList.IndexOf(pointer(wnd)) >= 0 then
     begin
       FFlashedWindow := 0;
       Attention(false);
-      KillTimer(Handle, ID_TIMER_WINDOWACTIVATED);
+      ItemViews.KillItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED);
     end;
   end
-  else KillTimer(Handle, ID_TIMER_WINDOWACTIVATED);
+  else ItemViews.KillItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED);
 end;
 //------------------------------------------------------------------------------
 //

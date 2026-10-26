@@ -4,7 +4,7 @@ unit customsubitemu;
 
 interface
 uses Windows, Messages, SysUtils, Controls, Classes, Math, ComObj,
-  GDIPAPI, gfx, PIDL, declu, dockh, customitemu, loggeru;
+  GDIPAPI, gfx, PIDL, declu, dockh, customitemu, loggeru, itemmodelu;
 
 const
   MIN_BORDER = 8;
@@ -16,11 +16,11 @@ type
 
   { TCustomSubitem is an abstract class }
 
-  TCustomSubitem = class
+  TCustomSubitem = class(TItemModel)
   protected
     FFreed: boolean;
     FHWnd: HWND;
-    FHWndParent: HWND;
+    FInitialParent: HWND;
     FHMenu: THandle;
     FCaption: WideString;
     FCaptionWidth: integer;
@@ -56,7 +56,10 @@ type
     FIW: uint; // image width
     FIH: uint; // image height
 
-    procedure RegisterWindowItemClass;
+    function GetParentWindow: HWND;
+    property FHWndParent: HWND read GetParentWindow;
+    function CreateViewWindow: HWND; virtual;
+    procedure BeforeDestruction; override;
     procedure Init; virtual;
     procedure Redraw;
     function GetNCRect: windows.TRect;
@@ -104,21 +107,55 @@ type
     function DropFile(pt: windows.TPoint; filename: string): boolean; virtual; abstract;
     procedure Delete(AllowUndo: boolean = true); virtual;
     procedure BeginDrag; virtual;
+    procedure ViewDestroyed; override;
     function WindowProc(wnd: HWND; message: uint; wParam: WPARAM; lParam: LPARAM): LRESULT;
   end;
 
 
 implementation
+uses itemregistryu, itemhostu, itemviewu;
 //------------------------------------------------------------------------------
 function CustomSubitemClassWindowProc(wnd: HWND; message: uint; wParam: WPARAM; lParam: LPARAM): LRESULT; stdcall;
 var
   inst: TCustomSubitem;
+  registered, owner: TObject;
+  identity, ownerIdentity: TItemIdentity;
+  scope: TItemHostScope;
 begin
-  inst := TCustomSubitem(GetWindowLongPtr(wnd, GWL_USERDATA));
-  if assigned(inst) then
-    result := inst.WindowProc(wnd, message, wParam, lParam)
-  else
+  if message = WM_NCDESTROY then
+  begin
     result := DefWindowProc(wnd, message, wParam, lParam);
+    try ItemViews.NativeDestroyed(wnd);
+    except on E: Exception do AddLog('SubitemView.NativeDestroyed' + LineEnding + E.Message); end;
+    exit;
+  end;
+  if not ItemRegistry.TryGetAny(wnd, registered) or
+    not (registered is TCustomSubitem) then
+    exit(DefWindowProc(wnd, message, wParam, lParam));
+  inst := TCustomSubitem(registered);
+  if not ItemRegistry.TryGetAny(inst.FHWndParent, owner) or
+    not (owner is TCustomItem) then
+    exit(DefWindowProc(wnd, message, wParam, lParam));
+  ownerIdentity := ItemRegistry.IdentityOf(inst.FHWndParent);
+  if not ItemRegistry.Pin(ownerIdentity) then
+    exit(DefWindowProc(wnd, message, wParam, lParam));
+  identity := ItemRegistry.IdentityOf(wnd);
+  if not ItemRegistry.Pin(identity) then
+  begin
+    ItemRegistry.Unpin(ownerIdentity);
+    exit(DefWindowProc(wnd, message, wParam, lParam));
+  end;
+  scope := Default(TItemHostScope);
+  try
+    scope := BeginItemHostOperation(TCustomItem(owner).ParentWindow);
+    result := inst.WindowProc(wnd, message, wParam, lParam);
+  finally
+    try ItemRegistry.Unpin(identity);
+    finally
+      try ItemRegistry.Unpin(ownerIdentity);
+      finally EndItemHostOperation(scope); end;
+    end;
+  end;
 end;
 //------------------------------------------------------------------------------
 constructor TCustomSubitem.Create(wndParent: HWND; AParams: TDItemCreateParams);
@@ -126,15 +163,10 @@ begin
   inherited Create;
   Init;
 
-  FHWndParent := wndParent;
-  RegisterWindowItemClass;
-  FHWnd := CreateWindowEx(WS_EX_LAYERED + WS_EX_TOOLWINDOW + WS_EX_ACCEPTFILES, TDSUBITEM_WCLASS, nil, WS_POPUP, Fx, Fy, FSize, FSize, FHWndParent, 0, hInstance, nil);
-  if not IsWindow(FHWnd) then
-  begin
-    FFreed := true;
-    exit;
-  end;
-  SetWindowLongPtr(FHWnd, GWL_USERDATA, PtrUInt(self));
+  FInitialParent := wndParent;
+  ItemViews.AdoptPending(Self, wndParent, true);
+  FHWnd := CreateViewWindow;
+  if FHWnd = 0 then raise EOSError.Create('Cannot create subitem window');
 
   FItemSize        := AParams.ItemSize;
   FLaunchInterval  := AParams.LaunchInterval;
@@ -145,33 +177,39 @@ begin
   CopyFontData(AParams.Font, FFont);
 end;
 //------------------------------------------------------------------------------
-destructor TCustomSubitem.Destroy;
+procedure TCustomSubitem.BeforeDestruction;
 begin
-  SetWindowLongPtr(FHWnd, GWL_USERDATA, PtrUInt(0));
-  if IsWindow(FHWnd) then DestroyWindow(FHWnd);
-  FHWnd := 0;
+  FFreed := true;
   inherited;
 end;
 //------------------------------------------------------------------------------
-procedure TCustomSubitem.RegisterWindowItemClass;
-var
-  wndClass: windows.TWndClass;
+destructor TCustomSubitem.Destroy;
 begin
-  try
-    wndClass.style          := CS_DBLCLKS;
-    wndClass.lpfnWndProc    := @CustomSubitemClassWindowProc;
-    wndClass.cbClsExtra     := 0;
-    wndClass.cbWndExtra     := 0;
-    wndClass.hInstance      := hInstance;
-    wndClass.hIcon          := 0;
-    wndClass.hCursor        := LoadCursor(0, IDC_ARROW);
-    wndClass.hbrBackground  := 0;
-    wndClass.lpszMenuName   := nil;
-    wndClass.lpszClassName  := TDSUBITEM_WCLASS;
-    windows.RegisterClass(wndClass);
-  except
-    on e: Exception do err('CustomSubitem.RegisterWindowClass', e);
+  try ItemViews.DestroyWindow(FHWnd, ItemId);
+  finally
+    try ItemViews.CompleteModelCleanup(ItemId);
+    finally inherited; end;
   end;
+end;
+//------------------------------------------------------------------------------
+function TCustomSubitem.CreateViewWindow: HWND;
+begin
+  result := ItemViews.CreateWindow(Self, FHWndParent, TDSUBITEM_WCLASS,
+    @CustomSubitemClassWindowProc, WS_EX_LAYERED or WS_EX_TOOLWINDOW or WS_EX_ACCEPTFILES,
+    FX, FY, FSize);
+end;
+//------------------------------------------------------------------------------
+function TCustomSubitem.GetParentWindow: HWND;
+begin
+  if ParentItemId = NO_ITEM_ID then Result := FInitialParent
+  else Result := ItemViews.HandleOf(ParentItemId);
+end;
+
+procedure TCustomSubitem.ViewDestroyed;
+begin
+  FHWnd := 0;
+  FFreed := true;
+  inherited;
 end;
 //------------------------------------------------------------------------------
 procedure TCustomSubitem.Init;
@@ -256,15 +294,15 @@ begin
   if not FFreed then
   begin
     FMouseDownButton := button;
-    if button = mbLeft then SetTimer(FHWnd, ID_TIMER_MOUSEHELD, 1000, nil)
-    else SetTimer(FHWnd, ID_TIMER_MOUSEHELD, 800, nil);
+    if button = mbLeft then ItemViews.SetItemTimer(ItemId, ID_TIMER_MOUSEHELD, 1000)
+    else ItemViews.SetItemTimer(ItemId, ID_TIMER_MOUSEHELD, 800);
     cmd(icSelect, 1);
   end;
 end;
 //------------------------------------------------------------------------------
 function TCustomSubitem.MouseUp(button: TMouseButton; shift: TShiftState; x, y: integer): boolean;
 begin
-  KillTimer(FHWnd, ID_TIMER_MOUSEHELD);
+  ItemViews.KillItemTimer(ItemId, ID_TIMER_MOUSEHELD);
   result := not FFreed;
 end;
 //------------------------------------------------------------------------------
@@ -330,22 +368,36 @@ procedure TCustomSubitem.Delete(AllowUndo: boolean = true);
 var
   wnd: THandle;
   Inst: TCustomItem;
+  registered: TObject;
+  identity: TItemIdentity;
   pt: windows.TPoint;
+  deleted: boolean;
 begin
+  if FFreed or FQueryDelete then exit;
   if AllowUndo then
   begin
     wnd := dockh.DockCreateItem(pchar(ToString));
-    Inst := TCustomItem(GetWindowLongPtr(wnd, GWL_USERDATA));
-    if Inst is TCustomItem then
-    begin
+    identity := ItemRegistry.IdentityOf(wnd);
+    if not ItemRegistry.TryGetAny(wnd, registered) or not (registered is TCustomItem)
+      or not ItemRegistry.Pin(identity) then exit;
+    Inst := TCustomItem(registered);
+    deleted := false;
+    try
       GetCursorPos(pt);
       Inst.Draw(pt.x - Inst.Size div 2, pt.y - Inst.Size div 2, FSize, true, 0, SWP_SHOWWINDOW);
       SetWindowPos(wnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE + SWP_NOSIZE + SWP_NOACTIVATE + SWP_NOREPOSITION + SWP_SHOWWINDOW);
       Inst.Dock;
       Inst.Delete;
+      deleted := Inst.State = imsDeleted;
+    finally
+      try
+        if not deleted and (Inst.State = imsPending) then Inst.Free;
+      finally ItemRegistry.Unpin(identity); end;
     end;
+    if not deleted then exit;
   end;
   FQueryDelete := true;
+  ItemViews.CancelInternalTimers(ItemId);
   ShowWindow(FHWnd, SW_HIDE);
 end;
 //------------------------------------------------------------------------------
@@ -353,19 +405,31 @@ procedure TCustomSubitem.BeginDrag;
 var
   wnd: THandle;
   Inst: TCustomItem;
+  registered: TObject;
+  identity: TItemIdentity;
   pt: windows.TPoint;
+  adopted: boolean;
 begin
+  if FFreed or FQueryDelete then exit;
   wnd := dockh.DockCreateItem(pchar(ToString));
-  Inst := TCustomItem(GetWindowLongPtr(wnd, GWL_USERDATA));
-  if Inst is TCustomItem then
-  begin
+  identity := ItemRegistry.IdentityOf(wnd);
+  if not ItemRegistry.TryGetAny(wnd, registered) or not (registered is TCustomItem)
+    or not ItemRegistry.Pin(identity) then exit;
+  Inst := TCustomItem(registered);
+  adopted := false;
+  try
     GetCursorPos(pt);
     Inst.Draw(pt.x - Inst.Size div 2, pt.y - Inst.Size div 2, FSize, true, 0, SWP_SHOWWINDOW);
     SetWindowPos(wnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE + SWP_NOSIZE + SWP_NOACTIVATE + SWP_NOREPOSITION + SWP_SHOWWINDOW);
     Inst.Undock;
+    dockh.Undock(wnd);
+    adopted := Inst.State = imsDragging;
+    if adopted then Delete(false);
+  finally
+    try
+      if not adopted and (Inst.State = imsPending) then Inst.Free;
+    finally ItemRegistry.Unpin(identity); end;
   end;
-  Delete(false);
-  dockh.Undock(wnd);
 end;
 //------------------------------------------------------------------------------
 procedure TCustomSubitem.SetFont(var Value: TDFontData);
@@ -472,9 +536,10 @@ begin
       end
       else if message = WM_TIMER then
       begin
-            if wParam = ID_TIMER_MOUSEHELD then
+            if (wParam = ID_TIMER_MOUSEHELD) and
+              ItemViews.ConsumeItemTimer(ItemId, ID_TIMER_MOUSEHELD, GetTickCount64) then
             begin
-              KillTimer(FHWnd, ID_TIMER_MOUSEHELD);
+              ItemViews.KillItemTimer(ItemId, ID_TIMER_MOUSEHELD);
               GetCursorPos(wpt);
               if WindowFromPoint(wpt) = FHWnd then MouseHeld(FMouseDownButton);
             end;

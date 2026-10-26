@@ -3,7 +3,7 @@ unit notifieru;
 interface
 
 uses Windows, Messages, Classes, SysUtils, Forms,
-  declu, GDIPAPI, gfx, dwm_unit, loggeru, toolu;
+  declu, GDIPAPI, gfx, dwm_unit, loggeru, toolu, docktimingu;
 
 const
   NOTIFIER_FONT_NAME = 'Lucida Console';
@@ -21,12 +21,16 @@ type
     FYTarget: integer;
     FW: integer;
     FH: integer;
-    FShowTime: QWord;
+    FExpiry: TDeadline;
+    FXAnimation, FYAnimation: TScalarAnimation;
+    FTimerInterval: UINT;
+    FTrackingLeave: Boolean;
     FActive: boolean;
     FAlert: boolean;
     FTimeout: QWord;
     FMonitorRect: windows.TRect;
     FText: WideString;
+    procedure RefreshTimer(Force: Boolean = False);
     procedure err(where: string; e: Exception);
   public
     class procedure Cleanup;
@@ -43,7 +47,37 @@ type
 
 var Notifier: TNotifier;
 
+function NotificationTimerInterval(Active, Alert, Moving: Boolean;
+  Now, ExpiresAt: QWord): UINT;
+
 implementation
+
+function NotificationTimerInterval(Active, Alert, Moving: Boolean;
+  Now, ExpiresAt: QWord): UINT;
+var Remaining: QWord;
+begin
+  if not Active then Exit(0);
+  if Moving then Exit(10);
+  if Alert then Exit(0);
+  if Now >= ExpiresAt then Exit(250);
+  Remaining := ExpiresAt - Now;
+  if Remaining > $7FFFFFFF then Remaining := $7FFFFFFF;
+  Result := UINT(Remaining);
+end;
+
+procedure TNotifier.RefreshTimer(Force: Boolean);
+var Interval: UINT;
+begin
+  Interval := NotificationTimerInterval(FActive, FAlert,
+    (FX <> FXTarget) or (FY <> FYTarget), GetTickCount64, FExpiry.DueAt);
+  if not Force and (Interval = FTimerInterval) then Exit;
+  if Interval = 0 then
+  begin
+    KillTimer(FHWnd, ID_TIMER);
+    FTimerInterval := 0;
+  end
+  else if SetTimer(FHWnd, ID_TIMER, Interval, nil) <> 0 then FTimerInterval := Interval;
+end;
 //------------------------------------------------------------------------------
 function NotifierClassWindowProc(wnd: HWND; message: uint; wParam: WPARAM; lParam: LPARAM): LRESULT; stdcall;
 var
@@ -224,6 +258,14 @@ begin
       FX := FXTarget;
       FY := FYTarget;
     end;
+    FXAnimation := Default(TScalarAnimation);
+    FXAnimation.StartValue := FX;
+    FXAnimation.TargetValue := FXTarget;
+    FXAnimation.StartedAt := GetTickCount64;
+    if animate then FXAnimation.DurationMs := 400;
+    FYAnimation := FXAnimation;
+    FYAnimation.StartValue := FY;
+    FYAnimation.TargetValue := FYTarget;
   except
     on e: Exception do
     begin
@@ -327,48 +369,41 @@ begin
     end;
   end;
 
-  FShowTime := gettickcount64;
-  if not FActive then SetTimer(FHWnd, ID_TIMER, 10, nil);
   FActive := True;
+  if FAlert then FExpiry.Cancel else FExpiry.Schedule(GetTickCount64, FTimeout);
+  RefreshTimer(True);
   FActivating := False;
 end;
 //------------------------------------------------------------------------------
 procedure TNotifier.Timer;
 var
-  delta: integer;
   set_pos: boolean;
   acoeff: integer;
   pt: windows.TPoint;
+  Now: QWord;
 begin
   if FActive then
   try
-    acoeff := 255 - (abs(FX - FXTarget) * 510 div FW);
-    if acoeff < 0 then acoeff := 0;
-    if acoeff > 255 then acoeff := 255;
-
+    Now := GetTickCount64;
     set_pos := (FXTarget <> FX) or (FYTarget <> FY);
     if set_pos then
     begin
-      delta := abs(FXTarget - FX) div 6;
-      if delta < 1 then delta := 1;
-      if FX > FXTarget then Dec(FX, delta);
-      if FX < FXTarget then Inc(FX, delta);
-      delta := abs(FYTarget - FY) div 6;
-      if delta < 1 then delta := 1;
-      if FY > FYTarget then Dec(FY, delta);
-      if FY < FYTarget then Inc(FY, delta);
+      FX := Round(FXAnimation.ValueAt(Now));
+      FY := Round(FYAnimation.ValueAt(Now));
+      acoeff := 255 - (abs(FX - FXTarget) * 510 div FW);
+      if acoeff < 0 then acoeff := 0;
+      if acoeff > 255 then acoeff := 255;
       UpdateLWindowPosAlpha(FHWnd, FX, FY, acoeff);
       SetWindowPos(FHWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE + SWP_NOSIZE);
+      if not FAlert then FExpiry.Schedule(Now, FTimeout);
     end;
 
-    if (FX <> FXTarget) or (FY <> FYTarget) then FShowTime := gettickcount64
-    else
-    if not FAlert then
+    if (FX = FXTarget) and (FY = FYTarget) and not FAlert and FExpiry.IsDue(Now) then
     begin
       GetCursorPos(pt);
-      if WindowFromPoint(pt) <> FHWnd then
-        if gettickcount64 - FShowTime > FTimeout then Close;
+      if WindowFromPoint(pt) <> FHWnd then Close;
     end;
+    RefreshTimer;
   except
     on e: Exception do err('Notifier.Timer', e);
   end;
@@ -391,6 +426,9 @@ begin
 
     DWM.DisableBlurBehindWindow(FHWnd);
     KillTimer(FHWnd, ID_TIMER);
+    FTimerInterval := 0;
+    FExpiry.Cancel;
+    FTrackingLeave := False;
     ShowWindow(FHWnd, 0);
     FActive := False;
     FAlert := False;
@@ -401,6 +439,7 @@ begin
 end;
 //------------------------------------------------------------------------------
 function TNotifier.WindowProc(wnd: HWND; message: uint; wParam: WPARAM; lParam: LPARAM): LRESULT;
+var Tracking: TTrackMouseEvent;
 begin
   result := 0;
   if (message = wm_lbuttondown) or (message = wm_rbuttonup) then
@@ -408,10 +447,26 @@ begin
     Close;
     exit;
   end
-  else if message = WM_TIMER then
+  else if (message = WM_TIMER) and (wParam = ID_TIMER) then
   begin
     Timer;
     exit;
+  end
+  else if message = WM_MOUSEMOVE then
+  begin
+    if not FTrackingLeave then
+    begin
+      Tracking := Default(TTrackMouseEvent);
+      Tracking.cbSize := SizeOf(Tracking);
+      Tracking.dwFlags := TME_LEAVE;
+      Tracking.hwndTrack := FHWnd;
+      FTrackingLeave := TrackMouseEvent(Tracking);
+    end;
+  end
+  else if message = WM_MOUSELEAVE then
+  begin
+    FTrackingLeave := False;
+    if FActive and not FAlert and FExpiry.IsDue(GetTickCount64) then Timer;
   end;
 
   result := DefWindowProc(wnd, message, wParam, lParam);

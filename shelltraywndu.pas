@@ -1,7 +1,7 @@
 unit shelltraywndu;
 
 interface
-uses Windows, Classes, SysUtils, Forms, declu, GDIPAPI, dockh;
+uses Windows, Classes, SysUtils, Forms, declu, GDIPAPI, dockh, trayu;
 
 type
 
@@ -12,19 +12,36 @@ type
     FIsEdgeReserved: boolean;
     FReservedSite: TBaseSite;
     FReservedMonitor: integer;
+    FTaskbarRetry, FTaskbarHide, FTaskbarLayoutValid: Boolean;
+    FTaskbarLayout: Windows.TRect;
     FSite: TBaseSite;
     FPoint: windows.TPoint;
     FBaseRect, FMonitorRect: windows.TRect;
     Fx, FxPic: integer;
     Fy, FyPic: integer;
-    FControl, FShown: boolean;
+    FPopupState: TShellPopupState;
+    FStartProcessId: DWORD;
     FStartMenuWnd: THandle;
     FDesktopUserPictureWnd: THandle;
-    function GetMonitorWorkareaRect(Monitor: integer): Windows.TRect;
-    function GetMonitorBoundsRect(Monitor: integer): Windows.TRect;
+    function GetPlacementPhase: TShellPopupPhase;
+  protected
+    function ClockNow: QWord; virtual;
+    function FindStartMenu: HWND; virtual;
+    function ValidStartMenu(Window: HWND): Boolean; virtual;
+    function PopupVisible(Window: HWND): Boolean; virtual;
+    function PlacePopup(Window: HWND; X, Y: Integer): Boolean; virtual;
+    function GetMonitorWorkareaRect(Monitor: integer): Windows.TRect; virtual;
+    function GetMonitorBoundsRect(Monitor: integer): Windows.TRect; virtual;
+    function FindShellWindow: HWND; virtual;
+    function FindStartButton: HWND; virtual;
+    function ShellWindowExists(Window: HWND): Boolean; virtual;
+    function ShellWindowVisible(Window: HWND): Boolean; virtual;
+    procedure ShowShellWindow(Window: HWND; Visible: Boolean); virtual;
+    function MonitorForDockRect(const DockRect: GDIPAPI.TRect): Integer; virtual;
+    function ReadWindowRect(Window: HWND; out Bounds: Windows.TRect): Boolean; virtual;
     function GetRectCenter(rect: Windows.TRect): Windows.TPoint;
     function GetMaximizedWindows(monitorBounds: windows.TRect): TFPList;
-    procedure SetWorkarea(NewWorkArea: windows.TRect);
+    function SetWorkarea(NewWorkArea: windows.TRect): Boolean; virtual;
   public
     class procedure Cleanup;
     constructor Create;
@@ -33,11 +50,121 @@ type
     procedure UnreserveScreenEdge;
     procedure ShowStartMenu(site: TBaseSite; host_wnd: THandle; baseRect, monitorRect: windows.TRect);
     procedure Timer;
+    function NeedsPolling: Boolean;
+    procedure ObserveWindowChange(Window: HWND);
+    property PlacementPhase: TShellPopupPhase read GetPlacementPhase;
+    property EdgeReserved: Boolean read FIsEdgeReserved;
   end;
 
 var ShellTrayWndController: TShellTrayWndController;
 
+function ReservedWorkarea(Workarea, Bounds: Windows.TRect; Site: TBaseSite;
+  Percent: Integer; DockRect: GDIPAPI.TRect; AutoHide: Boolean): Windows.TRect;
+
 implementation
+
+function ReservedWorkarea(Workarea, Bounds: Windows.TRect; Site: TBaseSite;
+  Percent: Integer; DockRect: GDIPAPI.TRect; AutoHide: Boolean): Windows.TRect;
+var Position: Integer;
+begin
+  Result := Workarea;
+  case Site of
+    bsLeft:
+      begin
+        Position := Bounds.Left;
+        if not AutoHide then Inc(Position, DockRect.Width * Percent div 100);
+        Result.Left := Position;
+      end;
+    bsTop:
+      begin
+        Position := Bounds.Top;
+        if not AutoHide then Inc(Position, DockRect.Height * Percent div 100);
+        Result.Top := Position;
+      end;
+    bsRight:
+      begin
+        if AutoHide then Position := Bounds.Right
+        else Position := Bounds.Right - DockRect.Width * Percent div 100;
+        Result.Right := Position;
+      end;
+    bsBottom:
+      begin
+        if AutoHide then Position := Bounds.Bottom
+        else Position := Bounds.Bottom - DockRect.Height * Percent div 100;
+        Result.Bottom := Position;
+      end;
+  end;
+end;
+
+function TShellTrayWndController.FindShellWindow: HWND;
+begin Result := FindWindow('Shell_TrayWnd', nil); end;
+
+function TShellTrayWndController.ClockNow: QWord;
+begin Result := GetTickCount64; end;
+
+function TShellTrayWndController.FindStartMenu: HWND;
+begin
+  Result := FindWindow('ImmersiveLauncher', nil);
+  if Result = 0 then Result := FindWindow('DV2ControlHost', nil);
+end;
+
+function TShellTrayWndController.ValidStartMenu(Window: HWND): Boolean;
+var Name: array[0..255] of Char; ProcessId: DWORD;
+begin
+  Result := False;
+  if not IsWindow(Window) then Exit;
+  if GetClassName(Window, @Name[0], Length(Name)) = 0 then Exit;
+  if not SameText(StrPas(@Name[0]), 'ImmersiveLauncher') and
+    not SameText(StrPas(@Name[0]), 'DV2ControlHost') then Exit;
+  ProcessId := 0;
+  GetWindowThreadProcessId(Window, @ProcessId);
+  Result := (ProcessId <> 0) and ((FStartProcessId = 0) or (FStartProcessId = ProcessId));
+end;
+
+function TShellTrayWndController.PopupVisible(Window: HWND): Boolean;
+begin Result := IsWindowVisible(Window); end;
+
+function TShellTrayWndController.PlacePopup(Window: HWND; X, Y: Integer): Boolean;
+begin Result := SetWindowPos(Window, 0, X, Y, 0, 0, SWP_NOSIZE or SWP_NOZORDER); end;
+
+function TShellTrayWndController.GetPlacementPhase: TShellPopupPhase;
+begin Result := FPopupState.Phase; end;
+
+function TShellTrayWndController.NeedsPolling: Boolean;
+begin Result := FPopupState.Phase = spWaiting; end;
+
+procedure TShellTrayWndController.ObserveWindowChange(Window: HWND);
+begin
+  if FPopupState.NeedsPolling and
+    ((Window = 0) or (Window = FStartMenuWnd) or
+     (Window = FDesktopUserPictureWnd) or NeedsPolling) then Timer;
+end;
+
+function TShellTrayWndController.FindStartButton: HWND;
+begin Result := FindWindowW('Button', pwchar(UTF8Decode(XStartButtonText))); end;
+
+function TShellTrayWndController.ShellWindowExists(Window: HWND): Boolean;
+begin Result := IsWindow(Window); end;
+
+function TShellTrayWndController.ShellWindowVisible(Window: HWND): Boolean;
+begin Result := IsWindowVisible(Window); end;
+
+procedure TShellTrayWndController.ShowShellWindow(Window: HWND; Visible: Boolean);
+begin
+  if Visible then ShowWindow(Window, SW_SHOWNORMAL) else ShowWindow(Window, SW_HIDE);
+end;
+
+function TShellTrayWndController.MonitorForDockRect(const DockRect: GDIPAPI.TRect): Integer;
+var Point: Windows.TPoint;
+begin
+  if Screen.MonitorCount = 0 then Exit(-1);
+  Point.X := DockRect.X + DockRect.Width div 2;
+  Point.Y := DockRect.Y + DockRect.Height div 2;
+  Result := Screen.MonitorFromPoint(Point).MonitorNum;
+end;
+
+function TShellTrayWndController.ReadWindowRect(Window: HWND; out Bounds: Windows.TRect): Boolean;
+begin Result := Windows.GetWindowRect(Window, Bounds); end;
 //------------------------------------------------------------------------------
 class procedure TShellTrayWndController.Cleanup;
 begin
@@ -48,7 +175,7 @@ end;
 constructor TShellTrayWndController.Create;
 begin
   inherited;
-  FControl := false;
+  FPopupState.Cancel;
   FIsEdgeReserved := false;
   FReservedMonitor := 0;
   FReservedSite := bsBottom;
@@ -56,12 +183,18 @@ end;
 //------------------------------------------------------------------------------
 function TShellTrayWndController.GetMonitorWorkareaRect(Monitor: integer): Windows.TRect;
 begin
+  Result := Default(Windows.TRect);
+  if Screen.MonitorCount = 0 then Exit;
+  if Monitor < 0 then Monitor := 0;
   if Monitor >= screen.MonitorCount then Monitor := screen.MonitorCount - 1;
   if Monitor >= 0 then Result := screen.Monitors[Monitor].WorkareaRect;
 end;
 //------------------------------------------------------------------------------
 function TShellTrayWndController.GetMonitorBoundsRect(Monitor: integer): Windows.TRect;
 begin
+  Result := Default(Windows.TRect);
+  if Screen.MonitorCount = 0 then Exit;
+  if Monitor < 0 then Monitor := 0;
   if Monitor >= screen.MonitorCount then Monitor := screen.MonitorCount - 1;
   if Monitor >= 0 then Result := screen.Monitors[Monitor].BoundsRect;
 end;
@@ -83,18 +216,24 @@ var
   taskbarSite: TBaseSite;
 begin
   try
-    hwndTaskbar := FindWindow('Shell_TrayWnd', nil);
-    hwndButton := FindWindowW('Button', pwchar(UTF8Decode(XStartButtonText)));
-    taskbarVisible := IsWindowVisible(hwndTaskbar);
-    buttonVisible := IsWindowVisible(hwndButton);
+    if FTaskbarRetry and (FTaskbarHide <> hide) then FTaskbarLayoutValid := False;
+    FTaskbarHide := hide;
+    FTaskbarRetry := True;
+    hwndTaskbar := FindShellWindow;
+    if not ShellWindowExists(hwndTaskbar) then Exit;
+    hwndButton := FindStartButton;
+    taskbarVisible := ShellWindowVisible(hwndTaskbar);
+    buttonVisible := ShellWindowVisible(hwndButton);
     updateWorkarea := false;
 
     // if workarea should be changed
-    if hide = taskbarVisible then
+    if (hide = taskbarVisible) or FTaskbarLayoutValid then
     begin
       // get monitor index and site where taskbar is located
       taskbarMonitorIndex := 0;
-      if GetWindowRect(hwndTaskbar, taskbarRect) then
+      if not ReadWindowRect(hwndTaskbar, taskbarRect) then Exit;
+      if (taskbarRect.Right <= taskbarRect.Left) or
+        (taskbarRect.Bottom <= taskbarRect.Top) then Exit;
       begin
         // monitor index
         taskbarCenter := GetRectCenter(taskbarRect);
@@ -102,6 +241,10 @@ begin
         // monitor center point
         taskbarMonitorBounds := GetMonitorBoundsRect(taskbarMonitorIndex);
         taskbarMonitorWorkarea := GetMonitorWorkareaRect(taskbarMonitorIndex);
+        if (taskbarMonitorBounds.Right <= taskbarMonitorBounds.Left) or
+          (taskbarMonitorBounds.Bottom <= taskbarMonitorBounds.Top) or
+          (taskbarMonitorWorkarea.Right <= taskbarMonitorWorkarea.Left) or
+          (taskbarMonitorWorkarea.Bottom <= taskbarMonitorWorkarea.Top) then Exit;
         monitorCenter := GetRectCenter(taskbarMonitorBounds);
         // taskbar site
         if taskbarRect.Bottom - taskbarRect.Top < taskbarRect.Right - taskbarRect.Left then
@@ -134,18 +277,30 @@ begin
           bsRight: taskbarMonitorWorkarea.Right := taskbarMonitorBounds.Right - taskbarRect.Right + taskbarRect.Left;
         end;
       end;
+      FTaskbarLayoutValid := updateWorkarea;
+      if updateWorkarea then FTaskbarLayout := taskbarMonitorWorkarea;
     end;
 
     // hide or show Start Button
-    if hide and buttonVisible then         showwindow(hwndButton, SW_HIDE);
-    if not hide and not buttonVisible then showwindow(hwndButton, SW_SHOWNORMAL);
+    if ShellWindowExists(hwndButton) then
+    begin
+      if hide and buttonVisible then         ShowShellWindow(hwndButton, False);
+      if not hide and not buttonVisible then ShowShellWindow(hwndButton, True);
+    end;
 
     // hide or show Taskbar
-    if hide and taskbarVisible then         showwindow(hwndTaskbar, SW_HIDE);
-    if not hide and not taskbarVisible then showwindow(hwndTaskbar, SW_SHOWNORMAL);
+    if hide and taskbarVisible then         ShowShellWindow(hwndTaskbar, False);
+    if not hide and not taskbarVisible then ShowShellWindow(hwndTaskbar, True);
 
-    // update workarea
-    if updateWorkarea then SetWorkarea(taskbarMonitorWorkarea);
+    if not ShellWindowExists(hwndTaskbar) or (ShellWindowVisible(hwndTaskbar) = hide) then Exit;
+
+    // Keep failed layout work after the native visibility transition succeeds.
+    if FTaskbarLayoutValid then
+    begin
+      if not SetWorkarea(FTaskbarLayout) then Exit;
+      FTaskbarLayoutValid := False;
+    end;
+    FTaskbarRetry := False;
   except
     on e: Exception do raise Exception.Create('TShellTrayWndController.HideTaskbar' + LineEnding + e.message);
   end;
@@ -167,27 +322,32 @@ begin
     // exclude hidden and tool windows
     if IsWindowVisible(wnd) and (GetWindowLongPtr(wnd, GWL_EXSTYLE) and WS_EX_TOOLWINDOW = 0) then
     begin
-      GetWindowPlacement(wnd, wp);
-      GetWindowRect(wnd, rect);
-      center.x := (rect.left + rect.right) div 2;
-      center.y := (rect.top + rect.bottom) div 2;
-      if (wp.showCmd = SW_SHOWMAXIMIZED) and PtInRect(monitorBounds, center) then result.Add(pointer(wnd));
+      if GetWindowPlacement(wnd, wp) and GetWindowRect(wnd, rect) then
+      begin
+        center.x := (rect.left + rect.right) div 2;
+        center.y := (rect.top + rect.bottom) div 2;
+        if (wp.showCmd = SW_SHOWMAXIMIZED) and PtInRect(monitorBounds, center) then result.Add(pointer(wnd));
+      end;
     end;
     wnd := GetWindow(wnd, GW_HWNDPREV);
   end;
 end;
 //------------------------------------------------------------------------------
-procedure TShellTrayWndController.SetWorkarea(NewWorkArea: windows.TRect);
+function TShellTrayWndController.SetWorkarea(NewWorkArea: windows.TRect): Boolean;
 var
   monitor: integer;
   bounds: windows.TRect;
   i: integer;
 begin
-  SystemParametersInfo(SPI_SETWORKAREA, 0, @NewWorkArea, SPIF_UPDATEINIFILE);
+  Result := False;
+  if (NewWorkArea.Right <= NewWorkArea.Left) or
+    (NewWorkArea.Bottom <= NewWorkArea.Top) then Exit;
+  Result := SystemParametersInfo(SPI_SETWORKAREA, 0, @NewWorkArea, SPIF_UPDATEINIFILE);
+  if not Result then Exit;
   monitor := screen.MonitorFromPoint(GetRectCenter(NewWorkArea)).MonitorNum;
   bounds := GetMonitorBoundsRect(monitor);
   with GetMaximizedWindows(bounds) do
-  begin
+  try
     i := 0;
     while i < Count do // reposition maximized windows to match new workarea
     begin
@@ -196,69 +356,30 @@ begin
         SWP_NOACTIVATE + SWP_NOZORDER + SWP_NOOWNERZORDER);
       inc(i);
     end;
-    Free;
-  end;
+  finally Free; end;
 end;
 //------------------------------------------------------------------------------
 procedure TShellTrayWndController.ReserveScreenEdge(DockMonitor: integer; DockSite: TBaseSite; Percent: integer; DockWindowRect: GDIPAPI.TRect; DockAutoHide: boolean);
-var
-  Changed: boolean;
-  Position: integer;
-  WorkArea, Bounds: Windows.TRect;
+var WorkArea, Bounds, Planned: Windows.TRect;
 begin
   try
+    // All-monitor layouts reserve the monitor containing the dock center.
+    if DockMonitor < 0 then DockMonitor := MonitorForDockRect(DockWindowRect);
+    if DockMonitor < 0 then Exit;
+    if FIsEdgeReserved and ((FReservedMonitor <> DockMonitor) or (FReservedSite <> DockSite)) then
+    begin
+      UnreserveScreenEdge;
+      if FIsEdgeReserved then Exit;
+    end;
+    WorkArea := GetMonitorWorkareaRect(DockMonitor);
+    Bounds := GetMonitorBoundsRect(DockMonitor);
+    if (Bounds.Right <= Bounds.Left) or (Bounds.Bottom <= Bounds.Top) or
+      (WorkArea.Right <= WorkArea.Left) or (WorkArea.Bottom <= WorkArea.Top) then Exit;
+    Planned := ReservedWorkarea(WorkArea, Bounds, DockSite, Percent, DockWindowRect, DockAutoHide);
+    if not EqualRect(WorkArea, Planned) and not SetWorkarea(Planned) then Exit;
     FIsEdgeReserved := true;
     FReservedMonitor := DockMonitor;
     FReservedSite := DockSite;
-    Changed := false;
-    WorkArea := GetMonitorWorkareaRect(DockMonitor);
-    Bounds := GetMonitorBoundsRect(DockMonitor);
-
-    if DockSite = bsLeft then
-    begin
-      if DockAutoHide then Position := 0
-      else Position := DockWindowRect.Width * Percent div 100;
-      if WorkArea.Left <> Position then
-      begin
-        WorkArea.Left := Position;
-        Changed := true;
-      end;
-    end
-    else
-    if DockSite = bsTop then
-    begin
-      if DockAutoHide then Position := 0
-      else Position := DockWindowRect.Height * Percent div 100;
-      if WorkArea.Top <> Position then
-      begin
-        WorkArea.Top := Position;
-        Changed := true;
-      end;
-    end
-    else
-    if DockSite = bsRight then
-    begin
-      if DockAutoHide then Position := Bounds.Right
-      else Position := Bounds.Right - DockWindowRect.Width * Percent div 100;
-      if WorkArea.Right <> Position then
-      begin
-        WorkArea.Right := Position;
-        Changed := true;
-      end;
-    end
-    else
-    if DockSite = bsBottom then
-    begin
-      if DockAutoHide then Position := Bounds.Bottom
-      else Position := Bounds.Bottom - DockWindowRect.Height * Percent div 100;
-      if WorkArea.Bottom <> Position then
-      begin
-        WorkArea.Bottom := Position;
-        Changed := true;
-      end;
-    end;
-
-    if Changed then SetWorkarea(WorkArea);
   except
     on e: Exception do raise Exception.Create('TShellTrayWndController.ReserveScreenEdge' + LineEnding + e.message);
   end;
@@ -278,6 +399,8 @@ begin
     Changed := false;
     WorkArea := GetMonitorWorkareaRect(FReservedMonitor);
     Bounds := GetMonitorBoundsRect(FReservedMonitor);
+    if (Bounds.Right <= Bounds.Left) or (Bounds.Bottom <= Bounds.Top) or
+      (WorkArea.Right <= WorkArea.Left) or (WorkArea.Bottom <= WorkArea.Top) then Exit;
 
     Position := Bounds.Bottom;
     if FReservedSite = bsTop then Position := Bounds.Top
@@ -285,10 +408,9 @@ begin
     else if FReservedSite = bsRight then Position := Bounds.Right;
 
     // restore workarea for Shell_TrayWnd ? //
-    Shell_TrayWnd := FindWindow('Shell_TrayWnd', nil);
-    if IsWindowVisible(Shell_TrayWnd) then
+    Shell_TrayWnd := FindShellWindow;
+    if IsWindowVisible(Shell_TrayWnd) and ReadWindowRect(Shell_TrayWnd, Shell_TrayRect) then
     begin
-      GetWindowRect(Shell_TrayWnd, Shell_TrayRect);
       Shell_TrayCenter := GetRectCenter(Shell_TrayRect);
       MonitorCenter := GetRectCenter(Bounds);
       Shell_TrayEdge := bsBottom;
@@ -338,7 +460,7 @@ begin
       end;
     end;
 
-    if Changed then SetWorkarea(WorkArea);
+    if Changed and not SetWorkarea(WorkArea) then Exit;
     FIsEdgeReserved := false;
   except
     on e: Exception do raise Exception.Create('TShellTrayWndController.UnreserveScreenEdge' + LineEnding + e.message);
@@ -354,36 +476,47 @@ begin
   FMonitorRect := monitorRect;
 
   GetCursorPos(FPoint);
-  if IsWindow(host_wnd) then
+  if IsWindow(host_wnd) and ReadWindowRect(host_wnd, hostRect) then
   begin
-    GetWindowRect(host_wnd, @hostRect);
     case FSite of
       bsLeft, bsRight: FPoint.y := (hostRect.Top + hostRect.Bottom) div 2;
       bsTop, bsBottom: FPoint.x := (hostRect.Left + hostRect.Right) div 2;
     end;
   end;
 
-  FStartMenuWnd := findwindow('ImmersiveLauncher', nil);
-  if FStartMenuWnd = 0 then FStartMenuWnd := findwindow('DV2ControlHost', nil);
+  FStartProcessId := 0;
+  FStartMenuWnd := 0;
   FDesktopUserPictureWnd := findwindow('Desktop User Picture', nil);
   //FDesktopSpecialFoldersWnd := findwindowex(FStartMenuWnd, 0, 'DesktopSpecialFolders', nil);
 
+  FPopupState.Start(ClockNow, SHELL_POPUP_TIMEOUT);
   sendmessage(host_wnd, WM_SYSCOMMAND, SC_TASKLIST, 0);
-  FShown := false; // wait until start menu is shown
-  FControl := true; // enable start menu position control
 end;
 //------------------------------------------------------------------------------
 procedure TShellTrayWndController.Timer;
 var
   wRect, picRect: windows.TRect;
+  Exists, Shown, HasPicture: Boolean;
 begin
-  if FControl then
+  if FTaskbarRetry then HideTaskbar(FTaskbarHide);
+  if FPopupState.NeedsPolling then
   begin
-    if IsWindowVisible(FStartMenuWnd) then
+    if not ValidStartMenu(FStartMenuWnd) then
     begin
-      FShown := true;
-      GetWindowRect(FStartMenuWnd, @wRect);
-      GetWindowRect(FDesktopUserPictureWnd, @picRect);
+      FStartProcessId := 0;
+      FStartMenuWnd := FindStartMenu;
+      FDesktopUserPictureWnd := FindWindow('Desktop User Picture', nil);
+    end;
+    Exists := ValidStartMenu(FStartMenuWnd);
+    if Exists and (FStartProcessId = 0) then GetWindowThreadProcessId(FStartMenuWnd, @FStartProcessId);
+    Shown := Exists and PopupVisible(FStartMenuWnd);
+    FPopupState.Observe(ClockNow, Exists, Shown);
+    if FPopupState.Phase = spVisible then
+    begin
+      if not ReadWindowRect(FStartMenuWnd, wRect) then Exit;
+      HasPicture := IsWindow(FDesktopUserPictureWnd) and
+        ReadWindowRect(FDesktopUserPictureWnd, picRect);
+      if not HasPicture then picRect := Default(Windows.TRect);
       FxPic := (wRect.Right - wRect.Left) * 3 div 4 - (picRect.Right - picRect.Left);
       FyPic := -(picRect.Bottom - picRect.Top) div 2;
       if FSite = bsLeft then
@@ -415,13 +548,10 @@ begin
 
       if (wRect.Left <> Fx) or (wRect.Top <> Fy) then
       begin
-        SetWindowPos(FStartMenuWnd, 0, Fx, Fy, 0, 0, SWP_NOSIZE + SWP_NOZORDER);
-        SetWindowPos(FDesktopUserPictureWnd, 0, Fx + FxPic, Fy + FyPic, 0, 0, SWP_NOSIZE + SWP_NOZORDER);
+        if PlacePopup(FStartMenuWnd, Fx, Fy) and HasPicture then
+          PlacePopup(FDesktopUserPictureWnd, Fx + FxPic, Fy + FyPic);
       end;
-      //PostMessage(FDesktopSpecialFoldersWnd, WM_ERASEBKGND, 0, 0);
-    end
-    else
-      if FShown then FControl := false;
+    end;
   end;
 end;
 //------------------------------------------------------------------------------

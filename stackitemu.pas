@@ -4,11 +4,11 @@ unit stackitemu;
 
 interface
 uses Windows, Messages, SysUtils, Controls, Classes, ShellAPI, ComObj, ShlObj,
-  Math, GDIPAPI, PIDL, dwm_unit, iniproc, gfx, declu, toolu,
-  stackmodeu, customdrawitemu, customsubitemu, scsubitemu;
+  Math, GDIPAPI, PIDL, dwm_unit, iniproc, gfx, iconserviceu, declu, toolu,
+  stackmodeu, customdrawitemu, customsubitemu, scsubitemu, itemmodelu, itemserializationu, docktimingu;
 
 const
-  MAX_SUBITEMS = 64;
+  MAX_SUBITEMS = STACK_CHILD_LIMIT;
   STATE_PROGRESS_MIN = 0.0;
   STATE_PROGRESS_MAX = 1.0;
   DEF_ANIM_SPEED = 8;
@@ -29,8 +29,11 @@ type
     hint_align: integer;
     hint_alpha: integer;
     draw: boolean;
-    wnd: HWND;
-    item: TCustomSubitem;
+    ItemId: TItemId;
+    function GetItem: TCustomSubitem;
+    function GetWindow: HWND;
+    property item: TCustomSubitem read GetItem;
+    property wnd: HWND read GetWindow;
   end;
 
   PSISubitemData = ^TSISubitemData;
@@ -43,6 +46,10 @@ type
 
   TStackItem = class(TCustomDrawItem)
   private
+    procedure ApplyData(const Data: TStackDtoV1);
+    function CaptureData: TStackDtoV1;
+    function AddSubitemData(const Data: string; out AddedId: TItemId): boolean;
+  {$ifdef ANIMATION_TIMING_TESTS}protected{$else}private{$endif}
     FImageFile: string;
     FSpecialFolder: string;
     FMode: integer;
@@ -55,9 +62,11 @@ type
     //
     FUseShellContextMenus: boolean;
     items: array of TCSIBucket; // using a dynamic array. static causes obscure error while deleting stackitem
+    FChildren: TItemStore;
     FItemCount: integer;
     FState: TStackState;
     FStateProgress: extended;
+    FStackAnimation: TScalarAnimation;
     FOpenAnimation: boolean;
     FDragOver: boolean;
     FPreviewImage: pointer;
@@ -71,7 +80,7 @@ type
     procedure OnDragEnter;
     procedure OnDragOver;
     procedure OnDragLeave;
-    procedure DropFileI(filename: string);
+    function DropFileI(filename: string): boolean;
     // items handling //
     procedure UpdateSpecialFolder;
     procedure AddSpecialFolder(csidl: integer);
@@ -80,6 +89,8 @@ type
     function MakeICP: TDItemCreateParams;
     procedure CheckDeleteSubitems;
     procedure DeleteSubitems;
+    procedure FreeSubitem(Item: TCustomSubitem);
+    procedure ChildRemoved(Id: TItemId);
     procedure SubitemSwap(index1, index2: integer);
     procedure CopyCSIBucket(pFrom, pTo: PCSIBucket);
     function ItemIndex(wnd: HWND): integer;
@@ -87,8 +98,12 @@ type
     procedure OpenStack;
     procedure CloseStack(immediate: boolean = false);
     procedure DoStateProgress;
+    procedure StartStackAnimation(Target: Double);
     procedure ShowAllItems(flag: boolean);
     procedure ShowStackState;
+  protected
+    function AnimationNow: QWord; virtual;
+    function CreateSubitem: TCustomSubitem; virtual;
   public
     property ItemCount: integer read FItemCount;
     property ImageFile: string read FImageFile write FImageFile;
@@ -105,6 +120,8 @@ type
     //
     constructor Create(wndParent: HWND; var AParams: TDItemCreateParams); override;
     destructor Destroy; override;
+    function ChildStore: TItemStore; override;
+    procedure PrepareDeletion; override;
     procedure Init; override;
     procedure FromIni(IniFile, IniSection: string);
     procedure FromString(value: string);
@@ -117,12 +134,14 @@ type
     procedure WMCommand(wParam: WPARAM; lParam: LPARAM; var Result: LRESULT); override;
     function cmd(id: TDParam; param: PtrInt): PtrInt; override;
     procedure Timer; override;
+    function NeedsFrame: boolean; override;
     procedure Configure; override;
     function DropFile(wnd: HWND; pt: windows.TPoint; filename: string): boolean; override;
     procedure Save(ini, section: string); override;
     //
     procedure AddSubitemDefault;
-    procedure AddSubitem(data: string);
+    function AddSubitem(data: string): boolean;
+    function AddSubitems(Data: TStrings): boolean;
     function GetSubitemCaption(index: integer): WideString;
     function SubitemToString(index: integer): string;
     procedure DeleteSubitem(index: integer);
@@ -139,7 +158,19 @@ type
   end;
 
 implementation
-uses themeu, frmstackpropu;
+uses themeu, frmstackpropu, itemregistryu, loggeru, itemviewu, shelltextu;
+function TStackItem.AnimationNow: QWord;
+begin Result := GetTickCount64; end;
+//------------------------------------------------------------------------------
+function TCSIBucket.GetItem: TCustomSubitem;
+begin
+  Result := TCustomSubitem(FindItemModel(ItemId));
+end;
+//------------------------------------------------------------------------------
+function TCSIBucket.GetWindow: HWND;
+begin
+  Result := ItemViews.HandleOf(ItemId);
+end;
 //------------------------------------------------------------------------------
 constructor TStackItem.Create(wndParent: HWND; var AParams: TDItemCreateParams);
 begin
@@ -157,6 +188,8 @@ procedure TStackItem.Init;
 begin
   inherited;
   FImageFile := '';
+  FChildren := TItemStore.Create;
+  FChildren.OnRemoved := ChildRemoved;
   FItemCount := 0;
   SetLength(items, MAX_SUBITEMS);
   FState := stsClosed;
@@ -181,129 +214,118 @@ begin
   except end;
   try if FPreviewImage <> nil then GdipDisposeImage(FPreviewImage);
   except end;
-  DeleteSubitems;
-  inherited;
+  try
+    DeleteSubitems;
+  finally
+    try FreeAndNil(FChildren);
+    finally inherited; end;
+  end;
 end;
 //------------------------------------------------------------------------------
-procedure TStackItem.FromIni(IniFile, IniSection: string);
-var
-  idx: integer;
-  data: string;
+function TStackItem.ChildStore: TItemStore;
 begin
-  if not FFreed then
+  Result := FChildren;
+end;
+//------------------------------------------------------------------------------
+function TStackItem.CreateSubitem: TCustomSubitem;
+begin
+  Result := TShortcutSubitem.Create(FHWnd, MakeICP);
+end;
+//------------------------------------------------------------------------------
+procedure TStackItem.PrepareDeletion;
+var wasOpen: boolean; children: TItemIds; index: integer;
+begin
+  wasOpen := FState <> stsClosed;
+  FState := stsClosed;
+  FStateProgress := STATE_PROGRESS_MIN;
+  FHideHint := false;
+  FDragOver := false;
+  FDropIndicator := 0;
+  ItemViews.KillItemTimer(ItemId, ID_TIMER_OPEN);
+  ItemViews.KillItemTimer(ItemId, ID_TIMER_CLOSE);
   try
-    try
-      FUpdating := true;
-
-      if (length(IniFile) > 0) and (length(IniSection) > 0) then
-      begin
-        Caption          := ReadIniStringW(IniFile, IniSection, 'caption', '');
-        FImageFile       := ReadIniStringW(IniFile, IniSection, 'image', '');
-        FColorData       := toolu.StringToColor(ReadIniStringW(IniFile, IniSection, 'color_data', toolu.ColorToString(DEF_COLOR_DATA)));
-        FMode            := ReadIniIntW(IniFile, IniSection, 'mode', 0, 0, 99);
-        FOffset          := ReadIniIntW(IniFile, IniSection, 'offset', 0, -100, 100);
-        FAnimationSpeed  := ReadIniIntW(IniFile, IniSection, 'animation_speed', DEF_ANIM_SPEED, 1, 20);
-        FDistort         := ReadIniIntW(IniFile, IniSection, 'distort', DEF_DISTORT, -10, 10);
-        FPreview         := ReadIniIntW(IniFile, IniSection, 'preview', DEF_STACK_PREVIEW, 0, 2);
-        FSpecialFolder   := ReadIniStringW(IniFile, IniSection, 'special_folder', '');
-        FShowBackground  := ReadIniBoolW(IniFile, IniSection, 'background', false);
-        FSorted          := ReadIniBoolW(IniFile, IniSection, 'sorted', false);
-
-        idx := 1;
-        repeat
-          data := ReadIniStringW(IniFile, IniSection, WideString('subitem' + inttostr(idx)), '');
-          if data <> '' then AddSubitem(data);
-          inc(idx);
-        until (data = '') or (idx > MAX_SUBITEMS);
-
-        UpdateSpecialFolder;
-
-        FUpdating:= false;
-        Update;
-      end;
-
-    finally
-      FUpdating:= false;
-    end;
-  except
-    on e: Exception do raise Exception.Create('StackItem.FromIni ' + LineEnding + e.message);
+    children := FChildren.Snapshot;
+    for index := 0 to High(children) do
+      ItemViews.KillItemTimer(children[index], ID_TIMER_MOUSEHELD);
+    if FItemCount > 0 then ShowAllItems(false);
+  finally
+    try if wasOpen then LME(false);
+    finally inherited; end;
   end;
+end;
+//------------------------------------------------------------------------------
+procedure TStackItem.ApplyData(const Data: TStackDtoV1);
+begin
+  Caption := Data.Caption;
+  FImageFile := Data.Image;
+  FSpecialFolder := Data.SpecialFolder;
+  FColorData := Data.ColorData;
+  FMode := Data.Mode;
+  FOffset := Data.Offset;
+  FAnimationSpeed := Data.AnimationSpeed;
+  FDistort := Data.Distort;
+  FPreview := Data.Preview;
+  FShowBackground := Data.Background;
+  FSorted := Data.Sorted;
+end;
+
+function TStackItem.CaptureData: TStackDtoV1;
+begin
+  Result := DefaultStackDto;
+  Result.Caption := Caption;
+  Result.Image := FImageFile;
+  Result.SpecialFolder := FSpecialFolder;
+  Result.ColorData := FColorData;
+  Result.Mode := FMode;
+  Result.Offset := FOffset;
+  Result.AnimationSpeed := FAnimationSpeed;
+  Result.Distort := FDistort;
+  Result.Preview := FPreview;
+  Result.Background := FShowBackground;
+  Result.Sorted := FSorted;
+end;
+
+procedure TStackItem.FromIni(IniFile, IniSection: string);
+var Children: TStringList;
+begin
+  if FFreed or (IniFile = '') or (IniSection = '') then Exit;
+  Children := ReadStackChildren(IniFile, IniSection, '');
+  FUpdating := True;
+  try
+    ApplyData(ReadStackIni(IniFile, IniSection));
+    if not AddSubitems(Children) then raise ERangeError.Create('Cannot add stack children');
+    UpdateSpecialFolder;
+  finally FUpdating := False; Children.Free; end;
+  Update;
 end;
 //------------------------------------------------------------------------------
 procedure TStackItem.FromString(value: string);
-var
-  idx: integer;
-  list: TStrings;
+var Children: TStringList;
 begin
-  if not FFreed then
+  if FFreed then Exit;
+  Children := ReadStackChildren('', '', value);
+  FUpdating := True;
   try
-    try
-      FUpdating := true;
-
-      list := TStringList.Create;
-      list.AddText(value);
-      if list.count > 1 then value := list.strings[0];
-
-      Caption              := FetchValue(value, 'caption="', '";');
-      FImageFile           := FetchValue(value, 'image="', '";');
-      FColorData           := DEF_COLOR_DATA;
-      FMode                := 0;
-      FOffset              := 0;
-      FAnimationSpeed      := DEF_ANIM_SPEED;
-      FDistort             := DEF_DISTORT;
-      FSpecialFolder       := '';
-      FShowBackground      := false;
-      try FColorData       := strtoint(FetchValue(value, 'color_data="', '";'));
-      except end;
-      try FMode            := strtoint(FetchValue(value, 'mode="', '";'));
-      except end;
-      try FOffset          := strtoint(FetchValue(value, 'offset="', '";'));
-      except end;
-      try FAnimationSpeed  := strtoint(FetchValue(value, 'animation_speed="', '";'));
-      except end;
-      try FDistort         := strtoint(FetchValue(value, 'distort="', '";'));
-      except end;
-      FPreview             := DEF_STACK_PREVIEW;
-      try FPreview         := strtoint(FetchValue(value, 'preview="', '";'));
-      except end;
-      FSpecialFolder       := FetchValue(value, 'special_folder="', '";');
-      try FShowBackground  := boolean(strtoint(FetchValue(value, 'background="', '";')));
-      except end;
-      try FSorted          := boolean(strtoint(FetchValue(value, 'sorted="', '";')));
-      except end;
-
-      if list.count > 1 then
-      begin
-        idx := 1;
-        while idx < list.Count do
-        begin
-          if list.strings[idx] <> '' then AddSubitem(list.strings[idx]);
-          inc(idx);
-        end;
-      end;
-      list.free;
-
-      UpdateSpecialFolder;
-
-    finally
-      FUpdating:= false;
-    end;
-
-    Update;
-  except
-    on e: Exception do raise Exception.Create('StackItem.FromString ' + LineEnding + e.message);
-  end;
+    ApplyData(ReadStackText(value));
+    if not AddSubitems(Children) then raise ERangeError.Create('Cannot add stack children');
+    UpdateSpecialFolder;
+  finally FUpdating := False; Children.Free; end;
+  Update;
 end;
 //------------------------------------------------------------------------------
 procedure TStackItem.Update;
+var Data: TStackDtoV1;
 begin
   if FFreed or FUpdating then exit;
+  Data := CaptureData;
+  NormalizeStackDto(Data);
+  ApplyData(Data);
 
   try
     try
       FUpdating := true;
       // load images from files //
-      LoadImage(UnzipPath(FImageFile), FBigItemSize, false, false, FImage, FIW, FIH);
+      LoadImage(ShellUTF16(UnzipPath(FImageFile)), FBigItemSize, false, false, FImage, FIW, FIH);
       // default stack image //
       if FImage = nil then
       begin
@@ -401,7 +423,7 @@ begin
     end;
 
     b := (id = gpItemSize) or (id = gpUseShellContextMenus) or (id = gpSite) or (id = gpShowHint) or
-      (id = gpLaunchInterval) or (id = gpActivateRunning) or (id = gpLockDragging) or (id = tcThemeChanged);
+      (id = gpShowRunningIndicator) or (id = gpLaunchInterval) or (id = gpActivateRunning) or (id = gpLockDragging) or (id = tcThemeChanged);
     if (FItemCount > 0) and b then
     begin
       for idx := 0 to FItemCount - 1 do items[idx].item.cmd(id, param);
@@ -445,6 +467,10 @@ begin
   if not FFreed and not FUpdating then
     if (FState = stsOpening) or (FState = stsClosing) then DoStateProgress;
 end;
+function TStackItem.NeedsFrame: boolean;
+begin
+  Result := inherited NeedsFrame or (FState in [stsOpening, stsClosing]);
+end;
 //------------------------------------------------------------------------------
 procedure TStackItem.Configure;
 begin
@@ -453,8 +479,7 @@ end;
 //------------------------------------------------------------------------------
 function TStackItem.ToString: string;
 begin
-  result := Make(FCaption, FImageFile, FSpecialFolder,
-    FColorData, FMode, FOffset, FAnimationSpeed, FDistort, FPreview, FShowBackground);
+  Result := WriteStackText(CaptureData);
 end;
 //------------------------------------------------------------------------------
 function TStackItem.ToStringFullCopy: string;
@@ -493,7 +518,12 @@ end;
 function TStackItem.ContextMenu(pt: Windows.TPoint): boolean;
   function IsValidShortcutString(str: string): boolean;
   begin
-    result := FetchValue(str, 'class="', '";') = 'shortcut';
+    Result := False;
+    if Trim(str) = '' then Exit;
+    try
+      ReadShortcutText(str);
+      Result := True;
+    except on EConvertError do Result := False; end;
   end;
 
 var
@@ -556,14 +586,16 @@ begin
       // WM_TIMER (OPEN)
       if (Msg = WM_TIMER) and (wParam = ID_TIMER_OPEN) then
       begin
-        KillTimer(FHWnd, ID_TIMER_OPEN);
+        if not ItemViews.ConsumeItemTimer(ItemId, ID_TIMER_OPEN, GetTickCount64) then exit;
+        ItemViews.KillItemTimer(ItemId, ID_TIMER_OPEN);
         OpenStack;
       end;
 
       // WM_TIMER (CLOSE)
       if (Msg = WM_TIMER) and (wParam = ID_TIMER_CLOSE) then
       begin
-        KillTimer(FHWnd, ID_TIMER_CLOSE);
+        if not ItemViews.ConsumeItemTimer(ItemId, ID_TIMER_CLOSE, GetTickCount64) then exit;
+        ItemViews.KillItemTimer(ItemId, ID_TIMER_CLOSE);
         CloseStack;
       end;
 
@@ -583,8 +615,8 @@ begin
   try
     FDropIndicator := DII_ADD;
     FDragOver := true;
-    KillTimer(FHWnd, ID_TIMER_CLOSE);
-    SetTimer(FHWnd, ID_TIMER_OPEN, 1000, nil);
+    ItemViews.KillItemTimer(ItemId, ID_TIMER_CLOSE);
+    ItemViews.SetItemTimer(ItemId, ID_TIMER_OPEN, 1000);
     Redraw;
   except
     on e: Exception do raise Exception.Create('StackItem.OnDragEnter ' + LineEnding + e.message);
@@ -602,8 +634,8 @@ begin
     cmd(icSelect, 0);
     FDropIndicator := 0;
     FDragOver := false;
-    KillTimer(FHWnd, ID_TIMER_OPEN);
-    SetTimer(FHWnd, ID_TIMER_CLOSE, 1000, nil);
+    ItemViews.KillItemTimer(ItemId, ID_TIMER_OPEN);
+    ItemViews.SetItemTimer(ItemId, ID_TIMER_CLOSE, 1000);
     Redraw;
   except
     on e: Exception do raise Exception.Create('StackItem.OnDragLeave ' + LineEnding + e.message);
@@ -617,19 +649,21 @@ begin
   result := not FFreed;
   if result then
   begin
-    if wnd = FHWnd then DropFileI(filename)
+    if wnd = FHWnd then Result := DropFileI(filename)
     else
     begin
       index := ItemIndex(wnd);
-      if index <> NOT_AN_ITEM then items[index].item.DropFile(pt, filename);
+      if index <> NOT_AN_ITEM then Result := items[index].item.DropFile(pt, filename)
+      else Result := False;
     end;
   end;
 end;
 //------------------------------------------------------------------------------
-procedure TStackItem.DropFileI(filename: string);
+function TStackItem.DropFileI(filename: string): boolean;
 var
   ext: string;
 begin
+  Result := False;
   // update icon //
   ext := LowerCase(ExtractFileExt(filename));
   if (ext = '.png') or (ext = '.ico') then
@@ -637,6 +671,7 @@ begin
     FImageFile := toolu.ZipPath(filename);
     FColorData := DEF_COLOR_DATA;
     Update;
+    Result := True;
     exit;
   end;
 
@@ -646,40 +681,18 @@ begin
     exit;
   end;
 
-  AddSubitem(TShortcutSubitem.MakeFromFilename(filename));
+  Result := AddSubitem(TShortcutSubitem.MakeFromFilename(filename));
 end;
 //------------------------------------------------------------------------------
 procedure TStackItem.Save(ini, section: string);
-var
-  idx: integer;
+var Index: integer;
 begin
-  if (ini = '') or (section = '') then exit;
-  WritePrivateProfileString(pchar(section), nil, nil, pchar(ini));
-  WritePrivateProfileString(pchar(section), 'class', 'stack', pchar(ini));
-  if Caption <> '' then                         WriteIniStringW(ini, section, 'caption', Caption);
-  if FImageFile <> '' then                      WriteIniStringW(ini, section, 'image', FImageFile);
-  if FColorData <> DEF_COLOR_DATA then          WriteIniStringW(ini, section, 'color_data', toolu.ColorToString(FColorData));
-  if FMode <> 0 then                            WriteIniStringW(ini, section, 'mode', inttostr(FMode));
-  if FOffset <> 0 then                          WriteIniStringW(ini, section, 'offset', inttostr(FOffset));
-  if FAnimationSpeed <> DEF_ANIM_SPEED then     WriteIniStringW(ini, section, 'animation_speed', inttostr(FAnimationSpeed));
-  if FDistort <> DEF_DISTORT then               WriteIniStringW(ini, section, 'distort', inttostr(FDistort));
-  if FSpecialFolder <> '' then                  WriteIniStringW(ini, section, 'special_folder', FSpecialFolder);
-  if FPreview <> DEF_STACK_PREVIEW then         WriteIniStringW(ini, section, 'preview', inttostr(FPreview));
-  if FShowBackground then                       WriteIniStringW(ini, section, 'background', '1');
-  if FSorted then                               WriteIniStringW(ini, section, 'sorted', '1');
-  if (FItemCount > 0) and (FSpecialFolder = '') then
-  begin
-    for idx := 0 to FItemCount - 1 do   WriteIniStringW(ini, section, 'subitem' + inttostr(idx + 1), items[idx].item.ToString);
-  end;
+  if (ini = '') or (section = '') then Exit;
+  WriteStackIni(ini, section, CaptureData);
+  if FSpecialFolder = '' then
+    for Index := 0 to FItemCount - 1 do
+      WriteIniStringW(ShellUTF16(ini), ShellUTF16(section), 'subitem' + IntToStr(Index + 1), ShellUTF16(items[Index].item.ToString));
 end;
-//------------------------------------------------------------------------------
-//
-//
-//
-//   subitems handling
-//
-//
-//
 //------------------------------------------------------------------------------
 procedure TStackItem.UpdateSpecialFolder;
 var
@@ -704,7 +717,6 @@ end;
 //------------------------------------------------------------------------------
 procedure TStackItem.AddSpecialFolder(csidl: integer);
 var
-  sfi: TSHFileInfoW;
   psfDesktop: IShellFolder;
   psfFolder: IShellFolder;
   pidFolder: PITEMIDLIST;
@@ -724,17 +736,16 @@ begin
 
     if FCaption = '::::' then
     begin
-      FillChar(sfi, sizeof(sfi), 0);
-      SHGetFileInfoW(pwchar(pidFolder), 0, sfi, sizeof(sfi), SHGFI_PIDL or SHGFI_DISPLAYNAME);
-      FCaption := strpas(pwchar(sfi.szDisplayName));
+      FCaption := ShellUTF16(PIDL_GetDisplayName3(pidFolder));
     end;
 
     while pEnumList.Next(1, pidChild, celtFetched) = NOERROR do
     begin
       pidAbsolute := PIDL_GetAbsolute(pidFolder, pidChild);
-      strItemData := TShortcutSubitem.MakeFromFilename(PIDL_GetDisplayName2(pidAbsolute));
-      AddSubitem(strItemData);
-      PIDL_Free(pidChild);
+      try
+        strItemData := TShortcutSubitem.MakeFromFilename(PIDL_GetDisplayName2(pidAbsolute));
+        AddSubitem(strItemData);
+      finally PIDL_Free(pidAbsolute); PIDL_Free(pidChild); end;
     end;
 
     PIDL_Free(pidFolder);
@@ -824,6 +835,7 @@ end;
 //------------------------------------------------------------------------------
 function TStackItem.MakeICP: TDItemCreateParams;
 begin
+  Result := Default(TDItemCreateParams);
   result.ItemSize := FItemSize;
   result.BigItemSize := FItemSize;
   result.LaunchInterval := FLaunchInterval;
@@ -838,34 +850,99 @@ begin
   CopyFontData(FFont, result.Font);
 end;
 //------------------------------------------------------------------------------
-procedure TStackItem.AddSubitem(data: string);
+function TStackItem.AddSubitem(data: string): boolean;
+var AddedId: TItemId;
+begin
+  Result := AddSubitemData(Data, AddedId);
+end;
+//------------------------------------------------------------------------------
+function TStackItem.AddSubitems(Data: TStrings): boolean;
+var Added: TItemIds; AddedId, ParentId: TItemId; Index, Count: integer;
+  WasUpdating: boolean; Child: TItemModel;
+begin
+  Result := False;
+  if FFreed or (State in [imsDeleted, imsRetiring]) or not Pin then Exit;
+  ParentId := ItemId;
+  try
+    if Data.Count > MAX_SUBITEMS - FItemCount then Exit;
+    for Index := 0 to Data.Count - 1 do ReadShortcutText(Data[Index]);
+    WasUpdating := FUpdating;
+    FUpdating := True;
+    Count := 0;
+    SetLength(Added, Data.Count);
+    try
+      for Index := 0 to Data.Count - 1 do
+      begin
+        if not AddSubitemData(Data[Index], AddedId) then Exit;
+        Added[Count] := AddedId;
+        Inc(Count);
+      end;
+      Result := True;
+    finally
+      if not Result then
+        for Index := Count - 1 downto 0 do
+        begin
+          Child := FChildren.Find(Added[Index]);
+          if Child is TCustomSubitem then FreeSubitem(TCustomSubitem(Child));
+        end;
+      FUpdating := WasUpdating;
+      if not FFreed then UpdatePreview;
+    end;
+  finally ReleaseItemModel(ParentId); end;
+end;
+//------------------------------------------------------------------------------
+function TStackItem.AddSubitemData(const Data: string; out AddedId: TItemId): boolean;
 var
   upd: boolean;
+  child: TCustomSubitem;
+  parentId: TItemId;
 begin
-  if FFreed then exit;
-
+  Result := False;
+  AddedId := NO_ITEM_ID;
+  if FFreed or (State in [imsDeleted, imsRetiring]) or not Pin then exit;
+  parentId := ItemId;
   try
-    if FItemCount >= MAX_SUBITEMS then exit;
-    inc(FItemCount);
-    upd := FUpdating;
     try
-      FUpdating := true;
-      items[FItemCount - 1].item := TShortcutSubitem.Create(FHWnd, MakeICP);
-      if items[FItemCount - 1].item.Freed then
-      begin
-        DeleteSubitem(FItemCount - 1);
-        dec(FItemCount);
-      end else begin
-        items[FItemCount - 1].wnd := items[FItemCount - 1].item.Handle;
-        items[FItemCount - 1].item.FromString(data);
+      if FItemCount >= MAX_SUBITEMS then exit;
+      upd := FUpdating;
+      child := nil;
+      FChildren.BeginCreation;
+      try
+        FUpdating := true;
+        child := CreateSubitem;
+        if child = nil then raise EOutOfMemory.Create('Cannot create subitem');
+        if child.Freed or (child.Handle = 0) then
+          raise EOSError.Create('Cannot create subitem window');
+        if not FChildren.Add(child) then raise Exception.Create('Cannot own subitem');
+        child.ParentItemId := ItemId;
+        child.FromString(data);
+        if not FFreed and not (State in [imsDeleted, imsRetiring]) and
+          not child.Freed and not (child.State in [imsDeleted, imsRetiring]) and
+          (child.Handle <> 0) and FChildren.Contains(child.ItemId) and
+          (FItemCount < MAX_SUBITEMS) then
+        begin
+          items[FItemCount] := Default(TCSIBucket);
+          items[FItemCount].ItemId := child.ItemId;
+          child.State := imsActive;
+          inc(FItemCount);
+          AddedId := child.ItemId;
+          Result := True;
+          child := nil;
+        end;
+      finally
+        try FreeSubitem(child);
+        finally
+          FUpdating := upd;
+          FChildren.EndCreation;
+        end;
       end;
-    finally
-      FUpdating := upd;
-    end;
 
-    UpdatePreview;
-  except
-    on e: Exception do raise Exception.Create('StackItem.AddSubitem ' + LineEnding + e.message);
+      UpdatePreview;
+    except
+      on e: Exception do raise Exception.Create('StackItem.AddSubitem ' + LineEnding + e.message);
+    end;
+  finally
+    ReleaseItemModel(parentId);
   end;
 end;
 //------------------------------------------------------------------------------
@@ -888,38 +965,61 @@ begin
 end;
 //------------------------------------------------------------------------------
 procedure TStackItem.DeleteSubitem(index: integer);
+var Item: TCustomSubitem;
 begin
   if (index >= 0) and (index < FItemCount) then
   try
-    items[index].item.Free;
-    items[index].item := nil;
-    items[index].wnd := 0;
-    while index < FItemCount - 1 do
-    begin
-      CopyCSIBucket(@items[index + 1], @items[index]);
-      inc(index);
-    end;
-    dec(FItemCount);
-
-    UpdatePreview;
+    Item := items[index].item;
+    FreeSubitem(Item);
   except
     on e: Exception do raise Exception.Create('StackItem.DeleteSubitem ' + LineEnding + e.message);
   end;
 end;
 //------------------------------------------------------------------------------
+procedure TStackItem.FreeSubitem(Item: TCustomSubitem);
+begin
+  if Item = nil then exit;
+  Item.Freed := true;
+  try Item.Free;
+  except
+    on E: Exception do
+      try AddLog('StackItem.FreeSubitem' + LineEnding + E.Message); except end;
+  end;
+end;
+//------------------------------------------------------------------------------
+procedure TStackItem.ChildRemoved(Id: TItemId);
+var index, next: integer;
+begin
+  for index := 0 to FItemCount - 1 do
+    if items[index].ItemId = Id then
+    begin
+      for next := index to FItemCount - 2 do
+        CopyCSIBucket(@items[next + 1], @items[next]);
+      dec(FItemCount);
+      items[FItemCount] := Default(TCSIBucket);
+      if FFreed or FUpdating then exit;
+      try
+        if FItemCount = 0 then PrepareDeletion;
+        UpdatePreview;
+      except on E: Exception do
+        try AddLog('StackItem.ChildRemoved' + LineEnding + E.Message); except end;
+      end;
+      exit;
+    end;
+end;
+//------------------------------------------------------------------------------
 procedure TStackItem.DeleteSubitems;
 var
   idx: integer;
+  pending: TItemIds;
 begin
-  if FItemCount > 0 then
+  if FChildren <> nil then
   try
-    for idx := 0 to FItemCount - 1 do
-    begin
-      items[idx].item.Free;
-      items[idx].item := nil;
-      items[idx].wnd := 0;
-    end;
+    pending := FChildren.Snapshot;
+    for idx := 0 to FItemCount - 1 do items[idx] := Default(TCSIBucket);
     FItemCount := 0;
+    for idx := 0 to High(pending) do
+      FreeSubitem(TCustomSubitem(FChildren.Find(pending[idx])));
 
     if not FFreed then UpdatePreview;
   except
@@ -998,21 +1098,22 @@ end;
 //------------------------------------------------------------------------------
 procedure TStackItem.CopyCSIBucket(pFrom, pTo: PCSIBucket);
 begin
-  pTo^.wnd := pFrom^.wnd;
-  pTo^.item := pFrom^.item;
+  pTo^.ItemId := pFrom^.ItemId;
 end;
 //------------------------------------------------------------------------------
 function TStackItem.ItemIndex(wnd: HWND): integer;
 var
   idx: integer;
+  Id: TItemId;
 begin
   try
     result := NOT_AN_ITEM;
     if (wnd = 0) or (FItemCount <= 0) then exit;
-
+    Id := ItemViews.ItemIdOf(wnd);
+    if Id = NO_ITEM_ID then exit;
     for idx := 0 to FItemCount - 1 do
     begin
-      if items[idx].wnd = wnd then
+      if items[idx].ItemId = Id then
       begin
         result := idx;
         break;
@@ -1038,10 +1139,12 @@ begin
 end;
 //------------------------------------------------------------------------------
 procedure TStackItem.OpenStack;
+var acquireLock: boolean;
 begin
   if not FFreed and (FItemCount > 0) and ((FState = stsClosed) or (FState = stsClosing)) then
   begin
-    FStateProgress := 0;
+    acquireLock := FState = stsClosed;
+    StartStackAnimation(1);
     FState := stsOpening; // further progress is being done by timer //
     FHideHint := true;
     Redraw;
@@ -1052,16 +1155,17 @@ begin
       ShowStackState;
       ShowAllItems(true);
     end;
-    LME(true);
+    if acquireLock then LME(true);
   end;
 end;
 //------------------------------------------------------------------------------
 procedure TStackItem.CloseStack(immediate: boolean = false);
 begin
-  if not FFreed and (FItemCount > 0) and ((FState = stsOpen) or (FState = stsOpening)) then
+  if not FFreed and (FItemCount > 0) and ((FState = stsOpen) or (FState = stsOpening)
+    or (immediate and (FState = stsClosing))) then
   begin
     cmd(icSelect, 0);
-    FStateProgress := 1;
+    StartStackAnimation(0);
     FState := stsClosing;  // further progress is being done by timer //
     if immediate or not FOpenAnimation then
     begin
@@ -1079,15 +1183,8 @@ end;
 //------------------------------------------------------------------------------
 procedure TStackItem.DoStateProgress;
 var
-  step: extended;
-  idx: integer;
-  wpi: uint;
   showItems: boolean;
 begin
-  step := mc.GetStep(FMode, FItemCount);
-  if FAnimationSpeed > MID_ANIM_SPEED then step := step * (1 + (FAnimationSpeed - MID_ANIM_SPEED) * 0.5);
-  if FAnimationSpeed < MID_ANIM_SPEED then step := step * (1 - (MID_ANIM_SPEED - FAnimationSpeed) * 0.15);
-
   if FState = stsOpen then
   begin
       FStateProgress := 1;
@@ -1098,7 +1195,7 @@ begin
   begin
       showItems := FStateProgress = 0;
 
-      FStateProgress += step;
+      FStateProgress := FStackAnimation.ValueAt(AnimationNow);
       if not FOpenAnimation then FStateProgress := 1;
       if FStateProgress >= 1 then
       begin
@@ -1112,7 +1209,7 @@ begin
   else
   if FState = stsClosing then
   begin
-      FStateProgress -= step;
+      FStateProgress := FStackAnimation.ValueAt(AnimationNow);
       if not FOpenAnimation then FStateProgress := 0;
 
       if FStateProgress <= 0 then
@@ -1133,20 +1230,44 @@ begin
       end;
   end;
 end;
+procedure TStackItem.StartStackAnimation(Target: Double);
+var step: extended; duration, now: QWord;
+begin
+  now := AnimationNow;
+  if FState in [stsOpening, stsClosing] then FStateProgress := FStackAnimation.ValueAt(now);
+  step := mc.GetStep(FMode, FItemCount);
+  if FAnimationSpeed > MID_ANIM_SPEED then step := step * (1 + (FAnimationSpeed - MID_ANIM_SPEED) * 0.5);
+  if FAnimationSpeed < MID_ANIM_SPEED then step := step * (1 - (MID_ANIM_SPEED - FAnimationSpeed) * 0.15);
+  if step <= 0 then step := 0.01;
+  duration := Max(1, Round(Abs(Target - FStateProgress) * 10 / step));
+  FStackAnimation.StartValue := FStateProgress;
+  FStackAnimation.TargetValue := FStateProgress;
+  FStackAnimation.DurationMs := 0;
+  FStackAnimation.Retarget(now, Target, duration);
+end;
 //------------------------------------------------------------------------------
 procedure TStackItem.ShowAllItems(flag: boolean);
 var
   idx: integer;
-  wpi, swp: uint;
+  wpi: HDWP;
+  swp: uint;
 begin
   swp := SWP_SHOWWINDOW;
   if not flag then swp := SWP_HIDEWINDOW;
 
   wpi := BeginDeferWindowPos(FItemCount);
   for idx := 0 to FItemCount - 1 do
-    DeferWindowPos(wpi, items[idx].wnd, FHWnd, 0, 0, 0, 0, swp_nomove +
+  begin
+    if wpi = 0 then Break;
+    wpi := DeferWindowPos(wpi, items[idx].wnd, FHWnd, 0, 0, 0, 0, swp_nomove +
       swp_nosize + swp_noactivate + swp_noreposition + swp);
-  EndDeferWindowPos(wpi);
+  end;
+  if wpi <> 0 then
+    if not EndDeferWindowPos(wpi) then wpi := 0;
+  if wpi = 0 then
+    for idx := 0 to FItemCount - 1 do
+      SetWindowPos(items[idx].wnd, FHWnd, 0, 0, 0, 0, swp_nomove +
+        swp_nosize + swp_noactivate + swp_noreposition + swp);
 
   if not flag then
   begin
@@ -1208,20 +1329,21 @@ class function TStackItem.Make(ACaption: WideString = ''; AImage: string = ''; A
       ADistort: integer = DEF_DISTORT; APreview: integer = DEF_STACK_PREVIEW;
       AShowBackground: boolean = false;
       ASorted: boolean = false): string;
+var Data: TStackDtoV1;
 begin
-  result := 'class="stack";';
-  if ACaption <> '' then result := result + 'caption="' + ACaption + '";';
-  if AImage <> '' then result := result + 'image="' + AImage + '";';
-  if ASpecialFolder <> '' then result := result + 'special_folder="' + ASpecialFolder + '";';
-  if color_data <> DEF_COLOR_DATA then result := result + 'color_data="' + toolu.ColorToString(color_data) + '";';
-  if AMode <> 0 then result := result + 'mode="' + inttostr(AMode) + '";';
-  if AOffset <> 0 then result := result + 'offset="' + inttostr(AOffset) + '";';
-  result := result + 'animation_speed="' + inttostr(AAnimationSpeed) + '";';
-  result := result + 'distort="' + inttostr(ADistort) + '";';
-  if APreview <> DEF_STACK_PREVIEW then result := result + 'preview="' + inttostr(APreview) + '";';
-  if AShowBackground then result := result + 'background="1";';
-  if ASorted then result := result + 'sorted="1";';
+  Data := DefaultStackDto;
+  Data.Caption := ACaption;
+  Data.Image := AImage;
+  Data.SpecialFolder := ASpecialFolder;
+  Data.ColorData := color_data;
+  Data.Mode := AMode;
+  Data.Offset := AOffset;
+  Data.AnimationSpeed := AAnimationSpeed;
+  Data.Distort := ADistort;
+  Data.Preview := APreview;
+  Data.Background := AShowBackground;
+  Data.Sorted := ASorted;
+  Result := WriteStackText(Data);
 end;
 //------------------------------------------------------------------------------
 end.
- 

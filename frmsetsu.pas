@@ -371,6 +371,7 @@ var
   maj, min, rel, build, i, mCount: integer;
   selChange: TSelectionChangeEvent;
 begin
+  frmmain.SettingsOpenChanged(True);
   try
     constraints.MinHeight := Height;
     constraints.MinWidth := Width;
@@ -553,6 +554,7 @@ begin
   SetActiveWindow(frmmain.handle);
   action := cafree;
   frmsets := nil;
+  frmmain.SettingsOpenChanged(False);
 end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.btn_okClick(Sender: TObject);
@@ -581,8 +583,11 @@ end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.btnRemoveDockClick(Sender: TObject);
 begin
-  if idYes = messageboxw(handle, pwchar(UTF8Decode(XMsgRemoveDockWarning)), 'Warning', mb_yesno or mb_iconexclamation) then
-    frmmain.execute_cmdline('/removedock');
+  if not frmmain.BeginUserOperation then Exit;
+  try
+    if (idYes = messageboxw(handle, pwchar(UTF8Decode(XMsgRemoveDockWarning)), 'Warning', mb_yesno or mb_iconexclamation))
+      and not frmmain.ClosingRequested then frmmain.execute_cmdline('/removedock');
+  finally frmmain.EndUserOperation; end;
 end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.btnRestoreClick(Sender: TObject);
@@ -666,13 +671,13 @@ end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.hkHideKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
-  sets.container.GlobalHotkeyValue_Hide := ShortCut(Key, Shift);
+  frmmain.SetParam(gpGlobalHotkeyValue_Hide, ShortCut(Key, Shift));
   TEdit(Sender).Text := ShortCutToText(sets.container.GlobalHotkeyValue_Hide);
 end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.hkConsoleKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
-  sets.container.GlobalHotkeyValue_Console := ShortCut(Key, Shift);
+  frmmain.SetParam(gpGlobalHotkeyValue_Console, ShortCut(Key, Shift));
   TEdit(Sender).Text := ShortCutToText(sets.container.GlobalHotkeyValue_Console);
 end;
 //------------------------------------------------------------------------------
@@ -818,30 +823,34 @@ end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.btnBackColorClick(Sender: TObject);
 begin
-  with TColorDialog.Create(self) do
-  begin
-    Color := gfx.SwapColor(FFont.backcolor and $ffffff);
-    if Execute then
-    begin
-      FFont.backcolor := $ff000000 + gfx.SwapColor(Color and $ffffff);
-      ApplyFont(nil);
-    end;
-    free;
-  end;
+  if not frmmain.BeginUserOperation then Exit;
+  try
+    with TColorDialog.Create(self) do
+    try
+      Color := gfx.SwapColor(FFont.backcolor and $ffffff);
+      if Execute and not frmmain.ClosingRequested then
+      begin
+        FFont.backcolor := $ff000000 + gfx.SwapColor(Color and $ffffff);
+        ApplyFont(nil);
+      end;
+    finally Free; end;
+  finally frmmain.EndUserOperation; end;
 end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.btnColorClick(Sender: TObject);
 begin
-  with TColorDialog.Create(self) do
-  begin
-    Color := gfx.SwapColor(FFont.color and $ffffff);
-    if Execute then
-    begin
-      FFont.color := $ff000000 + gfx.SwapColor(Color and $ffffff);
-      ApplyFont(nil);
-    end;
-    free;
-  end;
+  if not frmmain.BeginUserOperation then Exit;
+  try
+    with TColorDialog.Create(self) do
+    try
+      Color := gfx.SwapColor(FFont.color and $ffffff);
+      if Execute and not frmmain.ClosingRequested then
+      begin
+        FFont.color := $ff000000 + gfx.SwapColor(Color and $ffffff);
+        ApplyFont(nil);
+      end;
+    finally Free; end;
+  finally frmmain.EndUserOperation; end;
 end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.pboxPaint(Sender: TObject);
@@ -921,10 +930,14 @@ begin
 end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.ApplyFont(Sender: TObject);
+var Size, Size2: integer;
 begin
-  if listFont.ItemIndex >= 0 then StrCopy(pchar(@FFont.Name), PChar(listFont.Items[listFont.ItemIndex]));
-  FFont.size := StrToInt(edFontSize.Text);
-  FFont.size2 := StrToInt(edFontSize2.Text);
+  if not TryStrToInt(edFontSize.Text, Size) or
+    not TryStrToInt(edFontSize2.Text, Size2) then Exit;
+  if listFont.ItemIndex >= 0 then
+    StrPLCopy(@FFont.Name[0], listFont.Items[listFont.ItemIndex], High(FFont.Name));
+  FFont.size := SetRange(Size, 6, 72);
+  FFont.size2 := SetRange(Size2, 6, 72);
   FFont.bold := btnFontBold.down;
   FFont.italic := btnFontItalic.down;
 
@@ -1038,24 +1051,25 @@ end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.cbUseShellChange(Sender: TObject);
 begin
-  sets.container.UseShell := cbUseShell.Checked;
+  frmmain.SetParam(gpUseShell, Ord(cbUseShell.Checked));
 end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.edShellChange(Sender: TObject);
 begin
   edShell.text:= AnsiToUTF8(toolu.ZipPath(UTF8ToAnsi(edShell.text)));
-  StrCopy(sets.container.shell, pchar(UTF8ToAnsi(edShell.text)));
+  frmmain.SetShell(UTF8ToAnsi(edShell.text));
 end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.btnBrowseShellClick(Sender: TObject);
 begin
-  with TOpenDialog.Create(self) do
+  if not frmmain.BeginUserOperation then Exit;
   try
-    InitialDir := ExtractFilePath(sets.container.shell);
-    if execute then edshell.text := AnsiToUTF8(filename);
-  finally
-    Free;
-  end;
+    with TOpenDialog.Create(self) do
+    try
+      InitialDir := ExtractFilePath(sets.container.shell);
+      if Execute and not frmmain.ClosingRequested then edshell.text := AnsiToUTF8(filename);
+    finally Free; end;
+  finally frmmain.EndUserOperation; end;
 end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.edLaunchIntervalChange(Sender: TObject);
@@ -1107,22 +1121,26 @@ end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.btnAutoRunAddClick(Sender: TObject);
 begin
-  with TOpenDialog.Create(self) do
+  if not frmmain.BeginUserOperation then Exit;
   try
-    if execute then memAutorun.Lines.Add('"' + AnsiToUTF8(toolu.ZipPath(FileName)) + '"');
-  finally
-    free;
-  end;
+    with TOpenDialog.Create(self) do
+    try
+      if Execute and not frmmain.ClosingRequested then
+        memAutorun.Lines.Add('"' + AnsiToUTF8(toolu.ZipPath(FileName)) + '"');
+    finally Free; end;
+  finally frmmain.EndUserOperation; end;
 end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.btnAutoRunAddMinimizedClick(Sender: TObject);
 begin
-  with TOpenDialog.Create(self) do
+  if not frmmain.BeginUserOperation then Exit;
   try
-    if execute then memAutorun.Lines.Add('#"' + AnsiToUTF8(toolu.ZipPath(FileName)) + '"');
-  finally
-    free;
-  end;
+    with TOpenDialog.Create(self) do
+    try
+      if Execute and not frmmain.ClosingRequested then
+        memAutorun.Lines.Add('#"' + AnsiToUTF8(toolu.ZipPath(FileName)) + '"');
+    finally Free; end;
+  finally frmmain.EndUserOperation; end;
 end;
 //------------------------------------------------------------------------------
 procedure Tfrmsets.memAutorunChange(Sender: TObject);

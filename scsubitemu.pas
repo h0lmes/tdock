@@ -4,13 +4,16 @@ unit scsubitemu;
 
 interface
 uses Windows, Messages, SysUtils, Controls, Classes, ShellAPI, Math, ComObj, ShlObj,
-  GDIPAPI, gfx, PIDL, ShContextU, declu, dockh, toolu, customsubitemu, processhlp, loggeru;
+  GDIPAPI, gfx, iconserviceu, PIDL, ShContextU, declu, dockh, toolu, customsubitemu, processhlp, loggeru, itemserializationu, shelltextu;
 
 type
 
   { TShortcutSubitem }
 
   TShortcutSubitem = class(TCustomSubitem)
+  private
+    procedure ApplyData(const Data: TShortcutDtoV1);
+    function CaptureData: TShortcutDtoV1;
   private
     FCommand: string;
     FParams: string;
@@ -30,6 +33,10 @@ type
     function ActivateProcessMainWindow: boolean;
     function ContextMenu(pt: Windows.TPoint): boolean;
     procedure DrawNumberOverlay(dst: pointer; x, y, size, number: integer);
+  protected
+    function ParseAppShellItem(const ParsingName: UnicodeString): PItemIDList; virtual;
+    procedure DisposeShortcutImage; virtual;
+    procedure DisposeShortcutPIDL; virtual;
   public
     property Command: string read FCommand write FCommand;
     property Params: string read FParams write FParams;
@@ -64,7 +71,7 @@ type
   end;
 
 implementation
-uses frmitemoptu;
+uses frmitemoptu, itemhostu;
 //------------------------------------------------------------------------------
 constructor TShortcutSubitem.Create(wndParent: HWND; AParams: TDItemCreateParams);
 begin
@@ -83,13 +90,26 @@ end;
 destructor TShortcutSubitem.Destroy;
 begin
   FFreed := true;
+  try
+    try DisposeShortcutImage;
+    finally DisposeShortcutPIDL; end;
+  finally
+    inherited;
+  end;
+end;
+//------------------------------------------------------------------------------
+procedure TShortcutSubitem.DisposeShortcutImage;
+begin
   try GdipDisposeImage(FImage);
   except on e: Exception do raise Exception.Create('TShortcutSubitem.Destroy.GdipDisposeImage ' + LineEnding + e.message);
   end;
+end;
+//------------------------------------------------------------------------------
+procedure TShortcutSubitem.DisposeShortcutPIDL;
+begin
   try if FIsPIDL then PIDL_Free(FPIDL);
   except on e: Exception do raise Exception.Create('TShortcutSubitem.Destroy.PIDL_Free ' + LineEnding + e.message);
   end;
-  inherited;
 end;
 //------------------------------------------------------------------------------
 function TShortcutSubitem.cmd(id: TDParam; param: PtrInt): PtrInt;
@@ -122,37 +142,50 @@ begin
   end;
 end;
 //------------------------------------------------------------------------------
+procedure TShortcutSubitem.ApplyData(const Data: TShortcutDtoV1);
+begin
+  FCaption := Data.Caption;
+  FCommand := Data.Command;
+  FParams := Data.Params;
+  FDir := Data.Directory;
+  FImageFile := Data.Image;
+  FHide := Data.Hide;
+  FColorData := Data.ColorData;
+  FShowCmd := Data.ShowCmd;
+end;
+
+function TShortcutSubitem.CaptureData: TShortcutDtoV1;
+begin
+  Result := DefaultShortcutDto;
+  Result.Caption := FCaption;
+  Result.Command := FCommand;
+  Result.Params := FParams;
+  Result.Directory := FDir;
+  Result.Image := FImageFile;
+  Result.Hide := FHide;
+  Result.ColorData := FColorData;
+  Result.ShowCmd := FShowCmd;
+end;
+
 procedure TShortcutSubitem.FromString(data: string);
 begin
-  try
-    if data <> '' then
-    begin
-      FCaption       := FetchValue(data, 'caption="', '";');
-      FCommand       := FetchValue(data, 'command="', '";');
-      FParams        := FetchValue(data, 'params="', '";');
-      FDir           := FetchValue(data, 'dir="', '";');
-      FImageFile     := FetchValue(data, 'image="', '";');
-      FHide          := false;
-      FColorData     := DEF_COLOR_DATA;
-      FShowCmd       := 1;
-      try FHide      := boolean(strtoint(FetchValue(data, 'hide="', '";')));
-      except end;
-      try FColorData := strtoint(FetchValue(data, 'color_data="', '";'));
-      except end;
-      try FShowCmd   := strtoint(FetchValue(data, 'showcmd="', '";'));
-      except end;
-      Update;
-    end;
-  except
-    on e: Exception do raise Exception.Create('ShortcutItem.FromString ' + LineEnding + e.message);
-  end;
+  if FFreed then Exit;
+  ApplyData(ReadShortcutText(data));
+  Update;
+end;
+//------------------------------------------------------------------------------
+function TShortcutSubitem.ParseAppShellItem(const ParsingName: UnicodeString): PItemIDList;
+begin
+  Result := nil;
+  if SHParseDisplayName(PWideChar(ParsingName), nil, Result, 0, nil) <> S_OK then
+    PIDL_Free(Result);
 end;
 //------------------------------------------------------------------------------
 procedure TShortcutSubitem.Update;
 var
   pidFolder: PItemIDList;
   csidl: integer;
-  pszName: array [0..255] of char;
+  ParsingName, AppID: UnicodeString;
   ext, params, dir, icon: string;
 begin
   if FFreed or FUpdating then exit;
@@ -161,40 +194,58 @@ begin
     try
       FUpdating := true;
 
-      // if FCommand is a CSIDL convert it to GUID or path //
-      csidl := CSIDL_ToInt(FCommand);
-      if csidl > -1 then
-      begin
-        OleCheck(SHGetSpecialFolderLocation(0, csidl or CSIDL_FLAG_NO_ALIAS, pidFolder));
-        if PIDL_GetDisplayName(nil, pidFolder, SHGDN_FORPARSING, pszName, 255) then FCommand := strpas(pszName);
-        PIDL_Free(pidFolder);
-        if FileExists(FCommand) or DirectoryExists(FCommand) then FCommand := ZipPath(FCommand)
-        else FCaption := '::::'; // assuming this is a PIDL
-      end;
-
-      // create PIDL from GUID //
+      FIsExecutable := False;
+      FExecutable := '';
+      FIsPIDL := False;
       PIDL_Free(FPIDL);
-      if IsPIDLString(FCommand) then
-        FPIDL := PIDL_FromString(FCommand);
 
-      if not assigned(FPIDL) then
-        if not FileExists(toolu.UnzipPath(FCommand)) then
-          if IsGUID(FCommand) then FPIDL := PIDL_GetFromPath(pchar(FCommand));
-
-      FIsPIDL := assigned(FPIDL);
-      if FIsPIDL and (FCaption = '::::') then FCaption := PIDL_GetDisplayName3(FPIDL);
-
-      // check if this is the shortcut to an executable file
-      FIsExecutable := false;
-      if not FIsPIDL then
+      if TryNormalizeAppTarget(ShellUTF16(UnzipPath(FCommand)), AppID) then
       begin
-        FExecutable := toolu.UnzipPath(FCommand);
-        ext := ExtractFileExt(FExecutable);
-        if SameText(ext, '.appref-ms') then ResolveAppref(FHWnd, FExecutable);
-        if SameText(ext, '.lnk') then ResolveLNK(FHWnd, FExecutable, params, dir, icon);
-        ext := ExtractFileExt(FExecutable);
-        FIsExecutable := SameText(ext, '.exe');
-        if not FileExists(FExecutable) and not FIsExecutable then FExecutable := '';
+        if FCaption = '?' then
+        begin
+          pidFolder := ParseAppShellItem(APPS_FOLDER_PREFIX + AppID);
+          if Assigned(pidFolder) then
+          try
+            FCaption := ShellUTF16(PIDL_GetDisplayName3(pidFolder));
+          finally PIDL_Free(pidFolder); end;
+        end;
+      end
+      else
+      begin
+        // if FCommand is a CSIDL convert it to GUID or path //
+        csidl := CSIDL_ToInt(FCommand);
+        if csidl > -1 then
+        begin
+          OleCheck(SHGetSpecialFolderLocation(0, csidl or CSIDL_FLAG_NO_ALIAS, pidFolder));
+          if PIDL_GetDisplayNameText(nil, pidFolder, SHGDN_FORPARSING, ParsingName) then FCommand := ShellUTF8(ParsingName);
+          PIDL_Free(pidFolder);
+          if FileExists(FCommand) or DirectoryExists(FCommand) then FCommand := ZipPath(FCommand)
+          else FCaption := '::::'; // assuming this is a PIDL
+        end;
+
+        // create PIDL from GUID //
+        if IsPIDLString(FCommand) then
+          FPIDL := PIDL_FromString(FCommand);
+
+        if not assigned(FPIDL) then
+          if not FileExists(toolu.UnzipPath(FCommand)) then
+            if not IsPackagedApp(FCommand) and IsShellName(ShellUTF16(FCommand)) then
+              FPIDL := PIDL_ParseTarget(ShellUTF16(FCommand));
+
+        FIsPIDL := assigned(FPIDL);
+        if FIsPIDL and (FCaption = '::::') then FCaption := ShellUTF16(PIDL_GetDisplayName3(FPIDL));
+
+        // check if this is the shortcut to an executable file
+        if not FIsPIDL then
+        begin
+          FExecutable := ShellUTF16(toolu.UnzipPath(FCommand));
+          ext := ExtractFileExt(FExecutable);
+          if SameText(ext, '.appref-ms') then ResolveAppref(FHWnd, FExecutable);
+          if SameText(ext, '.lnk') then ResolveLNK(FHWnd, FExecutable, params, dir, icon);
+          ext := ExtractFileExt(FExecutable);
+          FIsExecutable := SameText(ext, '.exe');
+          if not ShellPathExists(FExecutable) and not FIsExecutable then FExecutable := '';
+        end;
       end;
 
       LoadImageI;
@@ -214,19 +265,8 @@ end;
 //------------------------------------------------------------------------------
 procedure TShortcutSubitem.LoadImageI;
 begin
-  try if assigned(FImage) then GdipDisposeImage(FImage);
-  except end;
-  FImage := nil;
-
-  if FImageFile <> '' then // if custom image file specified
-  begin
-    LoadImage(UnzipPath(FImageFile), FItemSize, true, true, FImage, FIW, FIH)
-  end
-  else // if no custom image set - load from object itself (PIDL or File)
-  begin
-    if FIsPIDL then LoadImageFromPIDL(FPIDL, FItemSize, true, true, FImage, FIW, FIH)
-    else LoadImage(UnzipPath(FCommand), FItemSize, true, true, FImage, FIW, FIH);
-  end;
+  LoadShortcutImage(ShellUTF16(UnzipPath(FCommand)), ShellUTF16(UnzipPath(cut(FImageFile, ';'))),
+    FItemSize, true, true, FImage, FIW, FIH);
 end;
 //------------------------------------------------------------------------------
 procedure TShortcutSubitem.UpdateRunning;
@@ -513,7 +553,7 @@ end;
 //------------------------------------------------------------------------------
 function TShortcutSubitem.ToString: string;
 begin
-  result := Make(FCaption, FCommand, FParams, FDir, FImageFile, FShowCmd, FColorData, FHide);
+  Result := WriteShortcutText(CaptureData);
 end;
 //------------------------------------------------------------------------------
 function TShortcutSubitem.HitTest(Ax, Ay: integer): boolean;
@@ -691,7 +731,7 @@ begin
     end
     else
     begin
-      if not FIsPIDL then DockExecute(FHWnd, pchar(FCommand), pchar('"' + filename + '"'), nil, 1);
+      Result := ItemHostOpenDocument(FInitialParent, FHWnd, FCommand, FParams, FDir, filename, FShowCmd);
     end;
   end;
 end;
@@ -699,16 +739,18 @@ end;
 class function TShortcutSubitem.Make(ACaption: WideString = '';
   ACommand: string = ''; AParams: string = ''; ADir: string = ''; AImage: string = '';
   AShowCmd: integer = 1; AColorData: integer = DEF_COLOR_DATA; AHide: boolean = false): string;
+var Data: TShortcutDtoV1;
 begin
-  result := 'class="shortcut";';
-  if ACaption <> '' then result := result + 'caption="' + ACaption + '";';
-  if ACommand <> '' then result := result + 'command="' + ACommand + '";';
-  if AParams <> '' then result := result + 'params="' + AParams + '";';
-  if ADir <> '' then result := result + 'dir="' + ADir + '";';
-  if AImage <> '' then result := result + 'image="' + AImage + '";';
-  if AShowCmd <> 1 then result := result + 'showcmd="' + inttostr(AShowCmd) + '";';
-  if AColorData <> DEF_COLOR_DATA then result := result + 'color_data="' + toolu.ColorToString(AColorData) + '";';
-  if AHide then result := result + 'hide="1";';
+  Data := DefaultShortcutDto;
+  Data.Caption := ACaption;
+  Data.Command := ACommand;
+  Data.Params := AParams;
+  Data.Directory := ADir;
+  Data.Image := AImage;
+  Data.ShowCmd := AShowCmd;
+  Data.ColorData := AColorData;
+  Data.Hide := AHide;
+  Result := WriteShortcutText(Data);
 end;
 //------------------------------------------------------------------------------
 class function TShortcutSubitem.MakeFromFilename(value: string): string;
@@ -716,16 +758,18 @@ var
   Caption: WideString;
   Dir: string = '';
 begin
-  if IsGUID(value) or IsPIDLString(value) then
+  if IsPackagedApp(value) then
+    Result := Make('?', value, '', '', '', 1)
+  else if IsShellName(ShellUTF16(value)) or IsPIDLString(value) then
   begin
     result := Make('::::', value, '', '', '', 1);
   end
   else
   begin
     if DirectoryExists(value) then
-      Caption  := value
+      Caption  := ShellUTF16(value)
     else
-      Caption  := ChangeFileExt(ExtractFilename(value), '');
+      Caption  := ShellUTF16(ChangeFileExt(ExtractFilename(value), ''));
     if LowerCase(ExtractFileExt(value)) = '.exe' then
       Dir := ZipPath(ExcludeTrailingPathDelimiter(ExtractFilePath(value)));
     result := Make(Caption, ZipPath(value), '', Dir, '', 1);

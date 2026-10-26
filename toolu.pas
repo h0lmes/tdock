@@ -166,6 +166,8 @@ function GetLangIDString(id: integer): string;
 function GetLangIDName(id: integer): WideString;
 function GetRecycleBinState: integer;
 function ResolveLNK(wnd: HWND; var Target: WideString; out params, dir, icon: string): boolean;
+function ReadLNKMetadata(const Link: IShellLinkW; var Target: WideString;
+  out params, dir, icon: string): Boolean;
 procedure ResolveAppref(wnd: HWND; var Target: WideString);
 function BrowseFolder(hWnd: THandle; title, default: string): string;
 procedure SetClipboard(Text: string);
@@ -186,6 +188,7 @@ var
   ScalingFactor: integer;
 
 implementation
+uses PIDL, shelltextu;
 //------------------------------------------------------------------------------
 function GetFont: string;
 begin
@@ -764,49 +767,105 @@ begin
   list.Free;
 end;
 //------------------------------------------------------------------------------
+function ExpandWindowsToken(const Token: UnicodeString): UnicodeString;
+var Buffer: array of WideChar; Required, Count: DWORD; Attempt: Integer;
+begin
+  Required := ExpandEnvironmentStringsW(PWideChar(Token), nil, 0);
+  if Required = 0 then RaiseLastOSError;
+  for Attempt := 1 to 8 do
+  begin
+    if Required > SHELL_TEXT_LIMIT + 1 then raise ERangeError.Create('Expanded text exceeds 32766 UTF-16 units');
+    SetLength(Buffer, Required);
+    Count := ExpandEnvironmentStringsW(PWideChar(Token), @Buffer[0], Required);
+    if Count = 0 then RaiseLastOSError;
+    if Count <= Required then
+    begin
+      SetString(Result, PWideChar(@Buffer[0]), Count - 1);
+      CheckShellText(Result);
+      Exit;
+    end;
+    Required := Count;
+  end;
+  raise ERangeError.Create('Environment changed repeatedly during expansion');
+end;
+
+function ExpandPathVariables(const Text, ProgramFolder: UnicodeString): UnicodeString;
+var Start, Finish, I, J: Integer; Token, Name, Value, WinFolder: UnicodeString;
+begin
+  CheckShellText(Text);
+  Result := '';
+  I := 1;
+  WinFolder := '';
+  while I <= Length(Text) do
+  begin
+    Start := I;
+    if Text[I] = '%' then
+    begin
+      Finish := I + 1;
+      while (Finish <= Length(Text)) and (Text[Finish] <> '%') do Inc(Finish);
+      if Finish <= Length(Text) then
+      begin
+        Token := Copy(Text, I, Finish - I + 1);
+        Name := Copy(Text, I + 1, Finish - I - 1);
+        for J := 1 to Length(Name) do
+          if (Name[J] >= 'A') and (Name[J] <= 'Z') then Name[J] := WideChar(Ord(Name[J]) + 32);
+        if (Name = 'windir') or (Name = 'systemroot') or (Name = 'pf') or
+          (Name = 'pfx86') or (Name = 'programfiles') then
+          if WinFolder = '' then WinFolder := ShellUTF16(GetWinDir);
+        if Name = 'pp' then Value := ProgramFolder
+        else if (Name = 'windir') or (Name = 'systemroot') then Value := WinFolder
+        else if Name = 'sysdir' then Value := ShellUTF16(GetSystemDir)
+        else if Name = 'doc' then
+        begin
+          if bIsWindowsVistaOrHigher then Value := GetKnownPath(FOLDERID_Documents)
+          else Value := ShellUTF16(GetSystemPath('personal'));
+        end
+        else if Name = 'desktop' then
+        begin
+          if bIsWindowsVistaOrHigher then Value := GetKnownPath(FOLDERID_Desktop)
+          else Value := ShellUTF16(GetSystemPath('desktop'));
+        end
+        else if (Name = 'appdata') and bIsWindowsVistaOrHigher then Value := GetKnownPath(FOLDERID_RoamingAppData)
+        else if (Name = 'userprofile') and bIsWindowsVistaOrHigher then Value := GetKnownPath(FOLDERID_Profile)
+        else if (Name = 'startmenu') and bIsWindowsVistaOrHigher then Value := GetKnownPath(FOLDERID_StartMenu)
+        else if (Name = 'commonstartmenu') and bIsWindowsVistaOrHigher then Value := GetKnownPath(FOLDERID_CommonStartMenu)
+        else if Name = 'pfx86' then Value := Copy(WinFolder, 1, 1) + ':\Program Files (x86)'
+        else if (Name = 'pf') or (Name = 'programfiles') then Value := Copy(WinFolder, 1, 1) + ':\Program Files'
+        else if Name = 'date' then Value := ShellUTF16(FormatDateTime('dddddd', Now))
+        else if Name = 'time' then Value := ShellUTF16(FormatDateTime('tt', Now))
+        else Value := ExpandWindowsToken(Token);
+        I := Finish + 1;
+      end else begin Value := Copy(Text, I, MaxInt); I := Length(Text) + 1; end;
+    end else begin
+      while (I <= Length(Text)) and (Text[I] <> '%') do Inc(I);
+      Value := Copy(Text, Start, I - Start);
+    end;
+    if Length(Value) > SHELL_TEXT_LIMIT - Length(Result) then
+      raise ERangeError.Create('Expanded text exceeds 32766 UTF-16 units');
+    Result := Result + Value;
+  end;
+  CheckShellText(Result);
+end;
+
 function UnzipPath(path: string): string;
 var
-  pp, windir: string;
+  pp: string;
 begin
   Result := path;
   if trim(path) = '' then exit;
 
   if length(Result) > 3 then
     if (Result[2] = ':') and (Result[3] = '\') then
-      if fileexists(Result) or directoryexists(Result) then exit;
+      if ShellPathExists(ShellUTF16(Result)) then exit;
 
-  pp := ExcludeTrailingPathDelimiter(ExtractFilePath(ParamStr(0)));
-  if fileexists(pp + '\' + Result) then
+  pp := ExcludeTrailingPathDelimiter(ExtractFilePath(ShellProgramPath));
+  if ShellPathExists(ShellUTF16(pp) + '\' + ShellUTF16(Result)) then
   begin
-    Result := pp + '\' + Result;
+    Result := ShellUTF8(ShellUTF16(pp) + '\' + ShellUTF16(Result));
     exit;
   end;
 
-  // path vars //
-  windir := GetWinDir;
-  Result := ReplaceEx(Result, '%pp%', pp);
-  Result := ReplaceEx(Result, '%windir%', windir);
-  Result := ReplaceEx(Result, '%systemroot%', windir);
-  if pos('%sysdir%', Result) > 0 then Result := ReplaceEx(Result, '%sysdir%', getsystemdir);
-  if bIsWindowsVistaOrHigher then
-  begin
-    if pos('%doc%', Result) > 0 then Result := ReplaceEx(Result, '%doc%', getKnownPath(FOLDERID_Documents));
-    if pos('%appdata%', Result) > 0 then Result := ReplaceEx(Result, '%appdata%', getKnownPath(FOLDERID_RoamingAppData));
-    if pos('%desktop%', Result) > 0 then Result := ReplaceEx(Result, '%desktop%', getKnownPath(FOLDERID_Desktop));
-    if pos('%userprofile%', Result) > 0 then Result := ReplaceEx(Result, '%userprofile%', getKnownPath(FOLDERID_Profile));
-    if pos('%startmenu%', Result) > 0 then Result := ReplaceEx(Result, '%startmenu%', getKnownPath(FOLDERID_StartMenu));
-    if pos('%commonstartmenu%', Result) > 0 then Result := ReplaceEx(Result, '%commonstartmenu%', getKnownPath(FOLDERID_CommonStartMenu));
-  end else begin
-    if pos('%doc%', Result) > 0 then Result := ReplaceEx(Result, '%doc%', GetSystemPath('personal'));
-    if pos('%desktop%', Result) > 0 then Result := ReplaceEx(Result, '%desktop%', GetSystemPath('desktop'));
-  end;
-  Result := ReplaceEx(Result, '%pfx86%', windir[1] + ':\Program Files (x86)');
-  Result := ReplaceEx(Result, '%pf%', windir[1] + ':\Program Files');
-  Result := ReplaceEx(Result, '%programfiles%', windir[1] + ':\Program Files');
-
-  // non-path vars //
-  Result := ReplaceEx(Result, '%date%', formatdatetime('dddddd', now));
-  Result := ReplaceEx(Result, '%time%', formatdatetime('tt', now));
+  Result := ShellUTF8(ExpandPathVariables(ShellUTF16(Result), ShellUTF16(pp)));
 end;
 //------------------------------------------------------------------------------
 function ZipPath(path: string): string;
@@ -814,15 +873,15 @@ var
   windir: string;
 begin
   windir := getwindir;
-  path := ReplaceEx(path, IncludeTrailingPathDelimiter(ExtractFilePath(ParamStr(0))), '');
+  path := ReplaceEx(path, IncludeTrailingPathDelimiter(ExtractFilePath(ShellProgramPath)), '');
   path := ReplaceEx(path, getsystemdir, '%sysdir%');
   path := ReplaceEx(path, windir, '%windir%');
   if bIsWindowsVistaOrHigher then
   begin
-    path := ReplaceEx(path, getKnownPath(FOLDERID_Documents), '%doc%');
-    path := ReplaceEx(path, getKnownPath(FOLDERID_Desktop), '%desktop%');
-    path := ReplaceEx(path, getKnownPath(FOLDERID_Profile), '%userprofile%');
-    path := ReplaceEx(path, getKnownPath(FOLDERID_RoamingAppData), '%appdata%');
+    path := ReplaceEx(path, ShellUTF8(getKnownPath(FOLDERID_Documents)), '%doc%');
+    path := ReplaceEx(path, ShellUTF8(getKnownPath(FOLDERID_Desktop)), '%desktop%');
+    path := ReplaceEx(path, ShellUTF8(getKnownPath(FOLDERID_Profile)), '%userprofile%');
+    path := ReplaceEx(path, ShellUTF8(getKnownPath(FOLDERID_RoamingAppData)), '%appdata%');
   end else begin
     path := ReplaceEx(path, GetSystemPath('personal'), '%doc%');
     path := ReplaceEx(path, GetSystemPath('desktop'), '%desktop%');
@@ -833,19 +892,31 @@ begin
 end;
 //----------------------------------------------------------------------
 function GetSystemDir: string;
-var
-  SysDir: array [0..MAX_PATH - 1] of char;
+var Buffer: array of WideChar; Count: UINT;
 begin
-  SetString(Result, SysDir, GetSystemDirectory(SysDir, MAX_PATH));
-  Result := ExcludeTrailingPathDelimiter(Result);
+  SetLength(Buffer, 256);
+  repeat
+    Count := GetSystemDirectoryW(@Buffer[0], Length(Buffer));
+    if Count = 0 then RaiseLastOSError;
+    if Count < UINT(Length(Buffer)) then Break;
+    if Count > SHELL_TEXT_LIMIT then raise ERangeError.Create('System directory exceeds supported size');
+    SetLength(Buffer, Count + 1);
+  until False;
+  Result := ExcludeTrailingPathDelimiter(ShellUTF8(UnicodeString(PWideChar(@Buffer[0]))));
 end;
 //----------------------------------------------------------------------
 function GetWinDir: string;
-var
-  WinDir: array [0..MAX_PATH - 1] of char;
+var Buffer: array of WideChar; Count: UINT;
 begin
-  SetString(Result, WinDir, GetWindowsDirectory(WinDir, MAX_PATH));
-  Result := ExcludeTrailingPathDelimiter(Result);
+  SetLength(Buffer, 256);
+  repeat
+    Count := GetWindowsDirectoryW(@Buffer[0], Length(Buffer));
+    if Count = 0 then RaiseLastOSError;
+    if Count < UINT(Length(Buffer)) then Break;
+    if Count > SHELL_TEXT_LIMIT then raise ERangeError.Create('Windows directory exceeds supported size');
+    SetLength(Buffer, Count + 1);
+  until False;
+  Result := ExcludeTrailingPathDelimiter(ShellUTF8(UnicodeString(PWideChar(@Buffer[0]))));
 end;
 //------------------------------------------------------------------------------
 function GetSystemPath(path: string): string;
@@ -1007,34 +1078,84 @@ begin
   ILFree(pidFolder);
 end;
 //------------------------------------------------------------------------------
-function ResolveLNK(wnd: HWND; var Target: WideString; out params, dir, icon: string): boolean;
-var
-  obj: IUnknown;
-  isl: IShellLink;
-  ipf: IPersistFile;
-  fda: Windows.TWin32FindData;
-  s: string;
-  iIcon: integer;
-begin
-  result := false;
-  obj := CreateComObject(CLSID_ShellLink);
-  if assigned(obj) then
+function LinkPropertyKey(Name: PWideChar; out Key: PROPERTYKEY): HRESULT; stdcall;
+  external 'propsys.dll' name 'PSGetPropertyKeyFromName';
+function ClearLinkProperty(var Value: PROPVARIANT): HRESULT; stdcall;
+  external 'ole32.dll' name 'PropVariantClear';
+
+function ReadLNKMetadata(const Link: IShellLinkW; var Target: WideString;
+  out params, dir, icon: string): Boolean;
+const StoreIID: TGUID = '{886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99}';
+var Store: IPropertyStore;
+  IDList: PItemIDList; NewTarget, Arguments, Directory, Image: UnicodeString;
+  Key: PROPERTYKEY; Value: PROPVARIANT;
+  function Metadata(Kind: Integer; out Text: UnicodeString): Boolean;
+  var Buffer: array of WideChar; Capacity, Count, Index: Integer; Status: HRESULT;
   begin
-      isl := obj as IShellLink;
-      ipf := obj as IPersistFile;
-      if S_OK = ipf.Load(PWChar(Target), STGM_READ) then
-      begin
-          if S_OK = isl.Resolve(wnd, SLR_NO_UI + SLR_NOUPDATE) then
-          begin
-            SetLength(s, MAX_PATH);
-            if S_OK = isl.GetPath(PChar(s), MAX_PATH, fda, SLGP_UNCPRIORITY) then Target := strpas(PChar(s));
-            if S_OK = isl.GetArguments(PChar(s), MAX_PATH) then params := PChar(s);
-            if S_OK = isl.GetWorkingDirectory(PChar(s), MAX_PATH) then dir := PChar(s);
-            if S_OK = isl.GetIconLocation(PChar(s), MAX_PATH, iIcon) then icon := PChar(s);
-            result := true;
-          end;
+    Result := False; Text := ''; Capacity := 256;
+    repeat
+      SetLength(Buffer, Capacity); FillChar(Buffer[0], Capacity * 2, $FF);
+      Index := 0;
+      case Kind of
+        0: Status := Link.GetPath(@Buffer[0], Capacity, nil, SLGP_RAWPATH);
+        1: Status := Link.GetArguments(@Buffer[0], Capacity);
+        2: Status := Link.GetWorkingDirectory(@Buffer[0], Capacity);
+        3: Status := Link.GetIconLocation(@Buffer[0], Capacity, @Index);
+        else Exit;
       end;
+      if Failed(Status) then Exit;
+      Count := 0;
+      while (Count < Capacity) and (Buffer[Count] <> #0) do Inc(Count);
+      if (Count < Capacity - 1) and ((Kind <> 0) or (Count < MAX_PATH - 1)) then
+      begin
+        SetString(Text, PWideChar(@Buffer[0]), Count); CheckShellText(Text);
+        Exit(True);
+      end;
+      // GetPath cannot return paths beyond MAX_PATH. Prefer GetIDList above.
+      if Kind = 0 then Exit;
+      if Capacity = SHELL_TEXT_LIMIT + 2 then raise ERangeError.Create('Shortcut metadata exceeds supported size');
+      Capacity := Capacity * 2;
+      if Capacity > SHELL_TEXT_LIMIT + 2 then Capacity := SHELL_TEXT_LIMIT + 2;
+    until False;
   end;
+begin
+  Result := False; params := ''; dir := ''; icon := '';
+  if Link = nil then Exit;
+  IDList := nil; NewTarget := '';
+  try
+    if Link.GetIDList(@IDList) = S_OK then
+      PIDL_GetDisplayNameText(nil, IDList, SHGDN_FORPARSING, NewTarget);
+  finally PIDL_Free(IDList); end;
+  if NewTarget = '' then
+    if not Metadata(0, NewTarget) or (NewTarget = '') then Exit;
+  CheckShellText(NewTarget);
+  Arguments := '';
+  if Supports(Link, StoreIID, Store) and (LinkPropertyKey('System.Link.Arguments', Key) = S_OK) then
+  begin
+    FillChar(Value, SizeOf(Value), 0);
+    try
+      if (Store.GetValue(@Key, Value) = S_OK) and (Value.vt = VT_LPWSTR) and (Value.pwszVal <> nil) then
+      begin Arguments := Value.pwszVal; CheckShellText(Arguments); end
+      else if not Metadata(1, Arguments) then Exit;
+    finally ClearLinkProperty(Value); end;
+  end
+  else if not Metadata(1, Arguments) then Exit;
+  if not Metadata(2, Directory) or not Metadata(3, Image) then Exit;
+  // Commit only complete metadata. Callers retain the original link on failure.
+  params := ShellUTF8(Arguments); dir := ShellUTF8(Directory); icon := ShellUTF8(Image);
+  Target := NewTarget; Result := True;
+end;
+
+function ResolveLNK(wnd: HWND; var Target: WideString; out params, dir, icon: string): boolean;
+var Obj: IUnknown; Link: IShellLinkW; Persist: IPersistFile;
+begin
+  Result := False; params := ''; dir := ''; icon := '';
+  CheckShellText(Target);
+  Obj := CreateComObject(CLSID_ShellLink);
+  Link := Obj as IShellLinkW; Persist := Obj as IPersistFile;
+  if Persist.Load(PWideChar(Target), STGM_READ) <> S_OK then Exit;
+  if Link.Resolve(wnd, SLR_NO_UI or SLR_NOUPDATE) <> S_OK then Exit;
+  Result := ReadLNKMetadata(Link, Target, params, dir, icon);
 end;
 //--------------------------------------------------------------------------------------------------
 procedure ResolveAppref(wnd: HWND; var Target: WideString);
@@ -1058,22 +1179,23 @@ end;
 function BrowseFolder(hWnd: THandle; title, default: string): string;
 var
   lpItemID: PItemIDList;
-  BrowseInfo: ShlObj.TBrowseInfo;
-  DisplayName: array[0..MAX_PATH] of char;
-  path: array [0..MAX_PATH] of char;
+  BrowseInfo: ShlObj.TBrowseInfoW;
+  DisplayName: array[0..MAX_PATH] of WideChar;
+  TitleText, Path: UnicodeString;
 begin
+  Result := default; TitleText := ShellUTF16(title);
   zeroMemory(@BrowseInfo, sizeof(TBrowseInfo));
   BrowseInfo.hwndOwner := hWnd;
   BrowseInfo.pszDisplayName := @DisplayName;
-  BrowseInfo.lpszTitle := PChar(title);
+  BrowseInfo.lpszTitle := PWideChar(TitleText);
   BrowseInfo.ulFlags := BIF_RETURNONLYFSDIRS or BIF_NEWDIALOGSTYLE;
-  lpItemID := SHBrowseForFolder(@BrowseInfo);
+  lpItemID := SHBrowseForFolderW(@BrowseInfo);
   if lpItemId <> nil then
   begin
-    SHGetPathFromIDList(lpItemID, path);
-    result := strpas(path);
-    result := IncludeTrailingPathDelimiter(Result);
-    GlobalFreePtr(lpItemID);
+    try
+      if PIDL_GetDisplayNameText(nil, lpItemID, SHGDN_FORPARSING, Path) then
+        Result := IncludeTrailingPathDelimiter(ShellUTF8(Path));
+    finally PIDL_Free(lpItemID); end;
   end
   else
     Result := default;

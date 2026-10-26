@@ -6,6 +6,7 @@ interface
 uses Windows;
 
 type
+  TDockItemId = type QWord;
   _PluginData = Pointer;
   _OnGetInformation =   procedure(szName, szAuthor: pchar; lpiVersion: PInteger; szNotes: pchar); stdcall;
   _OnCreate =           function(id: HWND; hInstance: THandle; szIni, szIniGroup: pchar): _PluginData; stdcall;
@@ -55,7 +56,138 @@ procedure ActivateHint(id: HWND; ACaption: PWideChar; x, y: integer);
 procedure DeactivateHint(id: HWND);
 procedure ExcludeFromPeek(id: HWND);
 
+function TDockApiVersion: Cardinal;
+function TDockItemCreateV1(Data: PAnsiChar): TDockItemId;
+function TDockItemInsertV1(Id: TDockItemId): TDockItemId;
+function TDockItemDeleteV1(Id: TDockItemId): BOOL;
+function TDockItemGetWindowV1(Id: TDockItemId): HWND;
+function TDockItemFromWindowV1(Window: HWND): TDockItemId;
+function TDockItemGetCaptionV1(Id: TDockItemId; Buffer: PWideChar; Capacity: Cardinal): Cardinal;
+function TDockItemSetCaptionV1(Id: TDockItemId; Caption: PWideChar): BOOL;
+function TDockItemSetImageV1(Id: TDockItemId; Image: Pointer; AutoDelete: BOOL): BOOL;
+function TDockItemSetOverlayV1(Id: TDockItemId; Image: Pointer; AutoDelete: BOOL): BOOL;
+function TDockItemDockV1(Id: TDockItemId): BOOL;
+function TDockItemUndockV1(Id: TDockItemId): BOOL;
+function TDockItemAnimateV1(Id: TDockItemId): BOOL;
+
 implementation
+function TDockApiVersion: Cardinal;
+type dtype = function: Cardinal; stdcall;
+var proc: dtype;
+begin
+  @proc := GetProcAddress(GetModuleHandle(nil), 'TDockApiVersion');
+  if not assigned(proc) then result := 0
+  else result := proc();
+end;
+
+function TDockItemCreateV1(Data: PAnsiChar): TDockItemId;
+type dtype = function(Data: PAnsiChar): TDockItemId; stdcall;
+var proc: dtype;
+begin
+  @proc := GetProcAddress(GetModuleHandle(nil), 'TDockItemCreateV1');
+  if not assigned(proc) then result := 0
+  else result := proc(Data);
+end;
+
+function TDockItemInsertV1(Id: TDockItemId): TDockItemId;
+type dtype = function(Id: TDockItemId): TDockItemId; stdcall;
+var proc: dtype;
+begin
+  @proc := GetProcAddress(GetModuleHandle(nil), 'TDockItemInsertV1');
+  if not assigned(proc) then result := 0
+  else result := proc(Id);
+end;
+
+function TDockItemDeleteV1(Id: TDockItemId): BOOL;
+type dtype = function(Id: TDockItemId): BOOL; stdcall;
+var proc: dtype;
+begin
+  @proc := GetProcAddress(GetModuleHandle(nil), 'TDockItemDeleteV1');
+  if not assigned(proc) then result := false
+  else result := proc(Id);
+end;
+
+function TDockItemGetWindowV1(Id: TDockItemId): HWND;
+type dtype = function(Id: TDockItemId): HWND; stdcall;
+var proc: dtype;
+begin
+  @proc := GetProcAddress(GetModuleHandle(nil), 'TDockItemGetWindowV1');
+  if not assigned(proc) then result := 0
+  else result := proc(Id);
+end;
+
+function TDockItemFromWindowV1(Window: HWND): TDockItemId;
+type dtype = function(Window: HWND): TDockItemId; stdcall;
+var proc: dtype;
+begin
+  @proc := GetProcAddress(GetModuleHandle(nil), 'TDockItemFromWindowV1');
+  if not assigned(proc) then result := 0
+  else result := proc(Window);
+end;
+
+function TDockItemGetCaptionV1(Id: TDockItemId; Buffer: PWideChar; Capacity: Cardinal): Cardinal;
+type dtype = function(Id: TDockItemId; Buffer: PWideChar; Capacity: Cardinal): Cardinal; stdcall;
+var proc: dtype;
+begin
+  @proc := GetProcAddress(GetModuleHandle(nil), 'TDockItemGetCaptionV1');
+  if not assigned(proc) then result := 0
+  else result := proc(Id, Buffer, Capacity);
+end;
+
+function TDockItemSetCaptionV1(Id: TDockItemId; Caption: PWideChar): BOOL;
+type dtype = function(Id: TDockItemId; Caption: PWideChar): BOOL; stdcall;
+var proc: dtype;
+begin
+  @proc := GetProcAddress(GetModuleHandle(nil), 'TDockItemSetCaptionV1');
+  if not assigned(proc) then result := false
+  else result := proc(Id, Caption);
+end;
+
+function TDockItemSetImageV1(Id: TDockItemId; Image: Pointer; AutoDelete: BOOL): BOOL;
+type dtype = function(Id: TDockItemId; Image: Pointer; AutoDelete: BOOL): BOOL; stdcall;
+var proc: dtype;
+begin
+  @proc := GetProcAddress(GetModuleHandle(nil), 'TDockItemSetImageV1');
+  if not assigned(proc) then result := false
+  else result := proc(Id, Image, AutoDelete);
+end;
+
+function TDockItemSetOverlayV1(Id: TDockItemId; Image: Pointer; AutoDelete: BOOL): BOOL;
+type dtype = function(Id: TDockItemId; Image: Pointer; AutoDelete: BOOL): BOOL; stdcall;
+var proc: dtype;
+begin
+  @proc := GetProcAddress(GetModuleHandle(nil), 'TDockItemSetOverlayV1');
+  if not assigned(proc) then result := false
+  else result := proc(Id, Image, AutoDelete);
+end;
+
+function TDockItemDockV1(Id: TDockItemId): BOOL;
+type dtype = function(Id: TDockItemId): BOOL; stdcall;
+var proc: dtype;
+begin
+  @proc := GetProcAddress(GetModuleHandle(nil), 'TDockItemDockV1');
+  if not assigned(proc) then result := false
+  else result := proc(Id);
+end;
+
+function TDockItemUndockV1(Id: TDockItemId): BOOL;
+type dtype = function(Id: TDockItemId): BOOL; stdcall;
+var proc: dtype;
+begin
+  @proc := GetProcAddress(GetModuleHandle(nil), 'TDockItemUndockV1');
+  if not assigned(proc) then result := false
+  else result := proc(Id);
+end;
+
+function TDockItemAnimateV1(Id: TDockItemId): BOOL;
+type dtype = function(Id: TDockItemId): BOOL; stdcall;
+var proc: dtype;
+begin
+  @proc := GetProcAddress(GetModuleHandle(nil), 'TDockItemAnimateV1');
+  if not assigned(proc) then result := false
+  else result := proc(Id);
+end;
+
 //------------------------------------------------------------------------------
 function DockletIsVisible(id: HWND): bool;
 type dtype = function(id: HWND): bool; stdcall;

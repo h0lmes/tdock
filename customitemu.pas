@@ -4,7 +4,7 @@ unit customitemu;
 
 interface
 uses Windows, Messages, SysUtils, Controls, Classes, ShellAPI, Math, FileUtil,
-  declu, dockh, gfx, toolu, loggeru;
+  declu, dockh, gfx, toolu, loggeru, itemmodelu, docktimingu;
 
 const
   anim_bounce: array [0..15] of single = (0, 0.1670, 0.3290, 0.4680, 0.5956, 0.6937, 0.7790, 0.8453, 0.8984, 0.9360, 0.9630, 0.9810, 0.9920, 0.9976, 0.9997, 1);
@@ -18,7 +18,7 @@ type
   TOnBeforeUndock = procedure of object;
 
   { TCustomItem is an abstract class }
-  TCustomItem = class
+  TCustomItem = class(TItemModel)
   private
     FHover: boolean;
   protected
@@ -38,6 +38,7 @@ type
     FDockingY: integer;
     need_dock: boolean;
     FDockingProgress: single;
+    FDockingAnimation: TScalarAnimation;
     FNCHitTestNC: boolean; // if true - HitTest returns true for non-client area
 
     FEnabled: boolean;
@@ -72,13 +73,16 @@ type
     FItemAnimationType: integer; // animation type
     FAnimationEnd: integer;
     FAnimationProgress: integer; // animation progress 0..FAnimationEnd
+    FIconAnimation: TScalarAnimation;
 
     OnMouseHover: TOnMouseHover;
     OnBeforeMouseHover: TOnBeforeMouseHover;
     OnBeforeUndock: TOnBeforeUndock;
 
-    procedure RegisterWindowItemClass;
+    function ClockNow: QWord; virtual;
+    function CreateViewWindow: HWND; virtual;
     procedure Init; virtual;
+    procedure BeforeDestruction; override;
     procedure Redraw(Force: boolean = true); // updates item appearance
     procedure Attention(value: boolean);
     procedure SetCaption(value: WideString);
@@ -94,6 +98,7 @@ type
     property Freed: boolean read FFreed write FFreed;
     property Undocked: boolean read FUndocked;
     property Handle: HWND read FHWnd;
+    property ParentWindow: HWND read FHWndParent;
     property Caption: WideString read FCaption write SetCaption;
     property ColorData: integer read FColorData write FColorData;
     property X: integer read FX;
@@ -115,6 +120,8 @@ type
     procedure WndMessage(var msg: TMessage); virtual; abstract;
     procedure WMCommand(wParam: WPARAM; lParam: LPARAM; var Result: LRESULT); virtual; abstract;
     function  cmd(id: TDParam; param: PtrInt): PtrInt; virtual;
+    function NeedsFrame: boolean; virtual;
+    procedure ForegroundChanged(wnd: HWND); virtual;
     procedure Timer; virtual;
     procedure Configure; virtual;
     function  CanOpenFolder: boolean; virtual;
@@ -130,18 +137,44 @@ type
     procedure Animate;
     procedure LME(lock: boolean);
     procedure Delete;
+    procedure PrepareDeletion; virtual;
+    procedure ViewDestroyed; override;
+    procedure RecreateWindow; virtual;
     function  WindowProc(wnd: HWND; message: uint; wParam: WPARAM; lParam: LPARAM): LRESULT;
   end;
 
 implementation
+uses itemregistryu, itemhostu, itemviewu;
 //------------------------------------------------------------------------------
 function CustomItemClassWindowProc(wnd: HWND; message: uint; wParam: WPARAM; lParam: LPARAM): LRESULT; stdcall;
 var
   inst: TCustomItem;
+  registered: TObject;
+  scope: TItemHostScope;
+  identity: TItemIdentity;
 begin
-  inst := TCustomItem(GetWindowLongPtr(wnd, GWL_USERDATA));
-  if assigned(inst) then
-    result := inst.WindowProc(wnd, message, wParam, lParam)
+  if message = WM_NCDESTROY then
+  begin
+    result := DefWindowProc(wnd, message, wParam, lParam);
+    try ItemViews.NativeDestroyed(wnd);
+    except on E: Exception do AddLog('ItemView.NativeDestroyed' + LineEnding + E.Message); end;
+    exit;
+  end;
+  inst := nil;
+  if ItemRegistry.TryGetAny(wnd, registered) and (registered is TCustomItem) then
+    inst := TCustomItem(registered);
+  identity := ItemRegistry.IdentityOf(wnd);
+  if assigned(inst) and ItemRegistry.Pin(identity) then
+  begin
+    scope := Default(TItemHostScope);
+    try
+      scope := BeginItemHostOperation(inst.FHWndParent);
+      result := inst.WindowProc(wnd, message, wParam, lParam);
+    finally
+      try ItemRegistry.Unpin(identity);
+      finally EndItemHostOperation(scope); end;
+    end;
+  end
   else
     result := DefWindowProc(wnd, message, wParam, lParam);
 end;
@@ -152,16 +185,10 @@ begin
   Init;
 
   FHWndParent := wndParent;
-  RegisterWindowItemClass;
-  FHWnd := CreateWindowEx(WS_EX_LAYERED + WS_EX_TOOLWINDOW, TDITEM_WCLASS, nil, WS_POPUP,
-    FX, FY, FSize, FSize, FHWndParent, 0, hInstance, nil);
-  if not IsWindow(FHWnd) then
-  begin
-    FFreed := true;
-    exit;
-  end;
+  ItemViews.AdoptPending(Self, wndParent);
+  FHWnd := CreateViewWindow;
+  if FHWnd = 0 then raise EOSError.Create('Cannot create item window');
   dockh.ExcludeFromPeek(FHWnd);
-  SetWindowLongPtr(FHWnd, GWL_USERDATA, PtrUint(self));
 
   FItemSize          := AParams.ItemSize;
   FSize              := FItemSize;
@@ -181,30 +208,64 @@ end;
 //------------------------------------------------------------------------------
 destructor TCustomItem.Destroy;
 begin
-  SetWindowLongPtr(FHWnd, GWL_USERDATA, PtrUint(0));
-  if IsWindow(FHWnd) then DestroyWindow(FHWnd);
-  FHWnd := 0;
+  try ItemViews.DestroyWindow(FHWnd, ItemId);
+  finally
+    try ItemViews.CompleteModelCleanup(ItemId);
+    finally inherited; end;
+  end;
+end;
+//------------------------------------------------------------------------------
+procedure TCustomItem.BeforeDestruction;
+begin
+  FFreed := true;
   inherited;
 end;
 //------------------------------------------------------------------------------
-procedure TCustomItem.RegisterWindowItemClass;
-var
-  wndClass: windows.TWndClass;
+function TCustomItem.CreateViewWindow: HWND;
 begin
+  result := ItemViews.CreateWindow(Self, FHWndParent, TDITEM_WCLASS,
+    @CustomItemClassWindowProc, WS_EX_LAYERED or WS_EX_TOOLWINDOW, FX, FY, FSize);
+end;
+
+procedure TCustomItem.ViewDestroyed;
+begin
+  FHWnd := 0;
+  FFreed := true;
+  inherited;
+end;
+
+procedure TCustomItem.RecreateWindow;
+var previous, replacement: HWND; visible, enabled: boolean;
+  id: TItemId; scope: TItemHostScope;
+begin
+  if not Pin then exit;
+  id := ItemId;
+  scope := Default(TItemHostScope);
   try
-    wndClass.style          := CS_DBLCLKS;
-    wndClass.lpfnWndProc    := @CustomItemClassWindowProc;
-    wndClass.cbClsExtra     := 0;
-    wndClass.cbWndExtra     := 0;
-    wndClass.hInstance      := hInstance;
-    wndClass.hIcon          := 0;
-    wndClass.hCursor        := LoadCursor(0, idc_Arrow);
-    wndClass.hbrBackground  := 0;
-    wndClass.lpszMenuName   := nil;
-    wndClass.lpszClassName  := TDITEM_WCLASS;
-    windows.RegisterClass(wndClass);
-  except
-    on e: Exception do err('CustomItem.RegisterWindowClass', e);
+    scope := BeginItemHostOperation(FHWndParent);
+    previous := FHWnd;
+    visible := IsWindowVisible(previous);
+    enabled := IsWindowEnabled(previous);
+    replacement := CreateViewWindow;
+    if replacement = 0 then raise EOSError.Create('Cannot recreate item window');
+    FHWnd := replacement;
+    try
+      ItemViews.ReparentChildren(id, replacement);
+      ItemViews.RestoreItemTimers(id);
+      EnableWindow(replacement, enabled);
+      Redraw(true);
+      if visible and not FFreed then ShowWindow(replacement, SW_SHOWNOACTIVATE)
+      else ShowWindow(replacement, SW_HIDE);
+    except
+      FHWnd := previous;
+      try ItemViews.ReparentChildren(id, previous);
+      finally ItemViews.DestroyWindow(replacement, id); end;
+      raise;
+    end;
+    ItemViews.DestroyWindow(previous, id);
+  finally
+    try ReleaseItemModel(id);
+    finally EndItemHostOperation(scope); end;
   end;
 end;
 //------------------------------------------------------------------------------
@@ -346,6 +407,8 @@ begin
   begin
     FUndocked := false;
     FDockingProgress := 0;
+    FDockingAnimation := Default(TScalarAnimation);
+    FDockingAnimation.Retarget(ClockNow, 1, 100);
     need_dock := true;
     wRect := ScreenRect;
     FDockFromX := wRect.Left;
@@ -366,17 +429,40 @@ begin
   Draw(FX, FY, FSize, Force, 0, FShowItem);
 end;
 //------------------------------------------------------------------------------
+function TCustomItem.ClockNow: QWord;
+begin Result := GetTickCount64; end;
+
+procedure TCustomItem.ForegroundChanged(wnd: HWND);
+begin end;
+
+function TCustomItem.NeedsFrame: boolean;
+begin
+  Result := not FFreed and not FUpdating and
+    (need_dock or (FAnimationProgress > 0));
+end;
+
 procedure TCustomItem.Timer;
+var nextProgress: integer;
 begin
   if FFreed or FUpdating then exit;
   // docking after item dropped onto dock //
   if need_dock then
   begin
-    FDockingProgress += 0.1;
+    FDockingProgress := FDockingAnimation.ValueAt(ClockNow);
     FDockingX := FDockFromX + round((FX - FDockFromX) * FDockingProgress);
     FDockingY := FDockFromY + round((FY - FDockFromY) * FDockingProgress);
     Redraw(false);
     if FDockingProgress >= 1 then need_dock := false;
+  end;
+  if FAnimationProgress > 0 then
+  begin
+    nextProgress := Trunc(FIconAnimation.ValueAt(ClockNow));
+    if nextProgress >= FAnimationEnd then nextProgress := 0;
+    if nextProgress <> FAnimationProgress then
+    begin
+      FAnimationProgress := nextProgress;
+      Redraw;
+    end;
   end;
 end;
 //------------------------------------------------------------------------------
@@ -400,8 +486,8 @@ begin
   if not FFreed then
   begin
     FMouseDownButton := button;
-    if button = mbLeft then SetTimer(FHWnd, ID_TIMER_MOUSEHELD, 1000, nil)
-    else SetTimer(FHWnd, ID_TIMER_MOUSEHELD, 800, nil);
+    if button = mbLeft then ItemViews.SetItemTimer(ItemId, ID_TIMER_MOUSEHELD, 1000)
+    else ItemViews.SetItemTimer(ItemId, ID_TIMER_MOUSEHELD, 800);
     cmd(icSelect, 1);
   end;
 end;
@@ -409,7 +495,7 @@ end;
 function TCustomItem.MouseUp(button: TMouseButton; shift: TShiftState; x, y: integer): boolean;
 begin
   result := not FFreed;
-  KillTimer(FHWnd, ID_TIMER_MOUSEHELD);
+  ItemViews.KillItemTimer(ItemId, ID_TIMER_MOUSEHELD);
   if not FFreed and FSelected then
   begin
     cmd(icSelect, 0);
@@ -437,7 +523,7 @@ begin
   begin
     if assigned(OnBeforeMouseHover) then OnBeforeMouseHover(AHover);
     FHover := AHover;
-    if not FHover then KillTimer(FHWnd, ID_TIMER_MOUSEHELD);
+    if not FHover then ItemViews.KillItemTimer(ItemId, ID_TIMER_MOUSEHELD);
     UpdateHint;
     if assigned(OnMouseHover) then OnMouseHover(FHover);
   end;
@@ -572,6 +658,7 @@ end;
 //------------------------------------------------------------------------------
 procedure TCustomItem.Animate;
 begin
+  FAnimationEnd := 0;
   case FItemAnimationType of
     1: FAnimationEnd := 60; // rotate
     2: FAnimationEnd := 30; // bounce 1
@@ -582,24 +669,72 @@ begin
     7: FAnimationEnd := 56; // vibrate
     8: FAnimationEnd := 56; // zoom
   end;
+  if FAnimationEnd = 0 then
+  begin
+    FAnimationProgress := 0;
+    exit;
+  end;
   FAnimationProgress := 1;
+  FIconAnimation.StartValue := 1;
+  FIconAnimation.TargetValue := FAnimationEnd;
+  FIconAnimation.StartedAt := ClockNow;
+  FIconAnimation.DurationMs := QWord(FAnimationEnd - 1) * 10;
 end;
 //------------------------------------------------------------------------------
 procedure TCustomItem.LME(lock: boolean);
+var services: TItemHostServices; scope: TItemHostScope;
 begin
-  dockh.DockletLockMouseEffect(FHWnd, lock);
+  scope := BeginItemHostOperation(FHWndParent);
+  try
+    if TryGetItemHost(FHWndParent, services) and assigned(services.OnLockMouseEffect) then
+      services.OnLockMouseEffect(FHWnd, lock)
+    else dockh.DockletLockMouseEffect(FHWnd, lock);
+  finally
+    EndItemHostOperation(scope);
+  end;
 end;
 //------------------------------------------------------------------------------
 procedure TCustomItem.Delete;
+var services: TItemHostServices; scope: TItemHostScope;
 begin
-  FFreed := true;
-  ShowWindow(FHWnd, SW_HIDE);
-  dockh.DockDeleteItem(FHWnd);
+  scope := BeginItemHostOperation(FHWndParent);
+  try
+    FFreed := true;
+    ShowWindow(FHWnd, SW_HIDE);
+    if TryGetItemHost(FHWndParent, services) and assigned(services.OnDelete) then
+      services.OnDelete(FHWnd)
+    else dockh.DockDeleteItem(FHWnd);
+  finally
+    EndItemHostOperation(scope);
+  end;
+end;
+
+procedure TCustomItem.PrepareDeletion;
+begin
+  try
+    if FHintVisible then dockh.DeactivateHint(FHWnd);
+  finally
+    FHintVisible := false;
+    FHover := false;
+    FSelected := false;
+    FAttention := false;
+    FAnimationProgress := 0;
+    need_dock := false;
+    ItemViews.CancelInternalTimers(ItemId);
+  end;
 end;
 //------------------------------------------------------------------------------
 procedure TCustomItem.notify(message: string);
+var services: TItemHostServices; scope: TItemHostScope;
 begin
-  dockh.notify(FHWnd, pchar(message));
+  scope := BeginItemHostOperation(FHWndParent);
+  try
+    if TryGetItemHost(FHWndParent, services) and assigned(services.OnNotify) then
+      services.OnNotify(UTF8Decode(message), false)
+    else dockh.notify(FHWnd, pchar(message));
+  finally
+    EndItemHostOperation(scope);
+  end;
 end;
 //------------------------------------------------------------------------------
 function TCustomItem.WindowProc(wnd: HWND; message: uint; wParam: WPARAM; lParam: LPARAM): LRESULT;
@@ -609,6 +744,7 @@ var
   pos: windows.TSmallPoint;
   wpt: windows.TPoint;
   msg: TMessage;
+  services: TItemHostServices;
   //
   filecount: integer;
   filename: array [0..MAX_PATH - 1] of char;
@@ -698,7 +834,9 @@ begin
                 if (abs(pos.x - MouseDownPoint.x) >= 4) or (abs(pos.y - MouseDownPoint.y) >= 4) then
                 begin
                   Undock;
-                  dockh.Undock(FHWnd);
+                  if TryGetItemHost(FHWndParent, services) and assigned(services.OnUndock) then
+                    services.OnUndock(FHWnd)
+                  else dockh.Undock(FHWnd);
                   SetWindowPos(FHWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE + SWP_NOMOVE + SWP_NOREPOSITION + SWP_NOSENDCHANGING);
                   ReleaseCapture;
                   DefWindowProc(FHWnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
@@ -708,14 +846,18 @@ begin
               if FUndocked and (wParam and MK_LBUTTON = 0) then
               begin
                 Dock;
-                dockh.Dock(FHWnd);
+                if TryGetItemHost(FHWndParent, services) and assigned(services.OnDock) then
+                  services.OnDock(FHWnd)
+                else dockh.Dock(FHWnd);
               end;
         end
         else if message = WM_EXITSIZEMOVE then
         begin
               // dock item (the only place to dock) //
               Dock;
-              dockh.Dock(FHWnd);
+                if TryGetItemHost(FHWndParent, services) and assigned(services.OnDock) then
+                  services.OnDock(FHWnd)
+                else dockh.Dock(FHWnd);
         end
         else if message = WM_COMMAND then
         begin
@@ -724,9 +866,10 @@ begin
         else if message = WM_TIMER then
         begin
               // mouse held //
-              if wParam = ID_TIMER_MOUSEHELD then
+              if (wParam = ID_TIMER_MOUSEHELD) and
+                ItemViews.ConsumeItemTimer(ItemId, ID_TIMER_MOUSEHELD, ClockNow) then
               begin
-                KillTimer(FHWnd, ID_TIMER_MOUSEHELD);
+                ItemViews.KillItemTimer(ItemId, ID_TIMER_MOUSEHELD);
                 GetCursorPos(wpt);
                 if WindowFromPoint(wpt) = FHWnd then MouseHeld(FMouseDownButton);
               end;

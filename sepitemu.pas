@@ -2,7 +2,7 @@ unit sepitemu;
 
 interface
 uses Windows, SysUtils, Controls, Classes, Math,
-  GDIPAPI, gfx, themeu, declu, dockh, customitemu;
+  GDIPAPI, gfx, themeu, declu, dockh, customitemu, iniproc;
 
 type
 
@@ -277,8 +277,8 @@ end;
 procedure TSeparatorItem.Save(ini, section: string);
 begin
   if (ini = '') or (section = '') then exit;
-  WritePrivateProfileString(pchar(section), nil, nil, pchar(ini));
-  WritePrivateProfileString(pchar(section), 'class', 'separator', pchar(ini));
+  ClearIniSectionW(ini, section);
+  WriteIniStringW(ini, section, 'class', 'separator');
 end;
 //------------------------------------------------------------------------------
 class function TSeparatorItem.Make: string;

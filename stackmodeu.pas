@@ -85,6 +85,7 @@ end;
 //------------------------------------------------------------------------------
 function TStackModeController.GetStep(Mode: integer; ItemCount: integer): extended;
 begin
+  if ItemCount <= 0 then Exit(0);
   if mode = 0 then
   begin
     if itemCount > 15 then mode := DEFMODE_BIG else mode := DEFMODE_SMALL;
@@ -102,6 +103,9 @@ end;
 function TStackModeController.GetItemData(Mode: integer; Opening, ShowHint: boolean; Progress: extended;
     Index, ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
 begin
+  Result := Default(TStackItemData);
+  if ItemCount <= 0 then Exit;
+  if (Mode < 0) or (Mode > MODE_COUNT) then Mode := 0;
   if Mode = 0 then
   begin
     if ItemCount > 15 then Mode := DEFMODE_BIG else Mode := DEFMODE_SMALL;

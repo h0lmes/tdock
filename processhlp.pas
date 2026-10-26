@@ -53,7 +53,7 @@ type
     procedure EnterCRS;
     procedure LeaveCRS;
     // immersive app //
-    procedure RunImmersiveApp(id: LPCWSTR);
+    function RunImmersiveApp(id: LPCWSTR; arguments: LPCWSTR = nil): HRESULT;
     // processes //
     procedure EnumProc;
     procedure Kill(Name: string);
@@ -156,6 +156,7 @@ end;
 //------------------------------------------------------------------------------
 destructor TProcessHelper.Destroy;
 begin
+  FreeAndNil(appMgr);
   if hKernel32 <> 0 then FreeLibrary(hKernel32);
   if hUser32 <> 0 then FreeLibrary(hUser32);
   if hPowrprofDll <> 0 then FreeLibrary(hPowrprofDll);
@@ -184,24 +185,12 @@ end;
 //
 //
 //------------------------------------------------------------------------------
-procedure TProcessHelper.RunImmersiveApp(id: LPCWSTR);
+function TProcessHelper.RunImmersiveApp(id: LPCWSTR; arguments: LPCWSTR): HRESULT;
 var
   processId: UInt32 = 0;
-  list: TFPList;
-  i: integer = 0;
 begin
-  if assigned(appMgr) then
-    if SUCCEEDED(appMgr.ActivateApplication(id, processId)) then
-    begin
-      //list := TFPList.Create;
-      //GetProcessWindows(processId, list);
-      //while i < list.Count do
-      //begin
-      //  SetForegroundWindow(THandle(list.Items[i]));
-      //  inc(i);
-      //end;
-      //list.Free;
-    end;
+  if not Assigned(appMgr) then Exit(E_NOINTERFACE);
+  Result := appMgr.ActivateApplication(id, processId, arguments);
 end;
 //------------------------------------------------------------------------------
 //

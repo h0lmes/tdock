@@ -5,7 +5,7 @@ interface
 uses
   Windows, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   DefaultTranslator, Dialogs, StdCtrls, ExtCtrls, ComCtrls, Menus, GDIPAPI,
-  gfx;
+  gfx, iconserviceu, itemmodelu, itemserializationu, shelltextu;
 
 type
   { TfrmItemProp }
@@ -87,16 +87,19 @@ type
     savedHide: boolean;
     //
     color_data: integer;
-    ItemHWnd: THandle;
+    FItemId: TItemId;
     FChanged: boolean;
     FImage: Pointer;
     FIW: cardinal;
     FIH: cardinal;
-    function SetData(itemWnd: HWND): boolean;
+    function AcquireItem(out Model: TItemModel; out Id: TItemId): boolean;
+    procedure ItemUnavailable;
     procedure OpenColor;
     procedure iPicPaint(Sender: TObject);
     procedure Draw;
     procedure DrawFit;
+  protected
+    function SetData(itemWnd: HWND): boolean;
   public
     class procedure Open(wnd: HWND);
   end;
@@ -106,7 +109,7 @@ var
 
 {$t+}
 implementation
-uses declu, scitemu, scsubitemu, PIDL, toolu, frmmainu;
+uses declu, scitemu, scsubitemu, PIDL, toolu, frmmainu, itemviewu;
 {$R *.lfm}
 //------------------------------------------------------------------------------
 class procedure TfrmItemProp.Open(wnd: HWND);
@@ -141,7 +144,8 @@ end;
 //------------------------------------------------------------------------------
 function TfrmItemProp.SetData(itemWnd: HWND): boolean;
 var
-  Inst: TObject = nil;
+  Inst: TItemModel = nil;
+  Id: TItemId;
   sci: TShortcutItem = nil;
   scs: TShortcutSubitem = nil;
 begin
@@ -152,77 +156,121 @@ begin
   if FChanged then
     if not confirm(Handle, UTF8Decode(XMsgUnsavedIconParams)) then exit;
 
-  Inst := TObject(GetWindowLongPtr(itemWnd, GWL_USERDATA));
-  if not (Inst is TShortcutItem) and not (Inst is TShortcutSubitem) then exit;
-
-  result := true;
-  pages.ActivePageIndex := 0;
-  if Inst is TShortcutItem then sci := TShortcutItem(Inst);
-  if Inst is TShortcutSubitem then scs := TShortcutSubitem(Inst);
-
-  // read item data
-
-  ItemHWnd := itemWnd;
-  if sci <> nil then
+  Id := ItemViews.ItemIdOf(itemWnd);
+  if not AcquireItemModel(Id, Inst) then
   begin
-    savedCaption    := sci.Caption;
-    savedCommand    := sci.Command;
-    savedParams     := sci.Params;
-    savedDir        := sci.Dir;
-    savedImageFile  := sci.ImageFile;
-    savedImageFile2 := sci.ImageFile2;
-    savedShowCmd    := sci.ShowCmd;
-    savedColorData  := sci.ColorData;
-    savedHide       := sci.Hide;
-  end
-  else
-  if scs <> nil then
-  begin
-    savedCaption    := scs.Caption;
-    savedCommand    := scs.Command;
-    savedParams     := scs.Params;
-    savedDir        := scs.Dir;
-    savedImageFile  := scs.ImageFile;
-    savedImageFile2 := '';
-    savedShowCmd    := scs.ShowCmd;
-    savedColorData  := scs.ColorData;
-    savedHide       := scs.Hide;
+    ItemUnavailable;
+    exit;
   end;
+  try
+    if not (Inst is TShortcutItem) and not (Inst is TShortcutSubitem)
+      or (Inst.State in [imsDeleted, imsRetiring]) then
+    begin
+      ItemUnavailable;
+      exit;
+    end;
 
-  // show parameters //
+    result := true;
+    pages.ActivePageIndex := 0;
+    if Inst is TShortcutItem then sci := TShortcutItem(Inst);
+    if Inst is TShortcutSubitem then scs := TShortcutSubitem(Inst);
 
-  edCaption.Text    := UTF8Encode(savedCaption);
-  edCmd.Text        := AnsiToUTF8(savedCommand);
-  edParams.Text     := AnsiToUTF8(savedParams);
-  edDir.Text        := AnsiToUTF8(savedDir);
-  edImage.text      := savedImageFile;
-  if savedImageFile2 <> '' then
-       edImage.text := edImage.text + ';' + savedImageFile2;
-  chbHide.Checked   := savedHide;
-  //
-  color_data        := savedColorData;
-  tbHue.OnChange    := nil;
-  tbSat.OnChange    := nil;
-  tbBr.OnChange     := nil;
-  tbCont.OnChange   := nil;
-  tbHue.position    := byte(color_data);
-  tbSat.position    := byte(color_data shr 8);
-  tbBr.position     := byte(color_data shr 16);
-  tbCont.position   := byte(color_data shr 24);
-  tbHue.OnChange    := tbHueChange;
-  tbSat.OnChange    := tbHueChange;
-  tbBr.OnChange     := tbHueChange;
-  tbCont.OnChange   := tbHueChange;
-  //
-  cboWindow.ItemIndex := 0;
-  if savedShowCmd = sw_showminimized then cboWindow.ItemIndex := 1
-  else if savedShowCmd = sw_showmaximized then cboWindow.ItemIndex := 2;
+    // read item data
 
-  Draw;
-  iPic.OnPaint := iPicPaint;
+    FItemId := Id;
+    pages.Enabled := true;
+    btnApply.Enabled := true;
+    btnOK.Enabled := true;
+    if sci <> nil then
+    begin
+      savedCaption    := sci.Caption;
+      savedCommand    := sci.Command;
+      savedParams     := sci.Params;
+      savedDir        := sci.Dir;
+      savedImageFile  := sci.ImageFile;
+      savedImageFile2 := sci.ImageFile2;
+      savedShowCmd    := sci.ShowCmd;
+      savedColorData  := sci.ColorData;
+      savedHide       := sci.Hide;
+    end
+    else
+    if scs <> nil then
+    begin
+      savedCaption    := scs.Caption;
+      savedCommand    := scs.Command;
+      savedParams     := scs.Params;
+      savedDir        := scs.Dir;
+      savedImageFile  := scs.ImageFile;
+      savedImageFile2 := '';
+      savedShowCmd    := scs.ShowCmd;
+      savedColorData  := scs.ColorData;
+      savedHide       := scs.Hide;
+    end;
 
-  // reset 'changed' state //
+    // show parameters //
+
+    edCaption.Text    := UTF8Encode(savedCaption);
+    edCmd.Text        := savedCommand;
+    edParams.Text     := savedParams;
+    edDir.Text        := savedDir;
+    edImage.text      := savedImageFile;
+    if savedImageFile2 <> '' then
+         edImage.text := edImage.text + ';' + savedImageFile2;
+    chbHide.Checked   := savedHide;
+    //
+    color_data        := savedColorData;
+    tbHue.OnChange    := nil;
+    tbSat.OnChange    := nil;
+    tbBr.OnChange     := nil;
+    tbCont.OnChange   := nil;
+    tbHue.position    := byte(color_data);
+    tbSat.position    := byte(color_data shr 8);
+    tbBr.position     := byte(color_data shr 16);
+    tbCont.position   := byte(color_data shr 24);
+    tbHue.OnChange    := tbHueChange;
+    tbSat.OnChange    := tbHueChange;
+    tbBr.OnChange     := tbHueChange;
+    tbCont.OnChange   := tbHueChange;
+    //
+    cboWindow.ItemIndex := 0;
+    if savedShowCmd = sw_showminimized then cboWindow.ItemIndex := 1
+    else if savedShowCmd = sw_showmaximized then cboWindow.ItemIndex := 2;
+
+    Draw;
+    iPic.OnPaint := iPicPaint;
+
+    // reset 'changed' state //
+    FChanged := false;
+  finally
+    ReleaseItemModel(Id);
+  end;
+end;
+//------------------------------------------------------------------------------
+function TfrmItemProp.AcquireItem(out Model: TItemModel; out Id: TItemId): boolean;
+begin
+  Id := FItemId;
+  result := AcquireItemModel(Id, Model);
+  if result then
+  begin
+    result := ((Model is TShortcutItem) or (Model is TShortcutSubitem))
+      and not (Model.State in [imsDeleted, imsRetiring]);
+    if not result then ReleaseItemModel(Id);
+  end;
+  if not result then
+  begin
+    Model := nil;
+    ItemUnavailable;
+  end;
+end;
+//------------------------------------------------------------------------------
+procedure TfrmItemProp.ItemUnavailable;
+begin
+  FItemId := NO_ITEM_ID;
   FChanged := false;
+  pages.Enabled := false;
+  btnApply.Enabled := false;
+  btnOK.Enabled := false;
+  Close;
 end;
 //------------------------------------------------------------------------------
 procedure TfrmItemProp.FormKeyDown(Sender: TObject; var Key: word; Shift: TShiftState);
@@ -241,47 +289,64 @@ end;
 //------------------------------------------------------------------------------
 procedure TfrmItemProp.btnApplyClick(Sender: TObject);
 var
-  Inst: TObject = nil;
+  Inst: TItemModel = nil;
+  Id: TItemId;
   sci: TShortcutItem = nil;
   scs: TShortcutSubitem = nil;
   ShowCmd: integer;
+  Draft: TShortcutDtoV1;
 begin
   try
-    Inst := TObject(GetWindowLongPtr(ItemHWnd, GWL_USERDATA));
-    if Inst is TShortcutItem then sci := TShortcutItem(Inst);
-    if Inst is TShortcutSubitem then scs := TShortcutSubitem(Inst);
+    if not AcquireItem(Inst, Id) then exit;
+    try
+      if Inst is TShortcutItem then sci := TShortcutItem(Inst);
+      if Inst is TShortcutSubitem then scs := TShortcutSubitem(Inst);
 
-    if cboWindow.ItemIndex = 0 then ShowCmd := sw_shownormal
-    else if cboWindow.ItemIndex = 1 then ShowCmd := sw_showminimized
-    else ShowCmd := sw_showmaximized;
+      if cboWindow.ItemIndex = 0 then ShowCmd := sw_shownormal
+      else if cboWindow.ItemIndex = 1 then ShowCmd := sw_showminimized
+      else ShowCmd := sw_showmaximized;
 
-    if sci <> nil then
-    begin
-      sci.Caption    := UTF8Decode(edCaption.Text);
-      sci.Command    := UTF8ToAnsi(edCmd.Text);
-      sci.Params     := UTF8ToAnsi(edParams.Text);
-      sci.Dir        := UTF8ToAnsi(edDir.Text);
-      sci.ImageFile  := cut(UTF8ToAnsi(edImage.Text), ';');
-      sci.ImageFile2 := cutafter(UTF8ToAnsi(edImage.Text), ';');
-      sci.ShowCmd    := ShowCmd;
-      sci.ColorData  := color_data;
-      sci.Hide       := chbHide.Checked;
-      sci.Update;
-    end
-    else
-    if scs <> nil then
-    begin
-      scs.Caption    := UTF8Decode(edCaption.Text);
-      scs.Command    := UTF8ToAnsi(edCmd.Text);
-      scs.Params     := UTF8ToAnsi(edParams.Text);
-      scs.Dir        := UTF8ToAnsi(edDir.Text);
-      scs.ImageFile  := UTF8ToAnsi(edImage.Text);
-      scs.ShowCmd    := ShowCmd;
-      scs.ColorData  := color_data;
-      scs.Hide       := chbHide.Checked;
-      scs.Update;
+      Draft := DefaultShortcutDto;
+      Draft.Caption := UTF8Decode(edCaption.Text);
+      Draft.Command := edCmd.Text;
+      Draft.Params := edParams.Text;
+      Draft.Directory := edDir.Text;
+      Draft.Image := edImage.Text;
+      Draft.ShowCmd := ShowCmd;
+      Draft.ColorData := color_data;
+      Draft.Hide := chbHide.Checked;
+      WriteShortcutText(Draft);
+
+      if sci <> nil then
+      begin
+        sci.Caption    := UTF8Decode(edCaption.Text);
+        sci.Command    := edCmd.Text;
+        sci.Params     := edParams.Text;
+        sci.Dir        := edDir.Text;
+        sci.ImageFile  := cut(edImage.Text, ';');
+        sci.ImageFile2 := cutafter(edImage.Text, ';');
+        sci.ShowCmd    := ShowCmd;
+        sci.ColorData  := color_data;
+        sci.Hide       := chbHide.Checked;
+        sci.Update;
+      end
+      else
+      if scs <> nil then
+      begin
+        scs.Caption    := UTF8Decode(edCaption.Text);
+        scs.Command    := edCmd.Text;
+        scs.Params     := edParams.Text;
+        scs.Dir        := edDir.Text;
+        scs.ImageFile  := edImage.Text;
+        scs.ShowCmd    := ShowCmd;
+        scs.ColorData  := color_data;
+        scs.Hide       := chbHide.Checked;
+        scs.Update;
+      end;
+      FChanged := false;
+    finally
+      ReleaseItemModel(Id);
     end;
-    FChanged := false;
   except
     on e: Exception do frmmain.err('TfrmItemProp.btnApplyClick', e);
   end;
@@ -289,40 +354,45 @@ end;
 //------------------------------------------------------------------------------
 procedure TfrmItemProp.btnCancelClick(Sender: TObject);
 var
-  Inst: TObject = nil;
+  Inst: TItemModel = nil;
+  Id: TItemId;
   sci: TShortcutItem = nil;
   scs: TShortcutSubitem = nil;
 begin
   if FChanged then
   begin
-    Inst := TObject(GetWindowLongPtr(ItemHWnd, GWL_USERDATA));
-    if Inst is TShortcutItem then sci := TShortcutItem(Inst);
-    if Inst is TShortcutSubitem then scs := TShortcutSubitem(Inst);
-    if sci <> nil then
-    begin
-      sci.Caption    := savedCaption;
-      sci.Command    := savedCommand;
-      sci.Params     := savedParams;
-      sci.Dir        := savedDir;
-      sci.ImageFile  := savedImageFile;
-      sci.ImageFile2 := savedImageFile2;
-      sci.ShowCmd    := savedShowCmd;
-      sci.ColorData  := savedColorData;
-      sci.Hide       := savedHide;
-      sci.Update;
-    end
-    else
-    if scs <> nil then
-    begin
-      scs.Caption    := savedCaption;
-      scs.Command    := savedCommand;
-      scs.Params     := savedParams;
-      scs.Dir        := savedDir;
-      scs.ImageFile  := savedImageFile;
-      scs.ShowCmd    := savedShowCmd;
-      scs.ColorData  := savedColorData;
-      scs.Hide       := savedHide;
-      scs.Update;
+    if not AcquireItem(Inst, Id) then exit;
+    try
+      if Inst is TShortcutItem then sci := TShortcutItem(Inst);
+      if Inst is TShortcutSubitem then scs := TShortcutSubitem(Inst);
+      if sci <> nil then
+      begin
+        sci.Caption    := savedCaption;
+        sci.Command    := savedCommand;
+        sci.Params     := savedParams;
+        sci.Dir        := savedDir;
+        sci.ImageFile  := savedImageFile;
+        sci.ImageFile2 := savedImageFile2;
+        sci.ShowCmd    := savedShowCmd;
+        sci.ColorData  := savedColorData;
+        sci.Hide       := savedHide;
+        sci.Update;
+      end
+      else
+      if scs <> nil then
+      begin
+        scs.Caption    := savedCaption;
+        scs.Command    := savedCommand;
+        scs.Params     := savedParams;
+        scs.Dir        := savedDir;
+        scs.ImageFile  := savedImageFile;
+        scs.ShowCmd    := savedShowCmd;
+        scs.ColorData  := savedColorData;
+        scs.Hide       := savedHide;
+        scs.Update;
+      end;
+    finally
+      ReleaseItemModel(Id);
     end;
   end;
   FChanged := false;
@@ -334,7 +404,7 @@ begin
   try if assigned(FImage) then GdipDisposeImage(FImage);
   except end;
   FImage := nil;
-  ItemHWnd := 0;
+  FItemId := NO_ITEM_ID;
   action := caFree;
   frmItemProp := nil;
 end;
@@ -349,7 +419,7 @@ begin
   with TOpenDialog.Create(self) do
   try
       if edCmd.Text = '' then
-        InitialDir := AnsiToUTF8(UnzipPath('%pp%'))
+        InitialDir := UnzipPath('%pp%')
       else
         InitialDir := ExtractFilePath(toolu.UnzipPath(edCmd.Text));
 
@@ -380,7 +450,7 @@ end;
 //------------------------------------------------------------------------------
 procedure TfrmItemProp.btnDirClick(Sender: TObject);
 begin
-  edDir.Text := AnsiToUTF8(toolu.BrowseFolder(handle, UTF8ToAnsi(XSelectWorkingDirectory), UTF8ToAnsi(edDir.Text)));
+  edDir.Text := toolu.BrowseFolder(handle, XSelectWorkingDirectory, edDir.Text);
 end;
 //------------------------------------------------------------------------------
 procedure TfrmItemProp.btnBrowseImage1Click(Sender: TObject);
@@ -415,9 +485,9 @@ var
 begin
   if SameText(ExtractFileExt(UTF8Decode(edCmd.Text)), '.lnk') then
   begin
-    cmd := UnzipPath(UTF8Decode(edCmd.Text));
-    ResolveLNK(handle, cmd, param, dir, icon);
-    edCmd.Text := ZipPath(cmd);
+    cmd := ShellUTF16(UnzipPath(edCmd.Text));
+    if not ResolveLNK(handle, cmd, param, dir, icon) then Exit;
+    edCmd.Text := ZipPath(ShellUTF8(cmd));
     edParams.Text := ZipPath(param);
     edDir.Text := ZipPath(dir);
     edImage.text := ZipPath(icon);
@@ -507,31 +577,13 @@ end;
 //------------------------------------------------------------------------------
 procedure TfrmItemProp.Draw;
 var
-  str: string;
-  apidl: PItemIDList;
+  Target, OverrideImage: string;
 begin
   try
-      if edImage.text = '' then
-        str := UnzipPath(UTF8ToAnsi(cut(edCmd.Text, ';'))) // take only first command
-      else
-        str := UnzipPath(UTF8ToAnsi(cut(edImage.text, ';'))); // take only first image
-
-      try if assigned(FImage) then GdipDisposeImage(FImage);
-      except end;
-      FImage := nil;
-
-      apidl := nil;
-      if IsGUID(str) then apidl := PIDL_GetFromPath(pchar(str));
-      if IsPIDLString(str) then apidl := PIDL_FromString(str);
-      if assigned(apidl) then
-      begin
-        LoadImageFromPIDL(apidl, 128, true, true, FImage, FIW, FIH);
-        PIDL_Free(apidl);
-      end else begin
-        LoadImage(str, 128, true, true, FImage, FIW, FIH);
-      end;
-
-      DrawFit;
+    Target := UnzipPath(cut(edCmd.Text, ';'));
+    OverrideImage := UnzipPath(cut(edImage.Text, ';'));
+    LoadShortcutImage(ShellUTF16(Target), ShellUTF16(OverrideImage), 128, true, true, FImage, FIW, FIH);
+    DrawFit;
   except
     on e: Exception do frmmain.err('frmItemProp.Draw', e);
   end;

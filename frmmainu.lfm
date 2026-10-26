@@ -1,24 +1,25 @@
 object frmmain: Tfrmmain
   Left = 828
-  Height = 50
+  Height = 62
   Top = 245
-  Width = 136
+  Width = 170
   AllowDropFiles = True
   BorderIcons = []
   BorderStyle = bsNone
   Caption = 'TDockForm'
   Color = clBtnFace
+  DesignTimePPI = 120
   KeyPreview = True
+  LCLVersion = '4.8.0.0'
   OnClose = FormClose
   OnKeyDown = FormKeyDown
   OnMouseDown = FormMouseDown
   OnMouseUp = FormMouseUp
-  LCLVersion = '2.0.12.0'
   object trayicon: TTrayIcon
     Hint = 'TDock'
     Visible = True
     OnMouseUp = trayiconMouseUp
-    Left = 10
-    Top = 10
+    Left = 13
+    Top = 13
   end
 end

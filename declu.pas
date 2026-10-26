@@ -143,47 +143,6 @@ type
 
   TDBaseCmd = function(id: TDParam; param: PtrInt): PtrInt of object;
 
-  RAWMOUSE = packed record
-    usFlags: USHORT;
-    usButtonFlags: USHORT;
-    usButtonData: USHORT;
-    ulRawButtons: ULONG;
-    lLastX: LONG;
-    lLastY: LONG;
-    ulExtraInformation: ULONG;
-  end;
-
-  RAWKEYBOARD = packed record
-    MakeCode: USHORT;
-    Flags: USHORT;
-    Reserved: USHORT;
-    VKey: USHORT;
-    Message: UINT;
-    ExtraInformation: ULONG;
-  end;
-
-  RAWHID = packed record
-    dwSizeHid: DWORD;
-    dwCount: DWORD;
-    bRawData: array [0..0] of BYTE;
-  end;
-
-  RAWINPUTHEADER = packed record
-    dwType: DWORD;
-    dwSize: DWORD;
-    hDevice: HANDLE;
-    wParam: WPARAM;
-  end;
-
-  RAWINPUT = packed record
-    header: RAWINPUTHEADER;
-    case Integer of
-      0: (mouse: RAWMOUSE);
-      1: (keyboard: RAWKEYBOARD);
-      2: (hid: RAWHID);
-  end;
-  PRAWINPUT = ^RAWINPUT;
-
   MONITORINFO = record
     cbSize: dword;
     rcMonitor: TRect;
@@ -205,7 +164,7 @@ const
   ITEM_BACKGROUND = $2808080;
   RollStep = 4;
   SWP_NO_FLAGS = SWP_NOSIZE + SWP_NOMOVE + SWP_NOACTIVATE + SWP_NOOWNERZORDER + SWP_NOSENDCHANGING + SWP_ASYNCWINDOWPOS;
-  NOT_AN_ITEM = $ffff; // result const in case when item (items[]) not found
+  NOT_AN_ITEM = -MaxInt; // outside every valid item index, including 65535
   MONITOR_DEFAULTTONEAREST = 2;
   DATA_PROGRAM = $f001; // on WM_COPYDATA CDS.dwType for TDProgramData struct
   WM_DPICHANGED = $02E0;
@@ -220,7 +179,6 @@ const
 
   // private WM_APP messages //
   WM_APP_UPDATE_PREVIEW = WM_APP + 1;
-  WM_APP_RUN_THREAD_END = WM_APP + 2;
 
   // private popup menu command IDs //
   IDM_PASTE = $f030;
@@ -376,13 +334,8 @@ end;
 //--------------------------------------------------------------------------------------------------
 procedure CopyFontData(var fFrom: TDFontData; var fTo: TDFontData);
 begin
-  strcopy(@fTo.name, @fFrom.name);
-  fTo.size      := fFrom.size;
-  fTo.size2     := fFrom.size2;
-  fTo.color     := fFrom.color;
-  fTo.backcolor := fFrom.backcolor;
-  fTo.bold      := fFrom.bold;
-  fTo.italic    := fFrom.italic;
+  Move(fFrom, fTo, SizeOf(fTo));
+  fTo.name[High(fTo.name)] := #0;
 end;
 //------------------------------------------------------------------------------
 end.

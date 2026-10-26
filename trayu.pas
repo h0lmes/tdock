@@ -12,12 +12,24 @@
 unit trayu;
 
 interface
-uses Windows, Classes, SysUtils, Registry, declu, processhlp;
+uses Windows, Classes, SysUtils, Registry, declu, docktimingu;
 
 const
   CTLW_OFFSET = 10;
+  SHELL_POPUP_TIMEOUT = 3000;
 
 type
+
+  TShellPopupPhase = (spIdle, spWaiting, spVisible, spFailed);
+  TShellPopupState = record
+    Phase: TShellPopupPhase;
+    Deadline: TDeadline;
+    TimeoutMs: QWord;
+    procedure Start(Now, Timeout: QWord);
+    procedure Observe(Now: QWord; Exists, Visible: Boolean);
+    procedure Cancel;
+    function NeedsPolling: Boolean;
+  end;
 
   { TTrayController }
 
@@ -28,18 +40,30 @@ type
     FControlWindow: THandle;
     Fx: integer;
     Fy: integer;
-    FControl: boolean;
-    FShown: boolean;
+    FPopupState: TShellPopupState;
+    FPopupClass, FPopupCaption: string;
+    FPopupProcessId: DWORD;
+    FOpenWhenFound: Boolean;
     FPoint: windows.TPoint;
     FBaseRect: windows.TRect;
     FMonitorRect: windows.TRect;
     FWin10: boolean;
+    function GetPlacementPhase: TShellPopupPhase;
     procedure RunAvailableNetworks;
     procedure RunNotificationAreaIcons;
     procedure RunDateAndTime;
     procedure RunPowerOptions;
     procedure RunMobilityCenter;
     procedure Run(exename: string; params: string = ''; dir: string = ''; showcmd: integer = sw_shownormal);
+  protected
+    function ClockNow: QWord; virtual;
+    function LookupPopup(const ClassName, Caption: string): HWND; virtual;
+    function ValidPopup(Window: HWND): Boolean; virtual;
+    function PopupVisible(Window: HWND): Boolean; virtual;
+    function ReadPopupRect(Window: HWND; out Bounds: Windows.TRect): Boolean; virtual;
+    function PlacePopup(Window: HWND; X, Y: Integer): Boolean; virtual;
+    procedure ActivatePopup(Window: HWND); virtual;
+    procedure BeginPopup(const ClassName, Caption: string; OpenWhenFound: Boolean = False);
   public
     constructor Create;
     function AutoTrayEnabled: boolean;
@@ -52,16 +76,116 @@ type
     procedure ShowNetworks(site: TBaseSite; host_wnd: THandle; baseRect, monitorRect: windows.TRect);
     procedure ShowBattery(site: TBaseSite; host_wnd: THandle; baseRect, monitorRect: windows.TRect);
     procedure Timer;
+    function NeedsPolling: Boolean;
+    procedure ObserveWindowChange(Window: HWND);
+    property PlacementPhase: TShellPopupPhase read GetPlacementPhase;
   end;
 
 implementation
+
+procedure TShellPopupState.Start(Now, Timeout: QWord);
+begin
+  Phase := spWaiting;
+  Deadline.Schedule(Now, Timeout);
+  TimeoutMs := Timeout;
+end;
+
+procedure TShellPopupState.Observe(Now: QWord; Exists, Visible: Boolean);
+begin
+  if not NeedsPolling then Exit;
+  if (Phase = spWaiting) and Deadline.IsDue(Now) then
+  begin Phase := spFailed; Deadline.Cancel; Exit; end;
+  if Exists and Visible then
+  begin Phase := spVisible; Deadline.Cancel; end
+  else if Phase = spVisible then
+    if Exists then Cancel else Start(Now, TimeoutMs);
+end;
+
+procedure TShellPopupState.Cancel;
+begin Phase := spIdle; Deadline.Cancel; end;
+
+function TShellPopupState.NeedsPolling: Boolean;
+begin Result := Phase in [spWaiting, spVisible]; end;
+
+function TTrayController.ClockNow: QWord;
+begin Result := GetTickCount64; end;
+
+function TTrayController.LookupPopup(const ClassName, Caption: string): HWND;
+var WindowCaption: PChar;
+begin
+  WindowCaption := nil;
+  if Caption <> '' then WindowCaption := PChar(Caption);
+  Result := FindWindow(PChar(ClassName), WindowCaption);
+end;
+
+function TTrayController.ValidPopup(Window: HWND): Boolean;
+var Name: array[0..255] of Char; ProcessId, ShellProcessId: DWORD; Shell: HWND;
+begin
+  Result := False;
+  if not Windows.IsWindow(Window) then Exit;
+  if GetClassName(Window, @Name[0], Length(Name)) = 0 then Exit;
+  if not SameText(StrPas(@Name[0]), FPopupClass) then Exit;
+  ProcessId := 0;
+  GetWindowThreadProcessId(Window, @ProcessId);
+  if (ProcessId = 0) or ((FPopupProcessId <> 0) and (ProcessId <> FPopupProcessId)) then Exit;
+  if (FPopupClass = 'NotifyIconOverflowWindow') or (FPopupClass = 'BatMeterFlyout') then
+  begin
+    Shell := FindWindow('Shell_TrayWnd', nil);
+    ShellProcessId := 0;
+    if Shell <> 0 then GetWindowThreadProcessId(Shell, @ShellProcessId);
+    if (ShellProcessId <> 0) and (ProcessId <> ShellProcessId) then Exit;
+  end;
+  Result := True;
+end;
+
+function TTrayController.PopupVisible(Window: HWND): Boolean;
+begin Result := IsWindowVisible(Window); end;
+
+function TTrayController.ReadPopupRect(Window: HWND; out Bounds: Windows.TRect): Boolean;
+begin Result := GetWindowRect(Window, Bounds); end;
+
+function TTrayController.PlacePopup(Window: HWND; X, Y: Integer): Boolean;
+begin Result := SetWindowPos(Window, 0, X, Y, 0, 0, SWP_NOSIZE or SWP_NOZORDER); end;
+
+procedure TTrayController.ActivatePopup(Window: HWND);
+var ProcessId: DWORD; AllowForeground: function(ProcessId: DWORD): BOOL; stdcall;
+begin
+  ProcessId := 0;
+  GetWindowThreadProcessId(Window, @ProcessId);
+  @AllowForeground := GetProcAddress(GetModuleHandle('user32.dll'), 'AllowSetForegroundWindow');
+  if Assigned(AllowForeground) then AllowForeground(ProcessId);
+  Windows.SetForegroundWindow(Window);
+  Windows.SetActiveWindow(Window);
+end;
+
+procedure TTrayController.BeginPopup(const ClassName, Caption: string; OpenWhenFound: Boolean);
+begin
+  FControlWindow := 0;
+  FPopupProcessId := 0;
+  FPopupClass := ClassName;
+  FPopupCaption := Caption;
+  FOpenWhenFound := OpenWhenFound;
+  FPopupState.Start(ClockNow, SHELL_POPUP_TIMEOUT);
+end;
+
+function TTrayController.GetPlacementPhase: TShellPopupPhase;
+begin Result := FPopupState.Phase; end;
+
+function TTrayController.NeedsPolling: Boolean;
+begin Result := FPopupState.Phase = spWaiting; end;
+
+procedure TTrayController.ObserveWindowChange(Window: HWND);
+begin
+  if FPopupState.NeedsPolling and
+    ((Window = 0) or (Window = FControlWindow) or NeedsPolling) then Timer;
+end;
 //------------------------------------------------------------------------------
 constructor TTrayController.Create;
 var
   VerInfo: windows.TOSVersioninfo;
 begin
   inherited;
-  FControl := false;
+  FPopupState.Cancel;
   FParentHWnd := FindWindow('Window', PROGRAM_NAME);
   VerInfo.dwOSVersionInfoSize:= sizeof(TOSVersionInfo);
   windows.GetVersionEx(VerInfo);
@@ -126,18 +250,15 @@ begin
   FBaseRect := baseRect;
   FMonitorRect := monitorRect;
   GetCursorPos(FPoint);
-  if IsWindow(host_wnd) then
+  if IsWindow(host_wnd) and GetWindowRect(host_wnd, @hostRect) then
   begin
-    GetWindowRect(host_wnd, @hostRect);
     case FSite of
       bsLeft, bsRight: FPoint.y := (hostRect.Top + hostRect.Bottom) div 2;
       bsTop, bsBottom: FPoint.x := (hostRect.Left + hostRect.Right) div 2;
     end;
   end;
 
-  FControlWindow := findwindow('NotifyIconOverflowWindow', nil);
-  FShown := false;
-  FControl := true;
+  BeginPopup('NotifyIconOverflowWindow', '');
   // open Tray overflow window
   hwnd := FindWindow('Shell_TrayWnd', nil);
   hwnd := FindWindowEx(hwnd, 0, 'TrayNotifyWnd', nil);
@@ -153,8 +274,7 @@ var
   HWnd: THandle;
 begin
   FControlWindow := 0;
-  FShown := false;
-  FControl := false;
+  FPopupState.Cancel;
   // open Win 10 style Action Center window
   hwnd := FindWindow('Shell_TrayWnd', nil);
   hwnd := FindWindowEx(hwnd, 0, 'TrayNotifyWnd', nil);
@@ -172,9 +292,8 @@ begin
   FBaseRect := baseRect;
   FMonitorRect := monitorRect;
   GetCursorPos(FPoint);
-  if IsWindow(host_wnd) then
+  if IsWindow(host_wnd) and GetWindowRect(host_wnd, @hostRect) then
   begin
-    GetWindowRect(host_wnd, @hostRect);
     case FSite of
       bsLeft, bsRight: FPoint.y := (hostRect.Top + hostRect.Bottom) div 2;
       bsTop, bsBottom: FPoint.x := (hostRect.Left + hostRect.Right) div 2;
@@ -182,8 +301,7 @@ begin
   end;
 
   FControlWindow := 0;
-  FShown := false;
-  FControl := false;
+  FPopupState.Cancel;
   // open volume control
   Run('sndvol.exe', '-f ' + inttostr(FPoint.x + FPoint.y * $10000), '', sw_shownormal);
 end;
@@ -196,9 +314,8 @@ begin
   FBaseRect := baseRect;
   FMonitorRect := monitorRect;
   GetCursorPos(FPoint);
-  if IsWindow(host_wnd) then
+  if IsWindow(host_wnd) and GetWindowRect(host_wnd, @hostRect) then
   begin
-    GetWindowRect(host_wnd, @hostRect);
     case FSite of
       bsLeft, bsRight: FPoint.y := (hostRect.Top + hostRect.Bottom) div 2;
       bsTop, bsBottom: FPoint.x := (hostRect.Left + hostRect.Right) div 2;
@@ -209,13 +326,10 @@ begin
   RunAvailableNetworks;
   if FWin10 then
   begin
-    FControlWindow := findwindow('NativeHWNDHost', 'View Available Networks');
-    FShown := false;
-    FControl := true;
+    BeginPopup('NativeHWNDHost', 'View Available Networks');
 	end else begin
     FControlWindow := 0;
-    FShown := false;
-    FControl := false;
+    FPopupState.Cancel;
 	end;
 end;
 //------------------------------------------------------------------------------
@@ -227,33 +341,49 @@ begin
   FBaseRect := baseRect;
   FMonitorRect := monitorRect;
   GetCursorPos(FPoint);
-  if IsWindow(host_wnd) then
+  if IsWindow(host_wnd) and GetWindowRect(host_wnd, @hostRect) then
   begin
-    GetWindowRect(host_wnd, @hostRect);
     case FSite of
       bsLeft, bsRight: FPoint.y := (hostRect.Top + hostRect.Bottom) div 2;
       bsTop, bsBottom: FPoint.x := (hostRect.Left + hostRect.Right) div 2;
     end;
   end;
 
-  FControlWindow := findwindow('BatMeterFlyout', nil);
-  FShown := false;
-  FControl := true;
-  // open Battery Meter Flyout
-  showwindow(FControlWindow, sw_show);
-  processhelper.SetForegroundWindow(FControlWindow);
+  BeginPopup('BatMeterFlyout', '', True);
+  Timer;
 end;
 //------------------------------------------------------------------------------
 procedure TTrayController.Timer;
 var
   wRect: windows.TRect;
+  Exists, Shown: Boolean;
 begin
-  if FControl then
+  if FPopupState.NeedsPolling then
   begin
-    if IsWindowVisible(FControlWindow) then
+    if (FPopupState.Phase = spWaiting) and FPopupState.Deadline.IsDue(ClockNow) then
     begin
-      FShown := true;
-      GetWindowRect(FControlWindow, @wRect);
+      FPopupState.Observe(ClockNow, False, False);
+      Exit;
+    end;
+    if not ValidPopup(FControlWindow) then
+    begin
+      FPopupProcessId := 0;
+      FControlWindow := LookupPopup(FPopupClass, FPopupCaption);
+    end;
+    Exists := ValidPopup(FControlWindow);
+    if Exists and (FPopupProcessId = 0) then
+      GetWindowThreadProcessId(FControlWindow, @FPopupProcessId);
+    if Exists and FOpenWhenFound then
+    begin
+      FOpenWhenFound := False;
+      ShowWindow(FControlWindow, SW_SHOW);
+      ActivatePopup(FControlWindow);
+    end;
+    Shown := Exists and PopupVisible(FControlWindow);
+    FPopupState.Observe(ClockNow, Exists, Shown);
+    if FPopupState.Phase = spVisible then
+    begin
+      if not ReadPopupRect(FControlWindow, wRect) then Exit;
       if FSite = bsLeft then
       begin
         Fx := FBaseRect.Right + CTLW_OFFSET;
@@ -282,10 +412,8 @@ begin
       if Fy > FMonitorRect.Bottom - wRect.Bottom + wRect.Top then Fy := FMonitorRect.Bottom - wRect.Bottom + wRect.Top;
 
       if (wRect.Left <> Fx) or (wRect.Top <> Fy) then
-        SetWindowPos(FControlWindow, 0, Fx, Fy, 0, 0, SWP_NOSIZE + SWP_NOZORDER);
-    end
-    else
-      if FShown then FControl := false;
+        PlacePopup(FControlWindow, Fx, Fy);
+    end;
   end;
 end;
 //------------------------------------------------------------------------------

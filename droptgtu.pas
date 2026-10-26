@@ -2,13 +2,16 @@ unit DropTgtU;
 
 interface
 
-uses Windows, Classes, SysUtils, ActiveX, ShlObj, ShellAPI, PIDL, declu, loggeru;
+uses Windows, Classes, SysUtils, ActiveX, ShlObj, ShellAPI, PIDL, declu, loggeru, dropimportu;
 
 type
   TDropTarget = class;
 
   TProc = procedure of object;
   TDropProc = procedure(list: TStrings; hWnd: THandle) of object;
+  TDropImportBatch = dropimportu.TDropImportBatch;
+  TImportDropProc = procedure(Batch: TDropImportBatch; hWnd: THandle) of object;
+  TDropErrorProc = procedure(Message: WideString; Silent: Boolean) of object;
 
   // Life states //
   Tgwdt_ls = (gwdt_ls_start, gwdt_ls_exists, gwdt_ls_locked, gwdt_ls_regd);
@@ -16,26 +19,31 @@ type
   TDropManager = class
   protected
     FDropTarget: TDropTarget;
+    FImportStorage: UnicodeString;
+    FDragDataSupported: Boolean;
+    FDragFeedbackActive: Boolean;
+    procedure ResetDragFeedback;
     procedure  DropTarget_Forget;  // used by DropTarget.Destroy;
     function tymedToString(tymed: DWORD): string;
   public
     OnDragOver: TProc;
     OnDragLeave: TProc;
-    OnDrop: TDropProc;
+    OnDragReset: TProc;
+    OnDrop: TImportDropProc;
+    OnError: TDropErrorProc;
     OnDragEnter: TDropProc;
     property  DropTarget: TDropTarget read FDropTarget;
+    property ImportStorage: UnicodeString read FImportStorage write FImportStorage;
     // Create in  OwnerForm.OnCreate, Destroy in OwnerForm.OnDestroy
     constructor Create(ADropHWnd: HWND); virtual;
     destructor  Destroy; override;
     function DropTarget_Create(ADropHWnd: HWND): HResult;
     function DropTarget_Exists: Boolean;
     function DropTarget_LifeState: Tgwdt_ls;
+    // Borrows h. The caller must release its owning storage medium.
     procedure AddToListHDrop(h: HDROP; var List: TStrings);
     procedure AddToListHGlobalPIDL(h: HGLOBAL; var List: TStrings);
     procedure AddToListIStreamPIDL(h: Pointer; var List: TStrings);
-    procedure AddToListFileFile(lpsz: POLESTR; var List: TStrings);
-    procedure AddToListIStreamFileName(h: Pointer; var List: TStrings);
-    procedure AddToListHGlobalFileGroupDescriptorW(h: HGLOBAL; var List: TStrings);
     procedure MakeList(const dataObj: IDataObject; var List: TStrings);
     function DragEnter(const dataObj: IDataObject; grfKeyState: DWORD; pt: TPoint; var dwEffect: DWORD): HResult; virtual;
     function DragOver(grfKeyState: DWORD; pt: TPoint; var dwEffect: DWORD): HResult; virtual;
@@ -75,6 +83,7 @@ type
 
 {$undef DEBUG_DROPTGT}
 implementation
+uses itemhostu, shelltextu;
 //------------------------------------------------------------------------------
 //
 //
@@ -120,185 +129,132 @@ begin
   else result := gwdt_ls_Start;
 end;
 //------------------------------------------------------------------------------
+function ValidHDrop(Handle: HDROP): Boolean;
+var Data: Pointer; Size, Position, Start, Width: SizeUInt; Header: TDropFiles;
+  Count: Integer; Ch: Word;
+  function CharacterAt(Offset: SizeUInt): Word;
+  begin
+    Result := 0;
+    if Width = 2 then Move(PByte(Data)[Offset], Result, 2)
+    else Result := PByte(Data)[Offset];
+  end;
+begin
+  Result := False; Size := GlobalSize(Handle);
+  if (Size < SizeOf(Header) + 2) or (Size > SHELL_DATA_LIMIT) then Exit;
+  Data := GlobalLock(Handle);
+  if Data = nil then Exit;
+  try
+    Move(Data^, Header, SizeOf(Header));
+    if Header.fWide then Width := 2 else Width := 1;
+    Position := Header.pFiles;
+    if (Position < SizeOf(Header)) or (Position > Size) or
+      (Size - Position < Width * 2) or ((Position mod Width) <> 0) then Exit;
+    Count := 0;
+    while Position <= Size - Width do
+    begin
+      Ch := CharacterAt(Position);
+      if Ch = 0 then Exit(Count > 0);
+      Start := Position;
+      repeat
+        Inc(Position, Width);
+        if Position > Size - Width then Exit;
+      until CharacterAt(Position) = 0;
+      if (Position - Start) div Width > SHELL_TEXT_LIMIT then Exit;
+      Inc(Count);
+      if Count > SHELL_ITEM_LIMIT then Exit;
+      Inc(Position, Width);
+    end;
+  finally GlobalUnlock(Handle); end;
+end;
+
+procedure CheckImportedTarget(const Value: UnicodeString);
+begin
+  CheckShellText(Value);
+  if (Value = '') or (Length(Value) > DROP_TARGET_LENGTH) then
+    raise EDropTransferError.Create('Imported target exceeds 1023 UTF-16 units or is empty');
+end;
+
 procedure TDropManager.AddToListHDrop(h: HDROP; var List: TStrings);
-var
-  i, size: uint;
-  filenameW: array [0..MAX_PATH - 1] of wchar;
+var I, Count, Required, Copied: UINT; Buffer: array of WideChar;
+  Value: UnicodeString; Candidate: TStringList;
 begin
+  if not ValidHDrop(h) then Exit;
+  Count := DragQueryFileW(h, $FFFFFFFF, nil, 0);
+  if (Count = 0) or (Count > SHELL_ITEM_LIMIT) then Exit;
+  Candidate := TStringList.Create;
   try
-    {$ifdef DEBUG_DROPTGT} AddLog('DropManager.AddToListHDrop'); {$endif}
-
-    size := DragQueryFileW(h, $ffffffff, nil, 0);
-    i := 0;
-    while i < size do
+    for I := 0 to Count - 1 do
     begin
-      DragQueryFileW(h, i, @filenameW, MAX_PATH);
-      List.Add(strpas(pwchar(@filenameW)));
-      {$ifdef DEBUG_DROPTGT} AddLog(filenameW); {$endif}
-      inc(i);
+      Required := DragQueryFileW(h, I, nil, 0);
+      if (Required = 0) or (Required > SHELL_TEXT_LIMIT) then
+        raise EDropTransferError.Create('Unsupported dropped path size');
+      SetLength(Buffer, Required + 1);
+      FillChar(Buffer[0], Length(Buffer) * SizeOf(WideChar), $FF);
+      Copied := DragQueryFileW(h, I, @Buffer[0], Length(Buffer));
+      if (Copied <> Required) or (Buffer[Required] <> #0) then
+        raise EDropTransferError.Create('Incomplete dropped path');
+      SetString(Value, PWideChar(@Buffer[0]), Copied);
+      CheckImportedTarget(Value);
+      Candidate.Add(ShellUTF8(Value));
     end;
-    DragFinish(h);
-  except
-    on e: Exception do raise Exception.Create('DropManager.AddToListHDrop ' + LineEnding + e.message);
-  end;
+    List.AddStrings(Candidate);
+  finally Candidate.Free; end;
 end;
 //------------------------------------------------------------------------------
-procedure TDropManager.AddToListIStreamFileName(h: Pointer; var List: TStrings);
-var
-  ist: IStream;
-  stat: STATSTG;
-  size: longint;
-  data: array [0..MAX_PATH - 1] of char;
-  cbRead: dword;
+//------------------------------------------------------------------------------
+procedure AddCIDA(Data: Pointer; Capacity: SizeUInt; List: TStrings);
+var I, Count, Size: Integer; IDList: PItemIDList; Target: string; Candidate: TStringList;
 begin
+  Count := PIDL_CountFromCIDA(Data, Capacity);
+  if Count = 0 then Exit;
+  Candidate := TStringList.Create;
   try
-    {$ifdef DEBUG_DROPTGT} AddLog('DropManager.AddToListIStreamFileName'); {$endif}
-
-    FillChar(data, MAX_PATH, 0);
-    ist := IStream(h);
-    ist.Stat(stat, 0);
-    size := longint(stat.cbSize);
-    if size > MAX_PATH then size := MAX_PATH;
-    ist.Read(@data, size, @cbRead);
-    List.Add(strpas(pchar(@data)));
-    {$ifdef DEBUG_DROPTGT} AddLog(strpas(pchar(@data))); {$endif}
-  except
-    on e: Exception do raise Exception.Create('DropManager.AddToListIStreamFileName ' + LineEnding + e.message);
-  end;
+    for I := 0 to Count - 1 do
+    begin
+      Size := Capacity; IDList := PIDL_FromCIDA(I, Data, Size);
+      if IDList = nil then raise EOutOfMemory.Create('Cannot allocate imported Shell identity');
+      try Target := PIDL_GetDisplayName2(IDList);
+      finally PIDL_Free(IDList); end;
+      CheckImportedTarget(ShellUTF16(Target));
+      Candidate.Add(Target);
+    end;
+    List.AddStrings(Candidate);
+  finally Candidate.Free; end;
 end;
-//------------------------------------------------------------------------------
+
 procedure TDropManager.AddToListHGlobalPIDL(h: HGLOBAL; var List: TStrings);
-var
-  p: Pointer;
-  i, gsize, size, qty: longint;
-  pidl: PItemIDList;
-  data: array [0..4095] of char;
-  idpath: string;
+var Data: Pointer; Size: SizeUInt;
 begin
-  try
-    {$ifdef DEBUG_DROPTGT} AddLog('DropManager.AddToListHGlobalPIDL'); {$endif}
-
-    FillChar(data, 4096, 0);
-    p := GlobalLock(h);
-    gsize := GlobalSize(h);
-
-    {$ifdef DEBUG_DROPTGT}
-    AddLog('Raw data size = ' + inttostr(gsize));
-    i:= 0;
-    while i < gsize do
-    begin
-      idpath := idpath + inttohex(pbyte(PtrUInt(p) + i)^, 2);
-      inc(i);
-    end;
-    AddLog('Raw data = ' + idpath);
-    {$endif}
-
-    qty := PIDL_CountFromCIDA(p);
-    {$ifdef DEBUG_DROPTGT} AddLog('PIDL count = ' + inttostr(qty)); {$endif}
-
-    for i := 0 to qty - 1 do
-    begin
-      size := gsize;
-      pidl := PIDL_FromCIDA(i, p, size);
-      if assigned(pidl) then
-      begin
-        idpath := PIDL_GetDisplayName2(pidl);
-        PIDL_Free(pidl);
-        List.Add(idpath);
-        {$ifdef DEBUG_DROPTGT} AddLog('PIDL ToString = ' + idpath); {$endif}
-      end;
-    end;
-    GlobalUnlock(h);
-  except
-    on e: Exception do raise Exception.Create('DropManager.AddToListHGlobalPIDL ' + LineEnding + e.message);
-  end;
+  Size := GlobalSize(h);
+  if (Size < 8) or (Size > SHELL_DATA_LIMIT) then Exit;
+  Data := GlobalLock(h);
+  if Data = nil then Exit;
+  try AddCIDA(Data, Size, List);
+  finally GlobalUnlock(h); end;
 end;
 //------------------------------------------------------------------------------
-// TODO: check if CIDA is valid
 procedure TDropManager.AddToListIStreamPIDL(h: Pointer; var List: TStrings);
-var
-  ist: IStream;
-  stat: STATSTG;
-  i, size, qty: longint;
-  data: array [0..4095] of char;
-  cbRead: dword;
-  pidl: PItemIDList;
-  idpath: string;
+var Stream: IStream; Data: TBytes; Chunk: array[0..4095] of Byte;
+  ReadCount, Request: ULONG; N: SizeUInt; Status: HRESULT;
 begin
-  try
-    {$ifdef DEBUG_DROPTGT} AddLog('DropManager.AddToListIStreamPIDL'); {$endif}
-
-    FillChar(data, 4096, 0);
-    ist := IStream(h);
-    ist.Stat(stat, 0);
-    size := longint(stat.cbSize);
-    ist.Read(@data, size, @cbRead);
-
-    {$ifdef DEBUG_DROPTGT}
-    AddLog('Raw data size = ' + inttostr(cbRead));
-    i:= 0;
-    while i < cbRead do
-    begin
-      idpath := idpath + inttohex(byte(data[i]), 2);
-      inc(i);
-    end;
-    AddLog('Raw data = ' + idpath);
-    {$endif}
-
-    qty := PIDL_CountFromCIDA(@data);
-    {$ifdef DEBUG_DROPTGT} AddLog('PIDL count = ' + inttostr(qty)); {$endif}
-
-    for i := 0 to qty - 1 do
-    begin
-      size := cbRead;
-      pidl := PIDL_FromCIDA(i, @data, size);
-      if assigned(pidl) then
-      begin
-        idpath := PIDL_GetDisplayName2(pidl);
-        PIDL_Free(pidl);
-        List.Add(idpath);
-        {$ifdef DEBUG_DROPTGT} AddLog('PIDL ToString = ' + idpath); {$endif}
-      end;
-    end;
-  except
-    on e: Exception do raise Exception.Create('DropManager.AddToListIStreamPIDL ' + LineEnding + e.message);
-  end;
+  Stream := IStream(h);
+  if Stream = nil then Exit;
+  Data := nil;
+  repeat
+    Request := SizeOf(Chunk);
+    if Request > SHELL_DATA_LIMIT - Length(Data) + 1 then
+      Request := SHELL_DATA_LIMIT - Length(Data) + 1;
+    ReadCount := 0; Status := Stream.Read(@Chunk[0], Request, @ReadCount);
+    if Failed(Status) then raise EDropTransferError.Create('Cannot read Shell identity stream');
+    if (ReadCount > Request) or (SizeUInt(Length(Data)) + ReadCount > SHELL_DATA_LIMIT) then
+      raise EDropTransferError.Create('Shell identity stream exceeds supported size');
+    N := Length(Data); SetLength(Data, N + ReadCount);
+    if ReadCount > 0 then Move(Chunk[0], Data[N], ReadCount);
+  until (ReadCount = 0) or (Status = S_FALSE);
+  if Length(Data) > 0 then AddCIDA(@Data[0], Length(Data), List);
 end;
 //------------------------------------------------------------------------------
-procedure TDropManager.AddToListFileFile(lpsz: POLESTR; var List: TStrings);
-begin
-  try
-    {$ifdef DEBUG_DROPTGT} AddLog('DropManager.AddToListFileFile'); {$endif}
-    List.Add(strpas(pwchar(lpsz)));
-    {$ifdef DEBUG_DROPTGT} AddLog(pchar(lpsz)); {$endif}
-  except
-    on e: Exception do raise Exception.Create('DropManager.AddToListIStreamPIDL ' + LineEnding + e.message);
-  end;
-end;
 //------------------------------------------------------------------------------
-procedure TDropManager.AddToListHGlobalFileGroupDescriptorW(h: HGLOBAL; var List: TStrings);
-var
-  i: longint;
-  pgroup: PFILEGROUPDESCRIPTORW;
-  pfgd: PFILEDESCRIPTORW;
-begin
-  try
-    {$ifdef DEBUG_DROPTGT} AddLog('DropManager.AddToListHGlobalFileGroupDescriptorW'); {$endif}
-
-    pgroup := GlobalLock(h);
-    i := 0;
-    while i < pgroup.cItems do
-    begin
-      pfgd := PFILEDESCRIPTORW(PtrUInt(@pgroup.fgd) + i * sizeof(PFILEDESCRIPTORW));
-      List.Add(pfgd.cFileName);
-      {$ifdef DEBUG_DROPTGT} AddLog(pfgd.cFileName); {$endif}
-      inc(i);
-    end;
-    GlobalUnlock(h);
-  except
-    on e: Exception do raise Exception.Create('DropManager.AddToListIStreamPIDL ' + LineEnding + e.message);
-  end;
-end;
 //------------------------------------------------------------------------------
 function TDropManager.tymedToString(tymed: DWORD): string;
 begin
@@ -314,139 +270,161 @@ end;
 //------------------------------------------------------------------------------
 procedure TDropManager.MakeList(const dataObj: IDataObject; var List: TStrings);
 var
-  Rslt: HResult;
-  EnumFormatEtc: IEnumFormatEtc;
-  FetchedCount: longint;
-  FormatEtc: TFormatEtc;
-  StgMedium: TStgMedium;
-  ch: array [0..50] of char;
+  Medium: TStgMedium;
+  Batch: TDropImportBatch;
+  Kind: DWORD;
+  I: Integer;
 begin
-  {$ifdef DEBUG_DROPTGT}
-  AddLog('DropManager.MakeList');
-  {$endif}
-
-  if S_OK <> dataObj.EnumFormatEtc(DATADIR_GET, EnumFormatEtc) then exit;
-
-  {$ifdef DEBUG_DROPTGT}
-  EnumFormatEtc.Reset;
-  Rslt := EnumFormatEtc.Next(1, FormatEtc, @FetchedCount);
-  while Rslt = S_OK do
+  if dataObj = nil then Exit;
+  if GetDropMedium(dataObj, CF_HDROP, TYMED_HGLOBAL, -1, Medium) then
+  try
+    AddToListHDrop(Medium.hGlobal, List);
+  finally ReleaseStgMedium(Medium); end;
+  if List.Count > 0 then Exit;
+  for Kind in [DWORD(TYMED_HGLOBAL), DWORD(TYMED_ISTREAM)] do
+    if GetDropMedium(dataObj, RegisterClipboardFormat('Shell IDList Array'), Kind, -1, Medium) then
+    try
+      if Kind = TYMED_HGLOBAL then AddToListHGlobalPIDL(Medium.hGlobal, List)
+      else AddToListIStreamPIDL(Medium.pstm, List);
+      if List.Count > 0 then Exit;
+    finally ReleaseStgMedium(Medium); end;
+  if List is TDropImportBatch then
+    ImportAdditionalFormats(dataObj, TDropImportBatch(List))
+  else
   begin
-    GetClipboardFormatName(FormatEtc.cfFormat, @ch, 50);
-    AddLog('cfFormat = ' + strpas(pchar(@ch)) + '. tymed = ' + tymedToString(FormatEtc.tymed));
-    Rslt := EnumFormatEtc.Next(1, FormatEtc, @FetchedCount);
+    Batch := TDropImportBatch.Create(FImportStorage);
+    try
+      if ImportAdditionalFormats(dataObj, Batch) then
+      begin
+        Batch.Expose;
+        for I := 0 to Batch.Count - 1 do
+        begin List.Add(Batch[I]); Batch.Decide(I, True); end;
+      end;
+    finally Batch.Free; end;
   end;
-  {$endif}
-
-  // handle FileGroupDescriptorW //
-  {EnumFormatEtc.Reset;
-  Rslt := EnumFormatEtc.Next(1, FormatEtc, @FetchedCount);
-  while Rslt = S_OK do
-  begin
-    GetClipboardFormatName(FormatEtc.cfFormat, @ch, 50);
-    if stricomp(pchar(@ch), 'FILEGROUPDESCRIPTORW') = 0 then
-      if FormatEtc.tymed and TYMED_HGLOBAL <> 0 then
-        if dataObj.GetData(FormatEtc, StgMedium) = S_OK then
-        begin
-          if StgMedium.tymed and TYMED_HGLOBAL = TYMED_HGLOBAL then AddToListHGlobalFileGroupDescriptorW(StgMedium.hGlobal, List);
-          try if StgMedium.tymed <> TYMED_NULL then ReleaseStgMedium(StgMedium);
-          except end;
-        end;
-    Rslt := EnumFormatEtc.Next(1, FormatEtc, @FetchedCount);
-  end;
-  if List.Count > 0 then exit;}
-
-  // handle HDROP //
-  EnumFormatEtc.Reset;
-  Rslt := EnumFormatEtc.Next(1, FormatEtc, @FetchedCount);
-  while Rslt = S_OK do
-  begin
-    if FormatEtc.cfFormat = CF_HDROP then
-      if FormatEtc.tymed and TYMED_HGLOBAL <> 0 then
-        if dataObj.GetData(FormatEtc, StgMedium) = S_OK then
-        begin
-          if StgMedium.tymed and TYMED_HGLOBAL = TYMED_HGLOBAL then AddToListHDrop(StgMedium.hGlobal, List);
-          try if StgMedium.tymed <> TYMED_NULL then ReleaseStgMedium(StgMedium);
-          except end;
-        end;
-    Rslt := EnumFormatEtc.Next(1, FormatEtc, @FetchedCount);
-  end;
-  if List.Count > 0 then exit;
-
-  // handle SHELLIDLIST //
-  EnumFormatEtc.Reset;
-  Rslt := EnumFormatEtc.Next(1, FormatEtc, @FetchedCount);
-  while (Rslt = S_OK) and (List.Count < 1) do
-  begin
-    GetClipboardFormatName(FormatEtc.cfFormat, @ch, 50);
-    if stricomp(pchar(@ch), 'SHELL IDLIST ARRAY') = 0 then
-      if FormatEtc.tymed and (TYMED_HGLOBAL or TYMED_ISTREAM) <> 0 then
-        if dataObj.GetData(FormatEtc, StgMedium) = S_OK then
-        begin
-          if StgMedium.tymed and TYMED_HGLOBAL = TYMED_HGLOBAL then AddToListHGlobalPIDL(StgMedium.hGlobal, List)
-          else
-          if StgMedium.tymed and TYMED_ISTREAM = TYMED_ISTREAM then AddToListIStreamPIDL(StgMedium.pstm, List);
-          try if StgMedium.tymed <> TYMED_NULL then ReleaseStgMedium(StgMedium);
-          except end;
-        end;
-    Rslt := EnumFormatEtc.Next(1, FormatEtc, @FetchedCount);
-  end;
-  if List.Count > 0 then exit;
-
-  // handle FileName //
-  EnumFormatEtc.Reset;
-  Rslt := EnumFormatEtc.Next(1, FormatEtc, @FetchedCount);
-  while Rslt = S_OK do
-  begin
-    GetClipboardFormatName(FormatEtc.cfFormat, @ch, 50);
-    if stricomp(pchar(@ch), 'FILENAME') = 0 then
-      if FormatEtc.tymed and (TYMED_FILE or TYMED_ISTREAM) <> 0 then
-        if dataObj.GetData(FormatEtc, StgMedium) = S_OK then
-        begin
-          if StgMedium.tymed and TYMED_FILE = TYMED_FILE then AddToListFileFile(StgMedium.lpszFileName, List)
-          else
-          if StgMedium.tymed and TYMED_ISTREAM = TYMED_ISTREAM then AddToListIStreamFileName(StgMedium.pstm, List);
-          try if StgMedium.tymed <> TYMED_NULL then ReleaseStgMedium(StgMedium);
-          except end;
-        end;
-    Rslt := EnumFormatEtc.Next(1, FormatEtc, @FetchedCount);
-  end;
+end;
+//------------------------------------------------------------------------------
+procedure TDropManager.ResetDragFeedback;
+begin
+  FDragFeedbackActive := False;
+  if Assigned(OnDragReset) then
+    try OnDragReset;
+    except on E: Exception do AddLog('DropManager.ResetDragFeedback: ' + E.Message); end;
+end;
+//------------------------------------------------------------------------------
+function SelectDropEffect(Allowed, Keys: DWORD): DWORD;
+const ALT_KEY = $20;
+begin
+  // A launcher import never authorizes deletion of the source.
+  if (((Keys and (MK_CONTROL or MK_SHIFT)) = (MK_CONTROL or MK_SHIFT)) or
+    ((Keys and ALT_KEY) <> 0)) and ((Allowed and DROPEFFECT_LINK) <> 0) then
+    Exit(DROPEFFECT_LINK);
+  if (Allowed and DROPEFFECT_COPY) <> 0 then Exit(DROPEFFECT_COPY);
+  if (Allowed and DROPEFFECT_LINK) <> 0 then Exit(DROPEFFECT_LINK);
+  Result := DROPEFFECT_NONE;
 end;
 //------------------------------------------------------------------------------
 function TDropManager.DragEnter(const dataObj: IDataObject; grfKeyState: DWORD; pt: TPoint; var dwEffect: DWORD): HResult;
 begin
-  dwEffect := DROPEFFECT_COPY;
+  FDragDataSupported := Assigned(OnDrop) and SupportsDropData(dataObj);
+  if FDragDataSupported then dwEffect := SelectDropEffect(dwEffect, grfKeyState)
+  else dwEffect := DROPEFFECT_NONE;
   result := S_OK;
-  if assigned(OnDragEnter) then OnDragEnter(nil, WindowFromPoint(pt));
+  if dwEffect <> DROPEFFECT_NONE then
+  begin
+    FDragFeedbackActive := True;
+    if Assigned(OnDragEnter) then OnDragEnter(nil, WindowFromPoint(pt));
+  end
+  else ResetDragFeedback;
 end;
 //------------------------------------------------------------------------------
 function TDropManager.DragOver(grfKeyState : DWORD; pt: TPoint; var dwEffect: DWORD): HResult;
 begin
-  if assigned(OnDragOver) then OnDragOver;
+  if FDragDataSupported and Assigned(OnDrop) then dwEffect := SelectDropEffect(dwEffect, grfKeyState)
+  else dwEffect := DROPEFFECT_NONE;
   result := S_OK;
+  if dwEffect = DROPEFFECT_NONE then
+  begin
+    if FDragFeedbackActive then ResetDragFeedback;
+    Exit;
+  end;
+  if not FDragFeedbackActive then
+  begin
+    FDragFeedbackActive := True;
+    if Assigned(OnDragEnter) then OnDragEnter(nil, WindowFromPoint(pt));
+  end;
+  if Assigned(OnDragOver) then OnDragOver;
 end;
 //------------------------------------------------------------------------------
 function TDropManager.DragLeave: HResult;
 begin
+  FDragDataSupported := False;
+  FDragFeedbackActive := False;
   if assigned(OnDragLeave) then OnDragLeave;
   result := S_OK;
 end;
 //------------------------------------------------------------------------------
 function TDropManager.Drop(const dataObj: IDataObject; grfKeyState: DWORD; pt: TPoint; var dwEffect: DWORD): HResult;
-var
-  FList: TStrings;
-begin
-  dwEffect := DROPEFFECT_COPY;
-  result := S_OK;
-  {$ifdef DEBUG_DROPTGT}
-  AddLog('DropManager.Drop');
-  {$endif}
-  if assigned(OnDrop) then
+var Batch, Empty: TDropImportBatch; List: TStrings; CallbackStarted: Boolean;
+  Allowed: DWORD;
+  procedure Report(const Message: string);
   begin
-    FList := TStringList.Create;
-    MakeList(dataObj, FList);
-    OnDrop(FList, WindowFromPoint(pt));
-    FList.Free;
+    AddLog('DropManager.Drop: ' + Message);
+    if Assigned(OnError) then
+      try OnError(UTF8Decode(Message), False); except end;
+  end;
+begin
+  Allowed := dwEffect;
+  dwEffect := DROPEFFECT_NONE;
+  Result := S_OK;
+  Batch := nil;
+  CallbackStarted := False;
+  try
+    if not Assigned(OnDrop) then Exit;
+    Batch := TDropImportBatch.Create(FImportStorage);
+    try
+      List := Batch;
+      MakeList(dataObj, List);
+      if Batch.Count = 0 then
+      begin
+        if Batch.RejectionReason <> '' then raise EInvalidDropFormat.Create(Batch.RejectionReason);
+        raise EInvalidDropFormat.Create('The dropped data has no supported targets');
+      end;
+      // Expose records durable ownership before any consumer sees a copied path.
+      Batch.Expose;
+      CallbackStarted := True;
+      OnDrop(Batch, WindowFromPoint(pt));
+      if Batch.UndecidedCount > 0 then
+        raise EDropTransferError.Create(Format(
+          'Imported %d of %d dropped targets; %d outcomes remain unknown.',
+          [Batch.AcceptedCount, Batch.Count, Batch.UndecidedCount]));
+      if Batch.AcceptedCount > 0 then dwEffect := SelectDropEffect(Allowed, grfKeyState);
+      if Batch.RejectedCount > 0 then
+        Report(Format('Imported %d of %d dropped targets; %d were rejected.',
+          [Batch.AcceptedCount, Batch.Count, Batch.RejectedCount]));
+    except
+      on E: Exception do
+      begin
+        if CallbackStarted and (Batch.AcceptedCount > 0) then
+          Report(Format('Drop stopped after importing %d of %d targets. %s',
+            [Batch.AcceptedCount, Batch.Count, E.Message]))
+        else Report('Cannot import dropped data: ' + E.Message);
+        // An empty callback still clears the drag state after extraction failure.
+        if not CallbackStarted then
+        begin
+          Empty := TDropImportBatch.Create('');
+          try
+            Empty.Expose;
+            try OnDrop(Empty, WindowFromPoint(pt)); except end;
+          finally Empty.Free; end;
+        end;
+        Result := E_FAIL;
+      end;
+    end;
+  finally
+    FDragDataSupported := False;
+    ResetDragFeedback;
+    Batch.Free;
   end;
 end;
 //------------------------------------------------------------------------------
@@ -555,38 +533,60 @@ begin
 end;
 //------------------------------------------------------------------------------
 function TDropTarget.DragEnter(const dataObj: IDataObject; grfKeyState: DWORD; pt: TPoint; var dwEffect: DWORD): HResult;
+var Scope: TItemHostScope;
 begin
+  Scope := BeginItemHostOperation(FDropHWND);
+  try
   if enable then Result := FDropInterface.DragEnter(dataObj, grfKeyState, pt, dwEffect)
   else
   begin
     dwEffect := DROPEFFECT_NONE;
+    FDropInterface.FDragDataSupported := False;
+    FDropInterface.ResetDragFeedback;
     result := S_OK;
   end;
+  finally EndItemHostOperation(Scope); end;
 end;
 //------------------------------------------------------------------------------
 function TDropTarget.DragOver(grfKeyState : DWORD; pt: TPoint; var dwEffect: DWORD): HResult;
+var Scope: TItemHostScope;
 begin
+  Scope := BeginItemHostOperation(FDropHWND);
+  try
   if Enable then result := FDropInterface.DragOver(grfKeyState, pt, dwEffect)
   else
   begin
     dwEffect := DROPEFFECT_NONE;
+    FDropInterface.FDragDataSupported := False;
+    FDropInterface.ResetDragFeedback;
     result := S_OK;
   end;
+  finally EndItemHostOperation(Scope); end;
 end;
 //------------------------------------------------------------------------------
 function TDropTarget.DragLeave: HResult;
+var Scope: TItemHostScope;
 begin
+  Scope := BeginItemHostOperation(FDropHWND);
+  try
   result := FDropInterface.DragLeave;
+  finally EndItemHostOperation(Scope); end;
 end;
 //------------------------------------------------------------------------------
 function TDropTarget.Drop(const dataObj: IDataObject; grfKeyState: DWORD; pt: TPoint; var dwEffect: DWORD): HResult;
+var Scope: TItemHostScope;
 begin
+  Scope := BeginItemHostOperation(FDropHWND);
+  try
   if Enable then result := FDropInterface.Drop(dataObj, grfKeyState, pt, dwEffect)
   else
   begin
     dwEffect := DROPEFFECT_NONE;
+    FDropInterface.FDragDataSupported := False;
+    FDropInterface.ResetDragFeedback;
     result := S_OK;
   end;
+  finally EndItemHostOperation(Scope); end;
 end;
 //------------------------------------------------------------------------------
 initialization

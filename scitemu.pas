@@ -4,15 +4,18 @@ unit scitemu;
 
 interface
 uses Windows, Messages, SysUtils, Controls, Classes, Math, ShellAPI, ComObj, ShlObj,
-  GDIPAPI, gfx, PIDL, ShContextU,
+  GDIPAPI, gfx, iconserviceu, PIDL, ShContextU,
   declu, dockh, customitemu, customdrawitemu,
-  toolu, processhlp, aeropeeku, mixeru, networksu, iniproc, loggeru;
+  toolu, processhlp, aeropeeku, mixeru, networksu, iniproc, loggeru, itemserializationu, shelltextu;
 
 type
 
   { TShortcutItem }
 
   TShortcutItem = class(TCustomDrawItem)
+  private
+    procedure ApplyData(const Data: TShortcutDtoV1);
+    function CaptureData: TShortcutDtoV1;
   private
     FCommand: string;
     FParams: string;
@@ -30,7 +33,7 @@ type
     FAeroPeekEnabled: boolean; // allow to use AeroPeek or not
     FIsExecutable: boolean;
     FExecutable: WideString;
-    FIsImmersiveApp: boolean;
+    FIsPackagedApp: boolean;
     FIsPIDL: boolean;
     FPIDL: PItemIDList;
     FLastMouseUp: PtrUInt;
@@ -59,6 +62,9 @@ type
     procedure ClosePeekWindow(Timeout: cardinal = 0);
     procedure ShowPeekWindow(Timeout: cardinal = 0);
     procedure UpdatePeekWindow;
+  protected
+    // Returns an owned Shell item. The caller must free it with PIDL_Free.
+    function ParseAppShellItem(const ParsingName: UnicodeString): PItemIDList; virtual;
   public
     property Command: string read FCommand write FCommand;
     property Params: string read FParams write FParams;
@@ -84,6 +90,8 @@ type
     function Executable: string; override;
     function DropFile(wnd: HWND; pt: windows.TPoint; filename: string): boolean; override;
     procedure Save(ini, section: string); override;
+    procedure PrepareDeletion; override;
+    procedure ForegroundChanged(wnd: HWND); override;
     //
     class function Make(ACaption: WideString = '';
       ACommand: string = ''; AParams: string = ''; ADir: string = ''; AImage: string = '';
@@ -92,7 +100,8 @@ type
   end;
 
 implementation
-uses frmitemoptu;
+uses frmitemoptu, itemviewu, itemhostu;
+
 //------------------------------------------------------------------------------
 constructor TShortcutItem.Create(AWndParent: HWND; var AParams: TDItemCreateParams);
 begin
@@ -127,7 +136,7 @@ end;
 destructor TShortcutItem.Destroy;
 begin
   FFreed := true;
-  KillTimer(FHWnd, ID_TIMER_UPDATE_SHORTCUT);
+  ItemViews.KillItemTimer(ItemId, ID_TIMER_UPDATE_SHORTCUT);
   if FAeroPeekWindowActive then TAeroPeekWindow.Close(0);
   try if assigned(FImage) then GdipDisposeImage(FImage);
   except end;
@@ -137,62 +146,62 @@ begin
   inherited;
 end;
 //------------------------------------------------------------------------------
+procedure TShortcutItem.ApplyData(const Data: TShortcutDtoV1);
+begin
+  Caption := Data.Caption;
+  FCommand := Data.Command;
+  FParams := Data.Params;
+  FDir := Data.Directory;
+  FImageFile2 := cutafter(Data.Image, ';');
+  FImageFile := cut(Data.Image, ';');
+  FHide := Data.Hide;
+  FColorData := Data.ColorData;
+  FShowCmd := Data.ShowCmd;
+end;
+
+function TShortcutItem.CaptureData: TShortcutDtoV1;
+begin
+  Result := DefaultShortcutDto;
+  Result.Caption := FCaption;
+  Result.Command := FCommand;
+  Result.Params := FParams;
+  Result.Directory := FDir;
+  Result.Image := FImageFile;
+  if FImageFile2 <> '' then Result.Image := Result.Image + ';' + FImageFile2;
+  Result.Hide := FHide;
+  Result.ColorData := FColorData;
+  Result.ShowCmd := FShowCmd;
+end;
+
 procedure TShortcutItem.FromIni(IniFile, IniSection: string);
 begin
-  if not FFreed then
-  try
-    if (IniFile <> '') and (IniSection <> '') then
-    begin
-      Caption     := ReadIniStringW(IniFile, IniSection, 'caption', '');
-      FCommand    := ReadIniStringW(IniFile, IniSection, 'command', '');
-      FParams     := ReadIniStringW(IniFile, IniSection, 'params', '');
-      FDir        := ReadIniStringW(IniFile, IniSection, 'dir', '');
-      FImageFile  := ReadIniStringW(IniFile, IniSection, 'image', '');
-      FImageFile2 := cutafter(FImageFile, ';');
-      FImageFile  := cut(FImageFile, ';');
-      FHide       := ReadIniBoolW(IniFile, IniSection, 'hide', false);
-      FColorData  := toolu.StringToColor(ReadIniStringW(IniFile, IniSection, 'color_data', toolu.ColorToString(DEF_COLOR_DATA)));
-      FShowCmd    := ReadIniIntW(IniFile, IniSection, 'showcmd', sw_shownormal);
-      Update;
-    end;
-  except
-    on e: Exception do raise Exception.Create('ShortcutItem.FromIni ' + LineEnding + e.message);
-  end;
+  if FFreed or (IniFile = '') or (IniSection = '') then Exit;
+  ApplyData(ReadShortcutIni(IniFile, IniSection));
+  Update;
 end;
 //------------------------------------------------------------------------------
 procedure TShortcutItem.FromString(value: string);
 begin
-  if not FFreed then
-  try
-    Caption        := FetchValue(value, 'caption="', '";');
-    FCommand       := FetchValue(value, 'command="', '";');
-    FParams        := FetchValue(value, 'params="', '";');
-    FDir           := FetchValue(value, 'dir="', '";');
-    FImageFile     := FetchValue(value, 'image="', '";');
-    FImageFile2    := cutafter(FImageFile, ';');
-    FImageFile     := cut(FImageFile, ';');
-    FHide          := false;
-    FColorData     := DEF_COLOR_DATA;
-    FShowCmd       := 1;
-    try FHide      := boolean(strtoint(FetchValue(value, 'hide="', '";')));
-    except end;
-    try FColorData := strtoint(FetchValue(value, 'color_data="', '";'));
-    except end;
-    try FShowCmd   := strtoint(FetchValue(value, 'showcmd="', '";'));
-    except end;
-    Update;
-  except
-    on e: Exception do raise Exception.Create('ShortcutItem.FromString ' + LineEnding + e.message);
-  end;
+  if FFreed then Exit;
+  ApplyData(ReadShortcutText(value));
+  Update;
 end;
 //------------------------------------------------------------------------------
+function TShortcutItem.ParseAppShellItem(const ParsingName: UnicodeString): PItemIDList;
+begin
+  Result := nil;
+  if SHParseDisplayName(PWideChar(ParsingName), nil, Result, 0, nil) <> S_OK then
+    PIDL_Free(Result);
+end;
+
 procedure TShortcutItem.Update;
 var
   pidFolder: PItemIDList;
   csidl: integer;
-  pszName: array [0..255] of char;
+  ParsingName: UnicodeString;
   //
   ext, params, dir, icon: string;
+  AppID: UnicodeString;
 begin
   if FFreed or FUpdating then exit;
 
@@ -205,19 +214,18 @@ begin
       FIsPIDL := false;
       PIDL_Free(FPIDL);
 
-      FIsImmersiveApp := IsImmersiveApp(FCommand);
-      // if command is an Immersive App
-      if FIsImmersiveApp then
+      FIsPackagedApp := TryNormalizeAppTarget(UTF8Decode(UnzipPath(FCommand)), AppID);
+      if FIsPackagedApp then
       begin
           if FCaption = '?' then
           begin
-            FPIDL := PIDL_GetFromPath(pchar(FCommand));
-            if assigned(FPIDL) then
-            begin
-              FCaption := PIDL_GetDisplayName3(FPIDL);
-              PIDL_Free(FPIDL);
+            pidFolder := ParseAppShellItem(APPS_FOLDER_PREFIX + AppID);
+            if assigned(pidFolder) then
+            try
+              FCaption := ShellUTF16(PIDL_GetDisplayName3(pidFolder));
+            finally
+              PIDL_Free(pidFolder);
             end;
-            FPIDL := nil;
           end;
       end
       else
@@ -227,7 +235,7 @@ begin
           if csidl > -1 then
           begin
             OleCheck(SHGetSpecialFolderLocation(0, csidl or CSIDL_FLAG_NO_ALIAS, pidFolder));
-            if PIDL_GetDisplayName(nil, pidFolder, SHGDN_FORPARSING, pszName, 255) then FCommand := strpas(pszName);
+            if PIDL_GetDisplayNameText(nil, pidFolder, SHGDN_FORPARSING, ParsingName) then FCommand := ShellUTF8(ParsingName);
             PIDL_Free(pidFolder);
             if FileExists(FCommand) or DirectoryExists(FCommand) then FCommand := ZipPath(FCommand)
             else FCaption := '::::'; // assuming this is a PIDL
@@ -237,21 +245,21 @@ begin
           if IsPIDLString(FCommand) then FPIDL := PIDL_FromString(FCommand);
           if not assigned(FPIDL) then
             if not FileExists(toolu.UnzipPath(FCommand)) then
-              if IsGUID(FCommand) then FPIDL := PIDL_GetFromPath(pchar(FCommand));
+              if IsShellName(ShellUTF16(FCommand)) then FPIDL := PIDL_ParseTarget(ShellUTF16(FCommand));
 
           FIsPIDL := assigned(FPIDL);
-          if FIsPIDL and (FCaption = '::::') then FCaption := PIDL_GetDisplayName3(FPIDL);
+          if FIsPIDL and (FCaption = '::::') then FCaption := ShellUTF16(PIDL_GetDisplayName3(FPIDL));
 
           // check if this is the shortcut to an executable file
           if not FIsPIDL then
           begin
-            FExecutable := toolu.UnzipPath(FCommand);
+            FExecutable := ShellUTF16(toolu.UnzipPath(FCommand));
             ext := ExtractFileExt(FExecutable);
             if SameText(ext, '.appref-ms') then ResolveAppref(FHWnd, FExecutable);
             if SameText(ext, '.lnk') then ResolveLNK(FHWnd, FExecutable, params, dir, icon);
             ext := ExtractFileExt(FExecutable);
             FIsExecutable := SameText(ext, '.exe');
-            if not FileExists(FExecutable) and not FIsExecutable then FExecutable := '';
+            if not ShellPathExists(FExecutable) and not FIsExecutable then FExecutable := '';
           end;
       end;
 
@@ -271,49 +279,19 @@ begin
 end;
 //------------------------------------------------------------------------------
 procedure TShortcutItem.LoadImageI;
-var
-  imgPIDL: PItemIDList;
 begin
-  try if FImage <> nil then GdipDisposeImage(FImage);
-  except end;
-  FImage := nil;
-
-  if FDynObjectRecycleBin and (FImageFile <> '') then // the recycle bin
+  if FDynObjectRecycleBin and (FImageFile <> '') then
   begin
     if FDynObjectState = 0 then
-      LoadImage(UnzipPath(FImageFile), FBigItemSize, false, true, FImage, FIW, FIH)
+      LoadImage(ShellUTF16(UnzipPath(FImageFile)), FBigItemSize, false, true, FImage, FIW, FIH)
     else
-      LoadImage(UnzipPath(FImageFile2), FBigItemSize, false, true, FImage, FIW, FIH);
+      LoadImage(ShellUTF16(UnzipPath(FImageFile2)), FBigItemSize, false, true, FImage, FIW, FIH);
   end
+  else if FDynObject then
+    LoadDynObjectImage(FImageFile, FBigItemSize, false, true, FImage, FIW, FIH)
   else
-  if FDynObject then // if a dynamic state object
-  begin
-    LoadDynObjectImage(FImageFile, FBigItemSize, false, true, FImage, FIW, FIH);
-  end
-  else
-  if FImageFile <> '' then // if custom image file specified
-  begin
-    LoadImage(UnzipPath(FImageFile), FBigItemSize, false, true, FImage, FIW, FIH);
-  end
-  else // if no custom image set - load from object itself (Immersive App, PIDL or File)
-  begin
-    if IsImmersiveApp(FCommand) then
-    begin
-      imgPIDL := PIDL_GetFromPath(pchar(FCommand));
-      if assigned(imgPIDL) then
-      begin
-        LoadImageFromPIDL(imgPIDL, FBigItemSize, false, true, FImage, FIW, FIH);
-        PIDL_Free(imgPIDL);
-      end;
-    end
-    else
-    begin
-      if FIsPIDL then
-        LoadImageFromPIDL(FPIDL, FBigItemSize, false, true, FImage, FIW, FIH)
-      else
-        LoadImage(UnzipPath(FCommand), FBigItemSize, false, true, FImage, FIW, FIH);
-    end;
-  end;
+    LoadShortcutImage(ShellUTF16(UnzipPath(FCommand)), ShellUTF16(UnzipPath(FImageFile)),
+      FBigItemSize, false, true, FImage, FIW, FIH);
 end;
 //--------------------------------------------------------------------------------------------------
 procedure TShortcutItem.LoadDynObjectImage(imagefile: string; MaxSize: integer; exact, default: boolean; var image: pointer; var srcwidth, srcheight: uint);
@@ -322,19 +300,19 @@ begin
     if pos('{LANGID}', imagefile) > 0 then
     begin
       imagefile := ReplaceEx(imagefile, '{LANGID}', GetLangIDString(FDynObjectState));
-      LoadImage(UnzipPath(imagefile), MaxSize, exact, default, image, srcwidth, srcheight);
+      LoadImage(ShellUTF16(UnzipPath(imagefile)), MaxSize, exact, default, image, srcwidth, srcheight);
       Caption := GetLangIDName(FDynObjectState);
     end;
     if pos('{VOLUME}', imagefile) > 0 then
     begin
       imagefile := ReplaceEx(imagefile, '{VOLUME}', Mixer.StateString);
-      LoadImage(UnzipPath(imagefile), MaxSize, exact, default, image, srcwidth, srcheight);
+      LoadImage(ShellUTF16(UnzipPath(imagefile)), MaxSize, exact, default, image, srcwidth, srcheight);
       Caption := Mixer.Description;
     end;
     if pos('{NETWORK}', imagefile) > 0 then
     begin
       imagefile := ReplaceEx(imagefile, '{NETWORK}', TNetworks.CStateString);
-      LoadImage(UnzipPath(imagefile), MaxSize, exact, default, image, srcwidth, srcheight);
+      LoadImage(ShellUTF16(UnzipPath(imagefile)), MaxSize, exact, default, image, srcwidth, srcheight);
       Caption := TNetworks.CDescription;
     end;
   except
@@ -347,7 +325,7 @@ var
   pidFolder: PItemIDList;
 begin
   if FFreed then exit;
-  KillTimer(FHWnd, ID_TIMER_UPDATE_SHORTCUT);
+  ItemViews.KillItemTimer(ItemId, ID_TIMER_UPDATE_SHORTCUT);
 
   FDynObjectState := 0;
   FDynObject := (pos('{LANGID}', FImageFile) > 0) or (pos('{VOLUME}', FImageFile) > 0) or (pos('{NETWORK}', FImageFile) > 0);
@@ -362,9 +340,9 @@ begin
   if FDynObject or FDynObjectRecycleBin then DynObjectUpdate;
 
   // setup update timer
-  if FDynObject then SetTimer(FHWnd, ID_TIMER_UPDATE_SHORTCUT, 500, nil)
+  if FDynObject then ItemViews.SetItemTimer(ItemId, ID_TIMER_UPDATE_SHORTCUT, 500)
   else
-  if FDynObjectRecycleBin then SetTimer(FHWnd, ID_TIMER_UPDATE_SHORTCUT, 1000, nil);
+  if FDynObjectRecycleBin then ItemViews.SetItemTimer(ItemId, ID_TIMER_UPDATE_SHORTCUT, 1000);
 end;
 //------------------------------------------------------------------------------
 procedure TShortcutItem.DynObjectUpdate;
@@ -434,6 +412,8 @@ begin
         end;
 
       // commands //
+      icFree:
+        if (param = 0) and (FDynObject or FDynObjectRecycleBin) then CheckIfDynObject;
       icUpdateRunning: UpdateRunning;
       icDragEnter:
         begin
@@ -453,7 +433,7 @@ begin
           FFlashedWindow := param;
           Animate;
           Attention(true);
-          SetTimer(Handle, ID_TIMER_WINDOWACTIVATED, 500, nil);
+          ItemViews.SetItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED, 1000);
         end;
     end;
 
@@ -500,13 +480,6 @@ begin
     inherited;
     if FFreed or FUpdating then exit;
 
-    // animation //
-    if FAnimationProgress > 0 then
-    begin
-      inc(FAnimationProgress);
-      if FAnimationProgress >= FAnimationEnd then FAnimationProgress := 0;
-      Redraw;
-    end;
   except
     on e: Exception do raise Exception.Create('ShortcutItem.Timer ' + LineEnding + e.message);
   end;
@@ -518,12 +491,8 @@ begin
 end;
 //------------------------------------------------------------------------------
 function TShortcutItem.ToString: string;
-var
-  img: string;
 begin
-  img := FImageFile;
-  if FImageFile2 <> '' then img := img + ';' + FImageFile2;
-  result := Make(FCaption, FCommand, FParams, FDir, img, FShowCmd, FColorData, FHide);
+  Result := WriteShortcutText(CaptureData);
 end;
 //------------------------------------------------------------------------------
 procedure TShortcutItem.MouseClick(button: TMouseButton; shift: TShiftState; x, y: integer);
@@ -584,7 +553,7 @@ begin
   if FAppList.Count = 1 then
   begin
     result := true;
-    KillTimer(FHWnd, ID_TIMER_OPEN);
+    ItemViews.KillItemTimer(ItemId, ID_TIMER_OPEN);
     ProcessHelper.ActivateWindow(THandle(FAppList.First), FAttention);
   end else
   if FAppList.Count > 1 then
@@ -706,11 +675,14 @@ begin
         if msg = WM_TIMER then
         begin
           // open AeroPeekWindow
-          if wParam = ID_TIMER_OPEN then ShowPeekWindow;
+          if (wParam = ID_TIMER_OPEN) and
+            ItemViews.ConsumeItemTimer(ItemId, ID_TIMER_OPEN, ClockNow) then ShowPeekWindow;
           // check if should cancel attention
-          if wParam = ID_TIMER_WINDOWACTIVATED then CheckWindowActivated;
+          if (wParam = ID_TIMER_WINDOWACTIVATED) and
+            ItemViews.ConsumeItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED, ClockNow) then CheckWindowActivated;
           // update bitbucket
-          if wParam = ID_TIMER_UPDATE_SHORTCUT then
+          if (wParam = ID_TIMER_UPDATE_SHORTCUT) and
+            ItemViews.ConsumeItemTimer(ItemId, ID_TIMER_UPDATE_SHORTCUT, ClockNow) then
             if FDynObject or FDynObjectRecycleBin then DynObjectUpdate;
         end;
     end;
@@ -742,11 +714,11 @@ var
 begin
   if Timeout > 0 then
   begin
-    SetTimer(FHWnd, ID_TIMER_OPEN, Timeout, nil);
+    ItemViews.SetItemTimer(ItemId, ID_TIMER_OPEN, Timeout);
     exit;
   end;
 
-  KillTimer(FHWnd, ID_TIMER_OPEN);
+  ItemViews.KillItemTimer(ItemId, ID_TIMER_OPEN);
 
   pt := GetScreenRect.TopLeft;
   if (FSite = 1) or (FSite = 3) then inc(pt.x, FSize div 2);
@@ -765,9 +737,20 @@ begin
   FAeroPeekWindowActive := true;
 end;
 //------------------------------------------------------------------------------
+procedure TShortcutItem.PrepareDeletion;
+begin
+  try
+    if TAeroPeekWindow.ActivatedBy(FHWnd) then TAeroPeekWindow.Close(0);
+    FAeroPeekWindowActive := false;
+    FHideHint := false;
+  finally
+    inherited;
+  end;
+end;
+
 procedure TShortcutItem.ClosePeekWindow(Timeout: cardinal = 0);
 begin
-  KillTimer(FHWnd, ID_TIMER_OPEN);
+  ItemViews.KillItemTimer(ItemId, ID_TIMER_OPEN);
   if FHideHint then
   begin
     FHideHint := false;
@@ -800,16 +783,22 @@ end;
 //------------------------------------------------------------------------------
 procedure TShortcutItem.CheckWindowActivated;
 begin
+  ForegroundChanged(GetForegroundWindow);
+end;
+
+procedure TShortcutItem.ForegroundChanged(wnd: HWND);
+begin
+  if FFreed then exit;
   if FAttention then
   begin
-    if FAppList.IndexOf(pointer(GetForegroundWindow)) >= 0 then
+    if FAppList.IndexOf(pointer(wnd)) >= 0 then
     begin
       FFlashedWindow := 0;
       Attention(false);
-      KillTimer(Handle, ID_TIMER_WINDOWACTIVATED);
+      ItemViews.KillItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED);
     end;
   end
-  else KillTimer(Handle, ID_TIMER_WINDOWACTIVATED);
+  else ItemViews.KillItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED);
 end;
 //------------------------------------------------------------------------------
 function TShortcutItem.CanOpenFolder: boolean;
@@ -830,7 +819,7 @@ end;
 //------------------------------------------------------------------------------
 function TShortcutItem.Executable: string;
 begin
-  result := FExecutable;
+  result := ShellUTF8(FExecutable);
 end;
 //------------------------------------------------------------------------------
 function TShortcutItem.DropFile(wnd: HWND; pt: windows.TPoint; filename: string): boolean;
@@ -849,54 +838,32 @@ begin
     end
     else
     begin
-      if not FIsPIDL then DockExecute(FHWnd, pchar(FCommand), pchar('"' + filename + '"'), nil, 1);
+      Result := ItemHostOpenDocument(FHWndParent, FHWnd, FCommand, FParams, FDir, filename, FShowCmd);
     end;
   end;
 end;
 //------------------------------------------------------------------------------
 procedure TShortcutItem.Save(ini, section: string);
-var
-  img: string;
 begin
-  if (ini = '') or (section = '') then exit;
-  WritePrivateProfileString(pchar(section), nil, nil, pchar(ini));
-  WritePrivateProfileString(pchar(section), 'class', 'shortcut', pchar(ini));
-  if not FDynObject and (Caption <> '') then WriteIniStringW(ini, section, 'caption', Caption);
-  if FCommand <> '' then                     WriteIniStringW(ini, section, 'command', FCommand);
-  if FParams <> '' then                      WriteIniStringW(ini, section, 'params', FParams);
-  if FDir <> '' then                         WriteIniStringW(ini, section, 'dir', FDir);
-  if FImageFile <> '' then
-  begin
-    img := FImageFile;
-    if FImageFile2 <> '' then img := img + ';' + FImageFile2;
-    WriteIniStringW(ini, section, 'image', img);
-  end;
-  if FShowCmd <> sw_shownormal then          WriteIniStringW(ini, section, 'showcmd', inttostr(FShowCmd));
-  if FColorData <> DEF_COLOR_DATA then       WriteIniStringW(ini, section, 'color_data', toolu.ColorToString(FColorData));
-  if FHide then                              WriteIniStringW(ini, section, 'hide', '1');
+  if (ini = '') or (section = '') then Exit;
+  WriteShortcutIni(ini, section, CaptureData, not FDynObject);
 end;
-//------------------------------------------------------------------------------
-//
-//
-//
-//
-//
-//
-//
 //------------------------------------------------------------------------------
 class function TShortcutItem.Make(ACaption: WideString = '';
   ACommand: string = ''; AParams: string = ''; ADir: string = ''; AImage: string = '';
   AShowCmd: integer = 1; AColorData: integer = DEF_COLOR_DATA; AHide: boolean = false): string;
+var Data: TShortcutDtoV1;
 begin
-  result := 'class="shortcut";';
-  if ACaption <> '' then result := result + 'caption="' + ACaption + '";';
-  if ACommand <> '' then result := result + 'command="' + ACommand + '";';
-  if AParams <> '' then result := result + 'params="' + AParams + '";';
-  if ADir <> '' then result := result + 'dir="' + ADir + '";';
-  if AImage <> '' then result := result + 'image="' + AImage + '";';
-  if AShowCmd <> 1 then result := result + 'showcmd="' + inttostr(AShowCmd) + '";';
-  if AColorData <> DEF_COLOR_DATA then result := result + 'color_data="' + toolu.ColorToString(AColorData) + '";';
-  if AHide then result := result + 'hide="1";';
+  Data := DefaultShortcutDto;
+  Data.Caption := ACaption;
+  Data.Command := ACommand;
+  Data.Params := AParams;
+  Data.Directory := ADir;
+  Data.Image := AImage;
+  Data.ShowCmd := AShowCmd;
+  Data.ColorData := AColorData;
+  Data.Hide := AHide;
+  Result := WriteShortcutText(Data);
 end;
 //------------------------------------------------------------------------------
 class function TShortcutItem.MakeFromFilename(value: string): string;
@@ -904,21 +871,21 @@ var
   Caption: WideString;
   Dir: string = '';
 begin
-  if IsGUID(value) or IsPIDLString(value) then
-  begin
-    result := Make('::::', value, '', '', '', 1);
-  end
-  else
-  if IsImmersiveApp(value) then
+  if IsPackagedApp(value) then
   begin
     result := Make('?', value, '', '', '', 1);
   end
   else
+  if IsShellName(ShellUTF16(value)) or IsPIDLString(value) then
+  begin
+    result := Make('::::', value, '', '', '', 1);
+  end
+  else
   begin
     if DirectoryExists(value) then
-      Caption  := value
+      Caption  := ShellUTF16(value)
     else
-      Caption  := ChangeFileExt(ExtractFilename(value), '');
+      Caption  := ShellUTF16(ChangeFileExt(ExtractFilename(value), ''));
     if LowerCase(ExtractFileExt(value)) = '.exe' then Dir := ZipPath(ExcludeTrailingPathDelimiter(ExtractFilePath(value)));
     result := Make(Caption, ZipPath(value), '', Dir, '', 1);
   end;

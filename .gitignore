@@ -18,3 +18,5 @@ sets.ini
 *.obj
 *.exe
 *.dll
+
+.workspace/

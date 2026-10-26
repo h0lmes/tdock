@@ -733,7 +733,8 @@ object frmsets: Tfrmsets
         Top = 325
         Width = 16
         Associate = edFontSize
-        Min = 3
+        Min = 6
+        Max = 72
         Position = 11
         TabOrder = 4
         Thousands = False
@@ -798,7 +799,8 @@ object frmsets: Tfrmsets
         Top = 362
         Width = 16
         Associate = edFontSize2
-        Min = 3
+        Min = 6
+        Max = 72
         Position = 11
         TabOrder = 7
         Thousands = False

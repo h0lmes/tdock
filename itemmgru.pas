@@ -6,34 +6,28 @@ interface
 uses
   Windows, Messages, Classes, SysUtils, Forms, IniFiles, Math,
   declu, DockH, toolu, gfx, GDIPAPI, processhlp, iniproc,
-  customitemu, scitemu, sepitemu, plgitemu, stackitemu, taskitemu, loggeru;
-
-const
-  MAX_ITEM_COUNT = 128;
+  customitemu, scitemu, sepitemu, plgitemu, stackitemu, taskitemu, loggeru, itemcollectionu,
+  itemsettingsu, itemregistryu, docklayoutu, tasksyncu, itemhostu, itemmodelu, itemviewu, itemfactoryu,
+  docktimingu, dropimportu;
 
 type
-  PItem = ^TItem;
-  TItem = record
-    h: THandle;
-    x: integer;
-    y: integer;
-    s: integer;
-    xe: extended;
-    ye: extended;
-    se: extended;
-  end;
+  PItem = itemcollectionu.PItem;
+  TItem = itemcollectionu.TItem;
 
   { TItemManager }
 
   TItemManager = class
   private
+    FItems: TItemCollection;
+    FModels: TItemStore;
+    FOnItemRemoved: TItemRemovedEvent;
     FItemSize: integer;
     FBigItemSize: integer;
     FZoomWidth: integer;
     FItemSpacing: integer;
     FZoomItems: boolean; // enables zoom //
     FZoomTime: integer;
-    FZoomStartTime: QWord; // timestamp when zoming in or out has begun
+    FZoomAnimation: TScalarAnimation;
     FReflection: boolean;
     FReflectionSize: integer;
     FItemAnimation: integer;
@@ -47,6 +41,7 @@ type
     FFont: TDFontData;
     FLockMouseEffect: boolean;
     FSetsFilename: string;
+    FUnknownItems: TLegacyItemSections;
     FVisible: boolean;
     FEnabled: boolean;
     FAeroPeekEnabled: boolean;
@@ -55,6 +50,13 @@ type
     FTaskGrouping: boolean;
     FTaskSystemMenus: boolean;
     FTaskSpot: integer;
+    FShowRunningIndicator: boolean;
+    FTaskSameMonitor: boolean;
+    FOnRepaint: TItemRepaintEvent;
+    FLayoutRevision: QWord;
+    FLoadDepth, FRebuildDepth: integer;
+    FTaskRefreshPending, FTaskSnapshotPending: boolean;
+    FPendingTaskWindows: TTaskWindows;
     // for smooth zooming in and out //
     // 0 <= ZoomItemSizeDiff <= (BigItemSize - ItemSize) //
     ZoomItemSizeDiff: integer;
@@ -70,51 +72,8 @@ type
     FItemsArea2: windows.TRect;
     FMargin: integer; // dock icons offset from a monitor edge
     FMargin2: integer; // dock icons additional offset from a monitor edge
-
-    procedure Clear;
-    procedure ClearDeleted;
-    procedure err(where: string; e: Exception; Critical: boolean = false);
-    procedure notify(message: string);
-    procedure UpdateDock(forceDraw: boolean);
-    procedure SetVisible(value: boolean);
-    procedure ItemsChanged(FullUpdate: boolean = false);
-    function  GetRect: windows.TRect;
-    procedure SetWndOffset(value: integer);
-
-    // load/save //
-    procedure LoadDefault;
-    procedure SaveItems;
-    procedure SaveItem(wnd: HWND);
-
-    procedure RecalcItems;
-    procedure RecalcDock;
-    procedure UpdateItems(forceDraw: boolean);
-    function  IASize: integer;
-    function  ItemFromPoint(Ax, Ay, distance: integer): extended;
-    function  ItemRectFromPoint(Ax, Ay: integer): integer;
-
-    // items //
-    function  ItemHWnd(index: integer): THandle;
-    function  AddItem(wnd: HWND; Update: boolean = false): THandle;
-    function  CreateItem(IniFile, IniSection, Parameter: string): THandle;
-    procedure AddTaskWindow(HWndTask: THandle);
-    function IsRegisteredExecutable(processName: string): boolean;
-
-    procedure Zoom(x, y: integer);
-    procedure UnZoom(do_now: boolean = false);
-    procedure ZoomInOut;
-    procedure SetDropPlaceFromPoint(pt: windows.TPoint);
-    procedure SetDropPlace(index: integer);
-    procedure SetDropPlaceEx(index: integer);
-
-    procedure AllItemTimer;
-    function  IsSeparator(wnd: HWND): boolean;
-  public
-    FItemArray: array [0..MAX_ITEM_COUNT - 1] of TItem; // static = more stable
-    FItemCount: integer;
-    FHoverItemHWnd: THandle; // handle of the item over which the mouse is //
-    FSelectedItemHWnd: THandle;
-    _itemsDeleted: TFPList;
+    FHoverItemId: TItemId; // handle of the item over which the mouse is //
+    FSelectedItemId: TItemId;
     // pos/size of ItemManager //
     x: integer;
     y: integer;
@@ -130,21 +89,87 @@ type
     FDropDistance: integer;
     FLockDragging: boolean;
     FDraggingItem: boolean; // indicates that item is being dragged //
-    FDragHWnd: THandle; // handle of the item that is being dragged //
+    FDragItemId: TItemId; // handle of the item that is being dragged //
     FDraggingFile: boolean; // indicates that file is being dragged //
     FDropPlace: integer; // index of free space //
     FDropPlaceEx: integer; // index of a place to drop to //
     FParentHWnd: THandle;
     FBaseCmd: TDBaseCmd;
 
+    function GetManagedItem(wnd: HWND): TCustomItem;
+    function GetModel(Id: TItemId): TCustomItem;
+    procedure DisposeOwnedItem(Item: TObject; const Context: string);
+    procedure ForgetOwnedItem(Id: TItemId);
+    function PinManagedItem(const Identity: TItemIdentity; out Item: TCustomItem): boolean;
+    function PinActiveItem(const Identity: TItemIdentity; out Item: TCustomItem): boolean;
+    procedure ApplyCurrentSettings(wnd: HWND);
+    function CaptureItems(ForSaving: boolean): TItemIdentities;
+    function ResolveActiveItem(const Identity: TItemIdentity; out Item: TCustomItem): boolean;
+    function GetLayoutInput: TDockLayoutInput;
+    function GetLayoutItems: TDockLayoutItems;
+    function GetDockGeometry: TDockGeometry;
+    function GetLayoutCount: integer;
+    function GetItemCount: integer;
+    function GetDeletedCount: integer;
+    procedure SyncDropPlace;
+    procedure ActivateItem(wnd: HWND; Update: boolean);
+    procedure Clear;
+    procedure ClearDeleted;
+    procedure err(where: string; e: Exception; Critical: boolean = false);
+    procedure notify(message: string);
+    procedure UpdateDock(forceDraw: boolean);
+    procedure SetVisible(value: boolean);
+    procedure ItemsChanged(FullUpdate: boolean = false);
+    function  GetRect: windows.TRect;
+    procedure SetWndOffset(value: integer);
+
+    // load/save //
+    procedure LoadDefault;
+    procedure SaveItems;
+    procedure SaveItemsTo(const Filename: string);
+    procedure SaveItem(wnd: HWND);
+
+    procedure RecalcItems;
+    procedure RecalcDock;
+    procedure UpdateItems(forceDraw: boolean);
+    function  IASize: integer;
+    function  ItemFromPoint(Ax, Ay, distance: integer): extended;
+    function  ItemRectFromPoint(Ax, Ay: integer): integer;
+
+    // items //
+    function  ItemHWnd(index: integer): THandle;
+    function  AddItem(wnd: HWND; Update: boolean = false): THandle;
+    function  CreateItem(IniFile, IniSection, Parameter: string): THandle;
+
+    procedure Zoom(x, y: integer);
+    procedure UnZoom(do_now: boolean = false);
+    procedure ZoomInOut;
+    procedure RetargetZoom;
+    procedure SetDropPlaceFromPoint(pt: windows.TPoint);
+    procedure SetDropPlace(index: integer);
+    procedure SetDropPlaceEx(index: integer);
+
+    property LayoutCount: integer read GetLayoutCount;
+    procedure AllItemTimer;
+    procedure FlushPendingTasks;
+    function  IsSeparator(wnd: HWND): boolean;
+  protected
+    function ClockNow: QWord; virtual;
+    function GetCursorPoint(out pt: Windows.TPoint): boolean; virtual;
+    function CreatePluginItem(var Params: TDItemCreateParams): TCustomItem; virtual;
+  public
+
     property Visible: boolean read FVisible write SetVisible;
     property Rect: windows.TRect read GetRect;
-    property ItemsArea: windows.TRect read FItemsArea write FItemsArea;
-    property ItemsArea2: windows.TRect read FItemsArea2 write FItemsArea2;
-    property Margin: integer read FMargin write FMargin;
-    property Margin2: integer read FMargin2 write FMargin2;
+    property ItemsArea: windows.TRect read FItemsArea;
+    property ItemsArea2: windows.TRect read FItemsArea2;
+    property Margin: integer read FMargin;
+    property Margin2: integer read FMargin2;
     property WndOffset: integer read FWndOffset write SetWndOffset;
-    property ItemCount: integer read FItemCount;
+    property ItemCount: integer read GetItemCount;
+    property DeletedCount: integer read GetDeletedCount;
+    property OnRepaint: TItemRepaintEvent read FOnRepaint write FOnRepaint;
+    property ParentWindow: HWND read FParentHWnd;
 
     constructor Create(Handle: THandle; ABaseCmd: TDBaseCmd;
       ItemSize, BigItemSize, ZoomWidth, ZoomTime, ItemSpacing: integer;
@@ -153,22 +178,33 @@ type
       ActivateRunning, UseShellContextMenus, LockDragging, StackAnimationEnabled: boolean;
       AeroPeekEnabled, TaskLivePreviews, TaskGrouping, TaskSystemMenus: boolean;
       TaskThumbSize, TaskSpot: integer;
-      ShowHint: boolean; Font: TDFontData);
+      ShowHint: boolean; Font: TDFontData); overload;
+    constructor Create(Handle: THandle; const Settings: TItemManagerSettings;
+      Repaint: TItemRepaintEvent); overload;
     destructor Destroy; override;
     procedure Enable(value: boolean);
     procedure SetParam(id: TDParam; value: PtrInt);
+    procedure ApplySetting(Key: TDParam; Value: integer);
+    procedure ApplySettings(const Settings: TItemManagerSettings);
+    procedure ConfigureLayout(const Configuration: TDockLayoutConfiguration);
+    function LayoutSnapshot: TDockLayoutSnapshot;
+    function InteractionSnapshot: TDockInteractionSnapshot;
     procedure command(cmd, params: string);
     function  GetZoomEdge: integer;
 
     procedure Timer;
+    function NeedsFrames: boolean;
+    procedure ForegroundChanged(wnd: HWND);
     procedure SetTheme;
 
     // load & save //
     procedure Load(fsets: string);
     procedure Save(fsets: string);
+    procedure SaveTo(const Filename: string);
 
     // task item procs //
     procedure Taskbar;
+    procedure SynchronizeTasks(const AppWindows: TTaskWindows);
     procedure ClearTaskbar;
 
     // items //
@@ -177,8 +213,9 @@ type
     function  ZOrder(InsertAfter: THandle): THandle;
     function  ItemIndex(HWnd: THandle): integer;
     procedure InsertFiles(list: TStrings);
-    procedure InsertFile(Filename: string);
-    procedure InsertItem(AData: string);
+    procedure ImportDropFiles(Batch: TDropImportBatch; wndItem: HWND; pt: windows.TPoint);
+    function InsertFile(Filename: string): THandle;
+    function InsertItem(AData: string): THandle;
     function  CreateItemFromIni(IniFile, IniSection: string): THandle;
     function  CreateItemFromString(value: string): THandle;
     function  CreateTaskItem: THandle;
@@ -202,6 +239,16 @@ type
     procedure ItemDock(wnd: HWND);
     function  AllItemCmd(id: TDParam; param: PtrInt): PtrInt;
     procedure SetFont(var Value: TDFontData);
+    function TryGetManagedItem(wnd: HWND; out Item: TCustomItem): boolean;
+    function TryGetItemById(Id: TItemId; out Item: TCustomItem): boolean;
+    function CreateItemId(const Data: string): TItemId;
+    function InsertItemById(Id: TItemId; Update: boolean = true): TItemId;
+    procedure DeleteItemById(Id: TItemId);
+    procedure UndockItemById(Id: TItemId);
+    procedure DockItemById(Id: TItemId);
+    procedure PluginAnimateById(Id: TItemId);
+    property OnItemRemoved: TItemRemovedEvent read FOnItemRemoved write FOnItemRemoved;
+    function AdoptItem(Item: TCustomItem; Update: boolean = true): THandle;
     function  GetPluginFile(wnd: HWND): string;
     procedure SetPluginImage(wnd: HWND; lpImageNew: Pointer; AutoDelete: boolean);
     procedure SetPluginOverlay(wnd: HWND; lpOverlayNew: Pointer; AutoDelete: boolean);
@@ -213,6 +260,403 @@ type
 end;
 
 implementation
+
+uses itemserializationu;
+
+function TItemManager.TryGetManagedItem(wnd: HWND; out Item: TCustomItem): boolean;
+begin
+  result := TryGetItemById(ItemViews.ItemIdOf(wnd), Item);
+end;
+
+function TItemManager.TryGetItemById(Id: TItemId; out Item: TCustomItem): boolean;
+var model: TItemModel;
+begin
+  Item := nil;
+  model := nil;
+  if assigned(FModels) then model := FModels.Find(Id);
+  result := assigned(model) and (model is TCustomItem) and (model.State <> imsRetiring);
+  if result then Item := TCustomItem(model);
+end;
+
+function TItemManager.GetModel(Id: TItemId): TCustomItem;
+begin TryGetItemById(Id, result); end;
+
+function TItemManager.CreateItemId(const Data: string): TItemId;
+begin result := ItemViews.ItemIdOf(CreateItemFromString(Data)); end;
+
+function TItemManager.InsertItemById(Id: TItemId; Update: boolean): TItemId;
+var item: TCustomItem;
+begin
+  result := NO_ITEM_ID;
+  if TryGetItemById(Id, item) and (AddItem(item.Handle, Update) <> 0) then result := Id;
+end;
+
+procedure TItemManager.UndockItemById(Id: TItemId);
+var item: TCustomItem;
+begin if TryGetItemById(Id, item) then Undock(item.Handle); end;
+
+procedure TItemManager.DockItemById(Id: TItemId);
+var item: TCustomItem;
+begin if TryGetItemById(Id, item) then Dock(item.Handle); end;
+
+procedure TItemManager.PluginAnimateById(Id: TItemId);
+var item: TCustomItem;
+begin
+  if not TryGetItemById(Id, item) or not item.Pin then exit;
+  try
+    if FItemAnimation > 0 then item.Animate;
+  finally ReleaseItemModel(Id); end;
+end;
+
+function TItemManager.GetManagedItem(wnd: HWND): TCustomItem;
+begin
+  TryGetManagedItem(wnd, result);
+end;
+
+procedure TItemManager.DisposeOwnedItem(Item: TObject; const Context: string);
+var id: TItemId;
+begin
+  try
+    id := TCustomItem(Item).ItemId;
+    TCustomItem(Item).Freed := true;
+    if assigned(FItems) then
+    begin
+      FItems.Forget(id);
+      SyncDropPlace;
+      FDraggingItem := FItems.DraggedId <> 0;
+      FDragItemId := FItems.DraggedId;
+      if not FDraggingItem then FDropPlaceEx := NOT_AN_ITEM;
+      if FHoverItemId = id then FHoverItemId := 0;
+      if FSelectedItemId = id then FSelectedItemId := 0;
+    end;
+    TCustomItem(Item).Free;
+  except
+    on e: Exception do
+      try AddLog(Context + LineEnding + e.Message); except end;
+  end;
+end;
+
+function TItemManager.PinManagedItem(const Identity: TItemIdentity; out Item: TCustomItem): boolean;
+var registered: TObject;
+begin
+  Item := nil;
+  result := ItemRegistry.TryResolve(Identity, FParentHWnd, registered);
+  if result then result := (registered is TCustomItem) and ItemRegistry.Pin(Identity);
+  if result then Item := TCustomItem(registered);
+end;
+
+procedure TItemManager.ForgetOwnedItem(Id: TItemId);
+var scope: TItemHostScope; changed: boolean;
+begin
+  scope := BeginItemHostOperation(FParentHWnd);
+  try
+    ItemViews.ForgetMouseLocks(Id);
+    changed := assigned(FItems) and FItems.Forget(Id);
+    if assigned(FItems) then
+    begin
+      SyncDropPlace;
+      FDraggingItem := FItems.DraggedId <> 0;
+      FDragItemId := FItems.DraggedId;
+      FDropPlaceEx := NOT_AN_ITEM;
+    end;
+    if FHoverItemId = Id then FHoverItemId := 0;
+    if FSelectedItemId = Id then FSelectedItemId := 0;
+    if changed then ItemsChanged(true);
+    if assigned(FOnItemRemoved) then FOnItemRemoved(Id);
+    FlushPendingTasks;
+  finally
+    EndItemHostOperation(scope);
+  end;
+end;
+
+procedure TItemManager.ApplyCurrentSettings(wnd: HWND);
+var scope: TItemHostScope; identity: TItemIdentity; item: TCustomItem;
+  procedure Apply(id: TDParam; value: PtrInt);
+  begin
+    if not item.Freed then item.cmd(id, value);
+  end;
+begin
+  scope := BeginItemHostOperation(FParentHWnd);
+  try
+    identity := ItemRegistry.IdentityOf(wnd);
+    if not PinManagedItem(identity, item) then exit;
+    try
+      Apply(gpItemSize, FItemSize);
+      Apply(gpBigItemSize, FBigItemSize);
+      Apply(gpItemSpacing, FItemSpacing);
+      Apply(gpMonitor, FMonitor);
+      Apply(gpSite, Ord(FSite));
+      Apply(gpReflectionEnabled, Ord(FReflection));
+      Apply(gpReflectionSize, FReflectionSize);
+      Apply(gpLaunchInterval, FLaunchInterval);
+      Apply(gpActivateRunning, Ord(FActivateRunning));
+      Apply(gpUseShellContextMenus, Ord(FUseShellContextMenus));
+      Apply(gpItemAnimationType, FItemAnimation);
+      Apply(gpLockDragging, Ord(FLockDragging));
+      Apply(gpShowHint, Ord(FShowHint));
+      Apply(gpShowRunningIndicator, Ord(FShowRunningIndicator));
+      Apply(gpStackAnimationEnabled, Ord(FStackAnimationEnabled));
+      Apply(gpAeroPeekEnabled, Ord(FAeroPeekEnabled));
+      Apply(gpTaskSameMonitor, Ord(FTaskSameMonitor));
+      Apply(gpTaskLivePreviews, Ord(FTaskLivePreviews));
+      Apply(gpTaskThumbSize, FTaskThumbSize);
+      Apply(gpTaskGrouping, Ord(FTaskGrouping));
+      Apply(gpTaskSystemMenus, Ord(FTaskSystemMenus));
+      Apply(gpSeparatorAlpha, FSeparatorAlpha);
+      Apply(gpLockMouseEffect, Ord(FLockMouseEffect));
+      if not item.Freed then item.SetFont(FFont);
+    finally
+      ItemRegistry.Unpin(identity);
+    end;
+  finally
+    EndItemHostOperation(scope);
+  end;
+end;
+
+function TItemManager.CaptureItems(ForSaving: boolean): TItemIdentities;
+var i, count: integer; ids: TItemIds;
+begin
+  if ForSaving then count := FItems.SaveCount else count := LayoutCount;
+    SetLength(ids, count);
+    for i := 0 to count - 1 do
+      if ForSaving then ids[i] := FItems.SavedItems[i].Id else ids[i] := FItems[i]^.Id;
+  SetLength(result, count);
+  for i := 0 to count - 1 do
+      result[i] := ItemViews.IdentityForId(ids[i]);
+end;
+
+function TItemManager.ResolveActiveItem(const Identity: TItemIdentity; out Item: TCustomItem): boolean;
+var registered: TObject;
+begin
+  Item := nil;
+  result := (FItems.IndexOf(Identity.ItemId) <> NO_ITEM_INDEX) and
+    ItemRegistry.TryResolve(Identity, FParentHWnd, registered);
+  if result then result := registered is TCustomItem;
+  if result then Item := TCustomItem(registered);
+end;
+
+function TItemManager.PinActiveItem(const Identity: TItemIdentity; out Item: TCustomItem): boolean;
+begin
+  result := ResolveActiveItem(Identity, Item);
+  if result then result := PinManagedItem(Identity, Item);
+end;
+
+function TItemManager.GetLayoutInput: TDockLayoutInput;
+begin
+  result.Site := Ord(FSite);
+  result.MonitorRect := FMonitorRect;
+  result.ItemsArea := FItemsArea;
+  result.ItemsArea2 := FItemsArea2;
+  result.ItemSize := FItemSize;
+  result.BigItemSize := FBigItemSize;
+  result.ItemSpacing := FItemSpacing;
+  result.ZoomWidth := FZoomWidth;
+  result.CenterOffsetPercent := FCenterOffsetPercent;
+  result.Margin := FMargin;
+  result.Margin2 := FMargin2;
+  result.WndOffset := FWndOffset;
+  result.EdgeOffset := FEdgeOffset;
+  result.ZoomSizeDiff := ZoomItemSizeDiff;
+  result.ZoomPosition := FZoomInOutItem;
+  result.OccupyFullMonitor := FOccupyFullMonitor;
+end;
+
+function TItemManager.GetLayoutItems: TDockLayoutItems;
+var i: integer; item: TItem;
+begin
+  SetLength(result, LayoutCount);
+  for i := 0 to High(result) do
+  begin
+    item := FItems[i]^;
+    result[i].X := item.x;
+    result[i].Y := item.y;
+    result[i].Size := item.s;
+    result[i].ExactX := item.xe;
+    result[i].ExactY := item.ye;
+    result[i].ExactSize := item.se;
+    result[i].IsSeparator := GetModel(item.Id) is TSeparatorItem;
+  end;
+end;
+
+function TItemManager.GetDockGeometry: TDockGeometry;
+begin
+  result.X := x;
+  result.Y := y;
+  result.Width := width;
+  result.Height := height;
+  result.WidthZoomed := widthZoomed;
+  result.HeightZoomed := heightZoomed;
+  result.BaseWindowRect := FBaseWindowRect;
+  result.BaseImageRect := FBaseImageRect;
+end;
+
+procedure TItemManager.ConfigureLayout(const Configuration: TDockLayoutConfiguration);
+begin
+  FMonitorRect := Configuration.MonitorRect;
+  FItemsArea := Configuration.ItemsArea;
+  FItemsArea2 := Configuration.ItemsArea2;
+  FMargin := Configuration.Margin;
+  FMargin2 := Configuration.Margin2;
+end;
+
+function TItemManager.LayoutSnapshot: TDockLayoutSnapshot;
+begin
+  result.MonitorRect := FMonitorRect;
+  result.BaseWindowRect := FBaseWindowRect;
+  result.BaseImageRect := FBaseImageRect;
+  result.X := x;
+  result.Y := y;
+  result.Width := width;
+  result.Height := height;
+  result.WidthZoomed := widthZoomed;
+  result.HeightZoomed := heightZoomed;
+  result.DraggingFile := FDraggingFile;
+end;
+
+function TItemManager.InteractionSnapshot: TDockInteractionSnapshot;
+begin
+  result.HoverItem := FHoverItemId;
+  result.SelectedItem := FSelectedItemId;
+  result.DraggedItem := FDragItemId;
+  result.DraggingItem := FDraggingItem;
+  result.DraggingFile := FDraggingFile;
+  result.Zooming := FZooming;
+  result.DropDistance := FDropDistance;
+  result.DropPlace := FDropPlace;
+  result.DropTarget := FDropPlaceEx;
+end;
+
+function TItemManager.AdoptItem(Item: TCustomItem; Update: boolean): THandle;
+var scope: TItemHostScope;
+begin
+  scope := BeginItemHostOperation(FParentHWnd);
+  try
+    result := 0;
+    if assigned(Item) then result := AddItem(Item.Handle, Update);
+  finally
+    EndItemHostOperation(scope);
+  end;
+end;
+
+constructor TItemManager.Create(Handle: THandle; const Settings: TItemManagerSettings;
+  Repaint: TItemRepaintEvent);
+begin
+  Create(Handle, nil, Settings.ItemSize, Settings.BigItemSize,
+    Settings.ZoomWidth, Settings.ZoomTime, Settings.ItemSpacing,
+    Settings.ZoomEnabled, Settings.ReflectionEnabled,
+    Settings.ReflectionSize, Settings.LaunchInterval, Settings.ItemAnimationType,
+    Settings.SeparatorAlpha, Settings.ActivateRunning, Settings.UseShellContextMenus,
+    Settings.LockDragging, Settings.StackAnimationEnabled, Settings.AeroPeekEnabled,
+    Settings.TaskLivePreviews, Settings.TaskGrouping, Settings.TaskSystemMenus,
+    Settings.TaskThumbSize, Settings.TaskSpot, Settings.ShowHint, Settings.Font);
+  FOnRepaint := Repaint;
+  ApplySettings(Settings);
+end;
+
+procedure TItemManager.ApplySetting(Key: TDParam; Value: integer);
+var scope: TItemHostScope;
+begin
+  scope := BeginItemHostOperation(FParentHWnd);
+  try
+    if (Key <= gpMin) or (Key >= gpMax) then
+      raise ERangeError.Create('Invalid item setting identifier');
+    SetParam(Key, Value);
+  finally
+    EndItemHostOperation(scope);
+  end;
+end;
+
+procedure TItemManager.ApplySettings(const Settings: TItemManagerSettings);
+var scope: TItemHostScope; font: TDFontData;
+begin
+  scope := BeginItemHostOperation(FParentHWnd);
+  try
+    ApplySetting(gpMonitor, Settings.Monitor);
+    ApplySetting(gpSite, Ord(Settings.Site));
+    ApplySetting(gpCenterOffsetPercent, Settings.CenterOffsetPercent);
+    ApplySetting(gpEdgeOffset, Settings.EdgeOffset);
+    ApplySetting(gpOccupyFullMonitor, Ord(Settings.OccupyFullMonitor));
+    ApplySetting(gpItemSize, Settings.ItemSize);
+    ApplySetting(gpBigItemSize, Settings.BigItemSize);
+    ApplySetting(gpZoomEnabled, Ord(Settings.ZoomEnabled));
+    ApplySetting(gpZoomWidth, Settings.ZoomWidth);
+    ApplySetting(gpZoomTime, Settings.ZoomTime);
+    ApplySetting(gpItemSpacing, Settings.ItemSpacing);
+    ApplySetting(gpReflectionEnabled, Ord(Settings.ReflectionEnabled));
+    ApplySetting(gpReflectionSize, Settings.ReflectionSize);
+    ApplySetting(gpLaunchInterval, Settings.LaunchInterval);
+    ApplySetting(gpActivateRunning, Ord(Settings.ActivateRunning));
+    ApplySetting(gpUseShellContextMenus, Ord(Settings.UseShellContextMenus));
+    ApplySetting(gpItemAnimationType, Settings.ItemAnimationType);
+    ApplySetting(gpLockDragging, Ord(Settings.LockDragging));
+    ApplySetting(gpShowRunningIndicator, Ord(Settings.ShowRunningIndicator));
+    ApplySetting(gpStackAnimationEnabled, Ord(Settings.StackAnimationEnabled));
+    ApplySetting(gpTaskSameMonitor, Ord(Settings.TaskSameMonitor));
+    ApplySetting(gpAeroPeekEnabled, Ord(Settings.AeroPeekEnabled));
+    ApplySetting(gpTaskLivePreviews, Ord(Settings.TaskLivePreviews));
+    ApplySetting(gpTaskThumbSize, Settings.TaskThumbSize);
+    ApplySetting(gpTaskGrouping, Ord(Settings.TaskGrouping));
+    ApplySetting(gpTaskSystemMenus, Ord(Settings.TaskSystemMenus));
+    ApplySetting(gpTaskSpot, Settings.TaskSpot);
+    ApplySetting(gpSeparatorAlpha, Settings.SeparatorAlpha);
+    ApplySetting(gpShowHint, Ord(Settings.ShowHint));
+    ApplySetting(gpDropDistance, Settings.DropDistance);
+    ApplySetting(gpLockMouseEffect, Ord(Settings.LockMouseEffect));
+    font := Settings.Font;
+    SetFont(font);
+  finally
+    EndItemHostOperation(scope);
+  end;
+end;
+
+//------------------------------------------------------------------------------
+function TItemManager.GetCursorPoint(out pt: Windows.TPoint): boolean;
+begin
+  pt := Default(Windows.TPoint);
+  result := Windows.GetCursorPos(pt);
+end;
+//------------------------------------------------------------------------------
+function TItemManager.GetLayoutCount: integer;
+begin
+  result := FItems.ViewCount;
+end;
+//------------------------------------------------------------------------------
+function TItemManager.GetItemCount: integer;
+begin
+  result := FItems.Count;
+end;
+//------------------------------------------------------------------------------
+function TItemManager.GetDeletedCount: integer;
+begin
+  result := FItems.DeletedCount;
+end;
+//------------------------------------------------------------------------------
+procedure TItemManager.SyncDropPlace;
+begin
+  FDropPlace := FItems.PreviewIndex;
+  if FDropPlace = NO_ITEM_INDEX then FDropPlace := NOT_AN_ITEM;
+end;
+//------------------------------------------------------------------------------
+procedure TItemManager.ActivateItem(wnd: HWND; Update: boolean);
+var identity: TItemIdentity; item: TCustomItem;
+begin
+  identity := ItemRegistry.IdentityOf(wnd);
+  if not PinManagedItem(identity, item) then exit;
+  try
+    item.State := imsActive;
+    EnableWindow(wnd, true);
+    ItemCmd(wnd, icFree, 0);
+    if item.Freed or not FItems.Contains(ItemViews.ItemIdOf(wnd)) then exit;
+    ItemDock(wnd);
+    if item.Freed or not FItems.Contains(ItemViews.ItemIdOf(wnd)) then exit;
+    SetWindowPos(wnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE + SWP_NOSIZE + SWP_NOSENDCHANGING);
+    SyncDropPlace;
+    SetDropPlaceEx(NOT_AN_ITEM);
+    if Update then ItemsChanged(true);
+  finally
+    ItemRegistry.Unpin(identity);
+  end;
+end;
 //------------------------------------------------------------------------------
 constructor TItemManager.Create(Handle: THandle; ABaseCmd: TDBaseCmd;
       ItemSize, BigItemSize, ZoomWidth, ZoomTime, ItemSpacing: integer;
@@ -256,32 +700,46 @@ begin
   CopyFontData(Font, FFont);
 
   // init
-  FItemCount := 0;
+  FItems := TItemCollection.Create;
+  FModels := TItemStore.Create;
+  FModels.OnRemoved := ForgetOwnedItem;
+  ItemViews.BindStore(FParentHWnd, FModels);
   FZooming := false;
   ZoomItemSizeDiff := 0;
   FMonitor := 0;
   FDropDistance := 80;
   FDropPlace := NOT_AN_ITEM;
   FDropPlaceEx := NOT_AN_ITEM;
-  FHoverItemHWnd := 0;
-  FSelectedItemHWnd := 0;
+  FHoverItemId := 0;
+  FSelectedItemId := 0;
   FDraggingItem := false;
-  FDragHWnd := 0;
+  FDragItemId := 0;
   FDraggingFile := false;
   FLockMouseEffect := false;
   FCenterOffsetPercent := 50;
   FEdgeOffset := 0;
   FWndOffset := 0;
-  _itemsDeleted := TFPList.Create;
 end;
 //------------------------------------------------------------------------------
 destructor TItemManager.Destroy;
 begin
   FEnabled := false;
-  Clear;
-  ClearDeleted;
-  _itemsDeleted.Free;
-  inherited;
+  try
+    Clear;
+  finally
+    try
+      ClearDeleted;
+    finally
+      if assigned(FModels) then
+      begin
+        ItemViews.UnbindStore(FParentHWnd, FModels);
+        FModels.OnRemoved := nil;
+      end;
+      try FreeAndNil(FModels);
+      finally FreeAndNil(FItems); end;
+      inherited;
+    end;
+  end;
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.Enable(value: boolean);
@@ -309,127 +767,148 @@ begin
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.SetParam(id: TDParam; value: PtrInt);
+var scope: TItemHostScope;
 begin
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    AllItemCmd(id, value);
+    try
+      AllItemCmd(id, value);
 
-    case id of
-      gpItemSize:
-        begin
-          FItemSize := value;
-          ItemsChanged(true);
-        end;
-      gpBigItemSize:            FBigItemSize := value;
-      gpZoomWidth:
-        begin
-          FZoomWidth := value;
-          WHMouseMove(classes.point(-100, -100));
-        end;
-      gpItemSpacing:
-        begin
-          FItemSpacing := value;
-          ItemsChanged(true);
-        end;
-      gpZoomEnabled:
-        begin
-          FZoomItems := boolean(value);
-          ItemsChanged(true);
-        end;
-      gpMonitor:
-        begin
-          FMonitor := value;
-          ItemsChanged(true);
-          Unzoom(true);
-        end;
-      gpSite:
-        begin
-          FSite := TBaseSite(value);
-          FSiteVertical := (FSite = bsLeft) or (FSite = bsRight);
-          ItemsChanged(true);
-          Unzoom(true);
-        end;
-      gpCenterOffsetPercent:
-        begin
-          FCenterOffsetPercent := value;
-          ItemsChanged;
-        end;
-      gpEdgeOffset:
-        begin
-          FEdgeOffset := value;
-          ItemsChanged;
-        end;
-      gpDropDistance:           FDropDistance := value;
-      gpLockDragging:           FLockDragging := boolean(value);
-      gpReflectionEnabled:
-        begin
-          FReflection := boolean(value);
-          ItemsChanged(true);
-        end;
-      gpReflectionSize:         FReflectionSize := value;
-      gpAeroPeekEnabled:        FAeroPeekEnabled := boolean(value);
-      gpTaskbar:                if value = 0 then ClearTaskbar;
-      gpTaskLivePreviews:
-        begin
-          ClearTaskbar;
-          FTaskLivePreviews := value <> 0;
-        end;
-      gpTaskThumbSize:          FTaskThumbSize := value;
-      gpTaskSpot:               FTaskSpot := value;
-      gpTaskGrouping:
-        begin
-          ClearTaskbar;
-          FTaskGrouping := value <> 0;
-        end;
-      gpTaskSystemMenus:        FTaskSystemMenus := value <> 0;
-      gpItemAnimationType:      FItemAnimation := value;
-      gpLaunchInterval:         FLaunchInterval := value;
-      gpActivateRunning:        FActivateRunning := value <> 0;
-      gpUseShellContextMenus:   FUseShellContextMenus := value <> 0;
-      gpShowHint:               FShowHint := value <> 0;
-      gpStackAnimationEnabled:  FStackAnimationEnabled := value <> 0;
-      gpZoomTime:
-        begin
-          FZoomTime := value;
-          if FZoomTime < 1 then FZoomTime := 1;
-        end;
-      gpLockMouseEffect:        FLockMouseEffect := value <> 0;
-      gpSeparatorAlpha:         FSeparatorAlpha := value;
-      gpOccupyFullMonitor:      FOccupyFullMonitor := value <> 0;
+      case id of
+        gpItemSize:
+          begin
+            FItemSize := value;
+            RetargetZoom;
+            ItemsChanged(true);
+          end;
+        gpBigItemSize:
+          begin
+            FBigItemSize := value;
+            RetargetZoom;
+          end;
+        gpZoomWidth:
+          begin
+            FZoomWidth := value;
+            WHMouseMove(classes.point(-100, -100));
+          end;
+        gpItemSpacing:
+          begin
+            FItemSpacing := value;
+            ItemsChanged(true);
+          end;
+        gpZoomEnabled:
+          begin
+            FZoomItems := boolean(value);
+            if not FZoomItems then UnZoom(true);
+            ItemsChanged(true);
+          end;
+        gpMonitor:
+          begin
+            FMonitor := value;
+            ItemsChanged(true);
+            Unzoom(true);
+          end;
+        gpSite:
+          begin
+            FSite := TBaseSite(value);
+            FSiteVertical := (FSite = bsLeft) or (FSite = bsRight);
+            ItemsChanged(true);
+            Unzoom(true);
+          end;
+        gpCenterOffsetPercent:
+          begin
+            FCenterOffsetPercent := value;
+            ItemsChanged;
+          end;
+        gpEdgeOffset:
+          begin
+            FEdgeOffset := value;
+            ItemsChanged;
+          end;
+        gpDropDistance:           FDropDistance := value;
+        gpLockDragging:           FLockDragging := boolean(value);
+        gpReflectionEnabled:
+          begin
+            FReflection := boolean(value);
+            ItemsChanged(true);
+          end;
+        gpReflectionSize:         FReflectionSize := value;
+        gpAeroPeekEnabled:        FAeroPeekEnabled := boolean(value);
+        gpTaskbar:                if value = 0 then ClearTaskbar;
+        gpTaskLivePreviews:
+          begin
+            ClearTaskbar;
+            FTaskLivePreviews := value <> 0;
+          end;
+        gpTaskThumbSize:          FTaskThumbSize := value;
+        gpTaskSpot:               FTaskSpot := value;
+        gpTaskGrouping:
+          begin
+            ClearTaskbar;
+            FTaskGrouping := value <> 0;
+          end;
+        gpTaskSystemMenus:        FTaskSystemMenus := value <> 0;
+        gpShowRunningIndicator:   FShowRunningIndicator := value <> 0;
+        gpTaskSameMonitor:        FTaskSameMonitor := value <> 0;
+        gpItemAnimationType:      FItemAnimation := value;
+        gpLaunchInterval:         FLaunchInterval := value;
+        gpActivateRunning:        FActivateRunning := value <> 0;
+        gpUseShellContextMenus:   FUseShellContextMenus := value <> 0;
+        gpShowHint:               FShowHint := value <> 0;
+        gpStackAnimationEnabled:  FStackAnimationEnabled := value <> 0;
+        gpZoomTime:
+          begin
+            FZoomTime := value;
+            if FZoomTime < 1 then FZoomTime := 1;
+            RetargetZoom;
+          end;
+        gpLockMouseEffect:        FLockMouseEffect := value <> 0;
+        gpSeparatorAlpha:         FSeparatorAlpha := value;
+        gpOccupyFullMonitor:      FOccupyFullMonitor := value <> 0;
+      end;
+    except
+      on e: Exception do err('ItemManager.SetParam', e);
     end;
-  except
-    on e: Exception do err('ItemManager.SetParam', e);
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.command(cmd, params: string);
-var
+var scope: TItemHostScope;
   data: string;
 begin
-  if FEnabled then
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    if cmd = 'clear' then Clear;
-    if cmd = 'load' then
-      if params <> '' then Load(params);
-    if cmd = 'shortcut' then AddItem(CreateItemFromString(TShortcutItem.Make()), true);
-    if cmd = 'separator' then AddItem(CreateItemFromString(TSeparatorItem.Make()), true);
-    if cmd = 'plugin' then AddItem(CreateItemFromString(TPluginItem.Make(params)), true);
-    if cmd = 'stack' then
-    begin
-      if params = '' then
+    if FEnabled then
+    try
+      if cmd = 'clear' then Clear;
+      if cmd = 'load' then
+        if params <> '' then Load(params);
+      if cmd = 'shortcut' then AddItem(CreateItemFromString(TShortcutItem.Make()), true);
+      if cmd = 'separator' then AddItem(CreateItemFromString(TSeparatorItem.Make()), true);
+      if cmd = 'plugin' then AddItem(CreateItemFromString(TPluginItem.Make(params)), true);
+      if cmd = 'stack' then
       begin
-        AddItem(CreateItemFromString(TStackItem.Make()), true);
-      end else begin
-        AddItem(CreateItemFromString(TStackItem.Make('::::', '', params)), true);
+        if params = '' then
+        begin
+          AddItem(CreateItemFromString(TStackItem.Make()), true);
+        end else begin
+          AddItem(CreateItemFromString(TStackItem.Make('::::', '', params)), true);
+        end;
       end;
+    except
+      on e: Exception do err('ItemManager.Command::' + cmd + '(' + params + ')', e);
     end;
-  except
-    on e: Exception do err('ItemManager.Command::' + cmd + '(' + params + ')', e);
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.UpdateDock(forceDraw: boolean);
 begin
-  if assigned(FBaseCmd) then FBaseCmd(tcRepaintBase, ifthen(forceDraw, 1, 0));
+  if assigned(FOnRepaint) then FOnRepaint(forceDraw)
+  else if assigned(FBaseCmd) then FBaseCmd(tcRepaintBase, ifthen(forceDraw, 1, 0));
 end;
 //------------------------------------------------------------------------------
 //
@@ -442,180 +921,224 @@ end;
 //------------------------------------------------------------------------------
 // clears the entire items array //
 procedure TItemManager.Clear;
-var
-  idx: integer;
-  Inst: TCustomItem;
+var scope: TItemHostScope; ids: TItemIds; index: integer; model: TItemModel;
 begin
-  if FItemCount > 0 then
+  scope := BeginItemHostOperation(FParentHWnd);
+  inc(FRebuildDepth);
   try
-    for idx := 0 to FItemCount - 1 do
+    if not assigned(FItems) then exit;
+    ids := FModels.Snapshot;
+    FItems.Clear;
+    FTaskRefreshPending := false;
+    FTaskSnapshotPending := false;
+    FPendingTaskWindows := nil;
+    FUnknownItems := nil;
+    FDraggingItem := false;
+    FDraggingFile := false;
+    FDragItemId := 0;
+    FDropPlace := NOT_AN_ITEM;
+    FDropPlaceEx := NOT_AN_ITEM;
+    FHoverItemId := 0;
+    FSelectedItemId := 0;
+    for index := 0 to High(ids) do
     begin
-      Inst := TCustomItem(GetWindowLongPtr(FItemArray[idx].h, GWL_USERDATA));
-      if assigned(Inst) then
-      begin
-        Inst.Freed := true;
-        Inst.Free;
-      end;
-      FItemArray[idx].h := 0;
+      model := FModels.Find(ids[index]);
+      if assigned(model) and (model.State <> imsDeleted) then
+        DisposeOwnedItem(model, 'ItemManager.Clear');
     end;
-    FItemCount := 0;
-  except
-    on e: Exception do err('ItemManager.Clear', e);
+  finally
+    dec(FRebuildDepth);
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 // clears the "deleted items" array //
 procedure TItemManager.ClearDeleted;
-var
-  idx: integer;
-  Inst: TCustomItem;
+var scope: TItemHostScope; ids: TItemIds; index: integer; item: TCustomItem;
 begin
-  if _itemsDeleted.Count > 0 then
+  scope := BeginItemHostOperation(FParentHWnd);
+  inc(FRebuildDepth);
   try
-    for idx := 0 to _itemsDeleted.Count - 1 do
-    begin
-      Inst := TCustomItem(GetWindowLongPtr(THandle(_itemsDeleted.Items[idx]), GWL_USERDATA));
-      if assigned(Inst) then
-      begin
-        Inst.Freed := true;
-        Inst.Free;
-      end;
-    end;
-    _itemsDeleted.Clear;
-  except
-    on e: Exception do err('ItemManager.ClearDeleted', e);
+    if not assigned(FItems) then exit;
+    SetLength(ids, FItems.DeletedCount);
+    for index := 0 to High(ids) do ids[index] := FItems.DeletedId(index);
+    FItems.ClearDeleted;
+    for index := 0 to High(ids) do
+      if TryGetItemById(ids[index], item) then
+        DisposeOwnedItem(item, 'ItemManager.ClearDeleted');
+  finally
+    dec(FRebuildDepth);
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 // restore deleted item in FILO order //
 procedure TItemManager.UnDelete;
+var scope: TItemHostScope; wnd: THandle;
 begin
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    CheckDeleted;
-
-    // restore most recent deleted item //
-    if _itemsDeleted.Count > 0 then
-    begin
-      AddItem(HWND(_itemsDeleted.Items[_itemsDeleted.Count - 1]), true);
-      _itemsDeleted.Delete(_itemsDeleted.Count - 1);
+    try
+      CheckDeleted;
+      wnd := ItemViews.HandleOf(FItems.RestoreLast);
+      if wnd <> 0 then ActivateItem(wnd, true);
+    except
+      on e: Exception do err('ItemManager.UnDelete', e);
     end;
-  except
-    on e: Exception do err('ItemManager.UnDelete', e);
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 // clears out unwanted items from "deleted items" array //
 procedure TItemManager.CheckDeleted;
-var
-  idx: integer;
-  Inst: TCustomItem;
+var scope: TItemHostScope; ids: TItemIds; index: integer; item: TCustomItem;
 begin
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    // clear task FItemArray //
-    if _itemsDeleted.Count > 0 then
-      for idx := _itemsDeleted.Count - 1 downto 0 do
+    SetLength(ids, FItems.DeletedCount);
+    for index := 0 to High(ids) do ids[index] := FItems.DeletedId(index);
+    for index := High(ids) downto 0 do
+      if TryGetItemById(ids[index], item) and
+        (item is TTaskItem) then
       begin
-        Inst := TCustomItem(GetWindowLongPtr(THandle(_itemsDeleted.Items[idx]), GWL_USERDATA));
-        if Inst is TTaskItem then
-        begin
-          Inst.Freed := true;
-          Inst.Free;
-          _itemsDeleted.Delete(idx);
-        end;
+          FItems.Forget(ids[index]);
+        DisposeOwnedItem(item, 'ItemManager.CheckDeleted');
       end;
-  except
-    on e: Exception do err('ItemManager.CheckDeleted', e);
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 function TItemManager.ItemIndex(HWnd: THandle): integer;
-var
-  idx: integer;
 begin
-  try
-    result := NOT_AN_ITEM;
-    if (HWnd = 0) or (FItemCount <= 0) then exit;
-
-    for idx := 0 to FItemCount - 1 do
-    begin
-      if FItemArray[idx].h = HWnd then
-      begin
-        result := idx;
-        break;
-      end;
-    end;
-  except
-    on e: Exception do err('ItemManager.ItemIndex', e);
-  end;
+  result := FItems.IndexOf(ItemViews.ItemIdOf(HWnd));
+  if result = NO_ITEM_INDEX then result := NOT_AN_ITEM;
 end;
 //------------------------------------------------------------------------------
 function TItemManager.ItemHWnd(index: integer): THandle;
 begin
   result := 0;
-  if (index >= 0) and (index < FItemCount) then result := FItemArray[index].h;
+  if (index >= 0) and (index < LayoutCount) then result := ItemViews.HandleOf(FItems[index]^.Id);
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.Load(fsets: string);
-var
+var scope: TItemHostScope;
   idx: integer;
   ini: TIniFile;
-  list: TStrings;
-begin
-  if fsets = '' then exit;
-  FDraggingItem := false;
-  FDraggingFile := false;
-  FDragHWnd := 0;
-
-  try
-    FSetsFilename := fsets;
-    ini  := TIniFile.Create(FSetsFilename);
-    list := TStringList.Create;
-    ini.ReadSections(list);
-  except
-    on e: Exception do err('ItemManager.Load.ReadIni', e, true);
-  end;
-  {$ifdef EXT_DEBUG} AddLog('TItemManager.Load.ReadIni'); {$endif}
-
-  // read FItemArray //
-  try
-    idx := 0;
-    while idx < list.count do
+  list, Names: TStrings;
+  ItemType: TItemType;
+  Section, ClassName: string;
+  KnownCount: integer;
+  procedure PreserveSection;
+  var Entry, ValueIndex: integer;
+  begin
+    Entry := Length(FUnknownItems);
+    SetLength(FUnknownItems, Entry + 1);
+    FUnknownItems[Entry].BeforeItem := KnownCount;
+    Names.Clear;
+    ini.ReadSection(Section, Names);
+    SetLength(FUnknownItems[Entry].Values, Names.Count);
+    for ValueIndex := 0 to Names.Count - 1 do
     begin
-      if pos('item', list.strings[idx]) = 1 then AddItem(CreateItemFromIni(FSetsFilename, list.strings[idx]), false);
-      {$ifdef EXT_DEBUG} AddLog(list.strings[idx]); {$endif}
-      inc(idx);
+      FUnknownItems[Entry].Values[ValueIndex].Name := Names[ValueIndex];
+      FUnknownItems[Entry].Values[ValueIndex].Value :=
+        ReadIniStringW(FSetsFilename, Section, Names[ValueIndex], '');
     end;
-    ini.free;
-  except
-    on e: Exception do err('ItemManager.Load.ReadItems', e, true);
   end;
-  {$ifdef EXT_DEBUG} AddLog('TItemManager.Load.ReadItems'); {$endif}
 
-  if FItemCount = 0 then LoadDefault; // create default FItemArray if nothing loaded //
+begin
+  scope := BeginItemHostOperation(FParentHWnd);
+  inc(FLoadDepth);
+  try
+    if fsets = '' then exit;
+    if FItems.CancelDrag <> 0 then ItemDock(ItemViews.HandleOf(FDragItemId));
+    FItems.ClearPreview;
+    SyncDropPlace;
+    FDropPlaceEx := NOT_AN_ITEM;
+    FDraggingItem := false;
+    FDraggingFile := false;
+    FDragItemId := 0;
 
-  ItemsChanged;
-  {$ifdef EXT_DEBUG} AddLog('TItemManager.Load.ItemsChanged'); {$endif}
+    try
+      FSetsFilename := fsets;
+      ini  := TIniFile.Create(FSetsFilename);
+      list := TStringList.Create;
+      Names := TStringList.Create;
+      ini.ReadSections(list);
+    except
+      on e: Exception do err('ItemManager.Load.ReadIni', e, true);
+    end;
+    {$ifdef EXT_DEBUG} AddLog('TItemManager.Load.ReadIni'); {$endif}
+
+    // read items //
+    try
+      idx := 0;
+      KnownCount := 0;
+      FUnknownItems := nil;
+      while idx < list.count do
+      begin
+        Section := list[idx];
+        if Pos('item', LowerCase(Section)) = 1 then
+        begin
+          ClassName := LowerCase(Trim(ReadIniStringW(FSetsFilename, Section, 'class', 'shortcut')));
+          if not ItemTypes.Find(ClassName, ItemType) or not ItemType.Persistent then PreserveSection
+          else
+          try
+            if AddItem(CreateItemFromIni(FSetsFilename, Section), False) = 0 then PreserveSection
+            else Inc(KnownCount);
+          except
+            on E: Exception do
+            begin
+              AddLog('Cannot load ' + Section + ': ' + E.Message);
+              PreserveSection;
+            end;
+          end;
+        end;
+        {$ifdef EXT_DEBUG} AddLog(list.strings[idx]); {$endif}
+        inc(idx);
+      end;
+      Names.Free;
+      ini.free;
+      list.free;
+    except
+      on e: Exception do err('ItemManager.Load.ReadItems', e, true);
+    end;
+    {$ifdef EXT_DEBUG} AddLog('TItemManager.Load.ReadItems'); {$endif}
+
+    if (ItemCount = 0) and (Length(FUnknownItems) = 0) then LoadDefault; // create default items if nothing loaded //
+
+    ItemsChanged;
+    {$ifdef EXT_DEBUG} AddLog('TItemManager.Load.ItemsChanged'); {$endif}
+  finally
+    dec(FLoadDepth);
+    EndItemHostOperation(scope);
+  end;
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.LoadDefault;
 var
   stack: TStackItem;
   wnd: HWND;
+  id: TItemId;
 begin
   try
       // "end session" stack //
       wnd := AddItem(CreateItemFromString(TStackItem.Make('End session')));
-      stack := TStackItem(GetWindowLongPtr(wnd, GWL_USERDATA));
-      if stack is TStackItem then
+      stack := TStackItem(GetManagedItem(wnd));
+      if (stack is TStackItem) and stack.Pin then
       begin
-        {$ifdef EXT_DEBUG} AddLog('TItemManager.Load.Default.Stack is TStackItem'); {$endif}
-        stack.AddSubitem(TShortcutItem.Make('Shutdown', '/shutdown', '', '', 'images\default\shutdown.png'));
-        stack.AddSubitem(TShortcutItem.Make('Reboot', '/reboot', '', '', 'images\default\reboot.png'));
-        stack.AddSubitem(TShortcutItem.Make('Suspend', '/suspend', '', '', 'images\default\suspend.png'));
-        stack.AddSubitem(TShortcutItem.Make('Hibernate', '/hibernate', '', '', 'images\default\hibernate.png'));
+        id := stack.ItemId;
+        try
+          {$ifdef EXT_DEBUG} AddLog('TItemManager.Load.Default.Stack is TStackItem'); {$endif}
+          stack.AddSubitem(TShortcutItem.Make('Shutdown', '/shutdown', '', '', 'images\default\shutdown.png'));
+          if not stack.Freed then stack.AddSubitem(TShortcutItem.Make('Reboot', '/reboot', '', '', 'images\default\reboot.png'));
+          if not stack.Freed then stack.AddSubitem(TShortcutItem.Make('Suspend', '/suspend', '', '', 'images\default\suspend.png'));
+          if not stack.Freed then stack.AddSubitem(TShortcutItem.Make('Hibernate', '/hibernate', '', '', 'images\default\hibernate.png'));
+        finally ReleaseItemModel(id); end;
       end;
       {$ifdef EXT_DEBUG} AddLog('TItemManager.Load.Default.Stack'); {$endif}
-      // basic FItemArray //
+      // basic items //
       AddItem(CreateItemFromString(TShortcutItem.Make(UTF8Decode(XStartButtonText), '/startmenu', '', '', 'images\default\start.png')));
       AddItem(CreateItemFromString(TShortcutItem.Make('Computer', 'CSIDL_DRIVES', '', '', '')));
       AddItem(CreateItemFromString(TShortcutItem.Make('Control panel', 'CSIDL_CONTROLS', '', '', '')));
@@ -629,7 +1152,7 @@ begin
       AddItem(CreateItemFromString(TShortcutItem.Make('', '', '', '', 'images\default\{LANGID}.png')));
       AddItem(CreateItemFromString(TShortcutItem.Make('', '/networks', '', '', 'images\default\network-{NETWORK}.png')));
       AddItem(CreateItemFromString(TShortcutItem.Make('', '/volume', '', '', 'images\default\audio-volume-{VOLUME}.png')));
-      {$ifdef EXT_DEBUG} AddLog('TItemManager.Load.Default.basic FItemArray'); {$endif}
+      {$ifdef EXT_DEBUG} AddLog('TItemManager.Load.Default.basic items'); {$endif}
   except
       on e: Exception do err('ItemManager.LoadDefault', e);
   end;
@@ -637,42 +1160,110 @@ begin
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.Save(fsets: string);
+var scope: TItemHostScope;
 begin
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    if fsets <> '' then FSetsFilename := toolu.UnzipPath(fsets);
-    SaveItems;
-  except
-    on e: Exception do err('ItemManager.Save', e);
+    try
+      if fsets <> '' then FSetsFilename := toolu.UnzipPath(fsets);
+      SaveItems;
+    except
+      on e: Exception do err('ItemManager.Save', e);
+    end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.SaveItems;
-var
-  idx: integer;
 begin
-  if FEnabled and (FItemCount > 0) then
+  if FEnabled then SaveItemsTo(FSetsFilename);
+end;
+//------------------------------------------------------------------------------
+procedure TItemManager.SaveTo(const Filename: string);
+var scope: TItemHostScope;
+begin
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    for idx := 0 to FItemCount - 1 do
-    begin
-      if FItemArray[idx].h <> 0 then
-        TCustomItem(GetWindowLongPtr(FItemArray[idx].h, GWL_USERDATA)).Save(FSetsFilename, 'item' + inttostr(idx + 1));
-    end;
-  except
-    on e: Exception do raise Exception.Create('ItemManager.SaveItems::' + inttostr(idx) + LineEnding + e.message);
+    if not FEnabled or (FLoadDepth <> 0) or (FRebuildDepth <> 0) then
+      raise Exception.Create('Item snapshot is unavailable during initialization or rebuild');
+    SaveItemsTo(Filename);
+  finally
+    EndItemHostOperation(scope);
   end;
+end;
+
+procedure TItemManager.SaveItemsTo(const Filename: string);
+var scope: TItemHostScope; identities: TItemIdentities; Index, SectionIndex: integer;
+  Item: TCustomItem; Entry: TItemType; Unknown: TLegacyItemSections;
+  NextUnknown, KnownCount: integer;
+  procedure ClearPreviousSections;
+  var Ini: TIniFile; Sections: TStringList; Section: string;
+  begin
+    Sections := TStringList.Create;
+    try
+      Ini := TIniFile.Create(Filename);
+      try Ini.ReadSections(Sections); finally Ini.Free; end;
+      for Section in Sections do
+        if Pos('item', LowerCase(Section)) = 1 then ClearIniSectionW(Filename, Section);
+    finally Sections.Free; end;
+  end;
+  procedure SaveUnknown;
+  var Value: TLegacyItemValue; Section: string;
+  begin
+    Inc(SectionIndex);
+    Section := 'item' + IntToStr(SectionIndex);
+    ClearIniSectionW(Filename, Section);
+    for Value in Unknown[NextUnknown].Values do
+      WriteIniStringW(Filename, Section, Value.Name, Value.Value);
+    Inc(NextUnknown);
+  end;
+begin
+  scope := BeginItemHostOperation(FParentHWnd);
+  try
+    identities := CaptureItems(True);
+    Unknown := FUnknownItems;
+    ClearPreviousSections;
+    SectionIndex := 0;
+    NextUnknown := 0;
+    KnownCount := 0;
+    for Index := 0 to High(identities) do
+      if (FItems.SaveIndexOf(identities[Index].ItemId) <> NO_ITEM_INDEX) and
+        PinManagedItem(identities[Index], Item) then
+      try
+        if ItemTypes.FindClass(TCustomItemClass(Item.ClassType), Entry) and not Entry.Persistent then Continue;
+        while (NextUnknown < Length(Unknown)) and
+          (Unknown[NextUnknown].BeforeItem <= KnownCount) do SaveUnknown;
+        Inc(SectionIndex);
+        Item.Save(Filename, 'item' + IntToStr(SectionIndex));
+        Inc(KnownCount);
+      finally ItemRegistry.Unpin(identities[Index]); end;
+    while NextUnknown < Length(Unknown) do SaveUnknown;
+  finally EndItemHostOperation(scope); end;
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.SaveItem(wnd: HWND);
-var
+var scope: TItemHostScope;
   index: integer;
-  Inst: TCustomItem;
+  Inst: TCustomItem; identity: TItemIdentity;
 begin
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    index := ItemIndex(wnd);
-    Inst := TCustomItem(GetWindowLongPtr(wnd, GWL_USERDATA));
-    if Inst is TCustomItem then Inst.Save(FSetsFilename, 'item' + inttostr(index + 1));
-  except
-    on e: Exception do raise Exception.Create('ItemManager.SaveItem::' + inttostr(index) + LineEnding + e.message);
+    try
+      index := FItems.SaveIndexOf(ItemViews.ItemIdOf(wnd));
+      if index = NO_ITEM_INDEX then exit;
+      identity := ItemRegistry.IdentityOf(wnd);
+      if PinManagedItem(identity, Inst) then
+      try
+        Inst.Save(FSetsFilename, 'item' + inttostr(index + 1));
+      finally
+        ItemRegistry.Unpin(identity);
+      end;
+    except
+      on e: Exception do raise Exception.Create('ItemManager.SaveItem::' + inttostr(index) + LineEnding + e.message);
+    end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
@@ -683,56 +1274,101 @@ var
   i, dplace: integer;
 begin
   if not FEnabled then exit;
-
   dplace := FDropPlace;
-  for i := 0 to list.Count - 1 do
-  begin
-    InsertFile(list.strings[i]);
-    if dplace <> NOT_AN_ITEM then
-      if i < list.Count - 1 then
+  try
+    for i := 0 to list.Count - 1 do
+    begin
+      if InsertFile(list.strings[i]) <> 0 then
+        if dplace <> NOT_AN_ITEM then inc(dplace);
+      if (dplace <> NOT_AN_ITEM) and (i < list.Count - 1) then
       begin
-        inc(dplace);
         SetDropPlace(dplace);
         SetDropPlaceEx(dplace);
       end;
+    end;
+  finally
+    if not FDraggingItem then SetDropPlace(NOT_AN_ITEM);
+  end;
+end;
+//------------------------------------------------------------------------------
+procedure TItemManager.ImportDropFiles(Batch: TDropImportBatch; wndItem: HWND; pt: windows.TPoint);
+var I, Place: Integer; Single: TStringList; Accepted, Targeted: Boolean;
+begin
+  Place := FDropPlace;
+  // Capture the destination before handlers can remove or replace their windows.
+  Targeted := IsItem(wndItem) <> 0;
+  Single := TStringList.Create;
+  try
+    for I := 0 to Batch.Count - 1 do
+    begin
+      Single.Clear;
+      Single.Add(Batch[I]);
+      Accepted := FEnabled and ItemDropFiles(wndItem, pt, Single);
+      if not Accepted and FEnabled and not Targeted then
+      begin
+        Accepted := InsertFile(Batch[I]) <> 0;
+        if Accepted and (Place <> NOT_AN_ITEM) then
+        begin
+          Inc(Place);
+          if I < Batch.Count - 1 then
+          begin SetDropPlace(Place); SetDropPlaceEx(Place); end;
+        end;
+      end;
+      Batch.Decide(I, Accepted);
+    end;
+  finally
+    Single.Free;
+    if not FDraggingItem then SetDropPlace(NOT_AN_ITEM);
   end;
 end;
 //------------------------------------------------------------------------------
 // insert a File at current DropPlace
 // or at the end of array if DropPlace does not exist (e.g. DropPlace = NOT_AN_ITEM)
-procedure TItemManager.InsertFile(Filename: string);
+function TItemManager.InsertFile(Filename: string): THandle;
 begin
-  if FEnabled then
-    InsertItem(TShortcutItem.MakeFromFilename(Filename));
+  result := 0;
+  if FEnabled then result := InsertItem(TShortcutItem.MakeFromFilename(Filename));
 end;
 //------------------------------------------------------------------------------
 // insert item at current DropPlace
 // or at the end of array if DropPlace does not exist (e.g. DropPlace = NOT_AN_ITEM)
-procedure TItemManager.InsertItem(AData: string);
+function TItemManager.InsertItem(AData: string): THandle;
 begin
-  if FEnabled then
-    AddItem(CreateItemFromString(AData), true);
+  result := 0;
+  if FEnabled then result := AddItem(CreateItemFromString(AData), true);
 end;
 //------------------------------------------------------------------------------
 // put an Item onto dock
 function TItemManager.AddItem(wnd: HWND; Update: boolean = false): THandle;
+var scope: TItemHostScope; item: TCustomItem; identity: TItemIdentity;
 begin
-  AllItemCmd(icHover, 0); // hide hint //
-  AllItemCmd(icSelect, 0);
+  scope := BeginItemHostOperation(FParentHWnd);
+  try
+    result := 0;
+    identity := ItemRegistry.IdentityOf(wnd);
+    if not PinManagedItem(identity, item) then exit;
+    try
+      try
+        AllItemCmd(icHover, 0);
+        AllItemCmd(icSelect, 0);
+        if item.Freed then exit;
+        if not FModels.Add(item) then exit;
+        if FItems.Add(item.ItemId, FItemSize) then
+        begin
 
-  result := wnd;
-  if wnd <> THandle(0) then
-  begin
-    if (FDropPlace < 0) or (FDropPlace >= FItemCount) then SetDropPlace(FItemCount);
-    FItemArray[FDropPlace].h := wnd;
-    FItemArray[FDropPlace].s := FItemSize;
-    ItemCmd(wnd, icFree, 0); // enable item
-    ItemDock(wnd);
-    SetWindowPos(wnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE + SWP_NOSIZE + SWP_NOSENDCHANGING);
-    SetDropPlaceEx(NOT_AN_ITEM);
-    SetDropPlace(NOT_AN_ITEM);
+          ActivateItem(wnd, Update);
+          if not item.Freed and FItems.Contains(ItemViews.ItemIdOf(wnd)) then result := wnd;
+        end;
+      except
+        if not FItems.Contains(ItemViews.ItemIdOf(wnd)) then DisposeOwnedItem(item, 'ItemManager.AddItem');
+        raise;
+      end;
+    finally
+      ItemRegistry.Unpin(identity);
+    end;
+  finally
+    EndItemHostOperation(scope);
   end;
-  if Update then ItemsChanged(true);
 end;
 //------------------------------------------------------------------------------
 function TItemManager.CreateItemFromIni(IniFile, IniSection: string): THandle;
@@ -762,71 +1398,98 @@ begin
   end;
 end;
 //------------------------------------------------------------------------------
-function TItemManager.CreateItem(IniFile, IniSection, Parameter: string): THandle;
-var
-  ClassName: string;
-  icp: TDItemCreateParams;
-  Inst: TCustomItem;
+function TItemManager.CreatePluginItem(var Params: TDItemCreateParams): TCustomItem;
 begin
-  result := 0;
-  Inst := nil;
-  if FItemCount > MAX_ITEM_COUNT then exit;
+  result := TPluginItem.Create(FParentHWnd, Params);
+end;
+
+function TItemManager.CreateItem(IniFile, IniSection, Parameter: string): THandle;
+var scope: TItemHostScope;
+  ClassName: string;
+  ItemType: TItemType;
+  icp: TDItemCreateParams;
+  Inst: TCustomItem; identity: TItemIdentity; pinned: boolean; failure: string;
+begin
+  scope := BeginItemHostOperation(FParentHWnd);
+  FModels.BeginCreation;
   try
-    icp.ItemSize              := FItemSize;
-    icp.BigItemSize           := FBigItemSize;
-    icp.ItemSpacing           := FItemSpacing;
-    icp.LaunchInterval        := FLaunchInterval;
-    icp.ActivateRunning       := FActivateRunning;
-    icp.UseShellContextMenus  := FUseShellContextMenus;
-    icp.Site                  := integer(FSite);
-    icp.Reflection            := FReflection;
-    icp.ReflectionSize        := FReflectionSize;
-    icp.ShowHint              := FShowHint;
-    icp.AnimationType         := FItemAnimation;
-    icp.LockDragging          := FLockDragging;
-    icp.StackAnimationEnabled := FStackAnimationEnabled;
-    icp.SeparatorAlpha        := FSeparatorAlpha;
-    icp.AeroPeekEnabled       := FAeroPeekEnabled;
-    icp.TaskLivePreviews      := FTaskLivePreviews;
-    icp.TaskThumbSize         := FTaskThumbSize;
-    icp.TaskGrouping          := FTaskGrouping;
-    icp.TaskSystemMenus       := FTaskSystemMenus;
-    CopyFontData(FFont, icp.Font);
-    if IniFile <> '' then
-    begin
-      icp.IniFile := IniFile;
-      icp.IniSection := IniSection;
-      icp.Parameter := '';
-      ClassName := LowerCase(ReadIniStringW(IniFile, IniSection, 'class', 'shortcut'));
-    end else begin
-      icp.IniFile := '';
-      icp.IniSection := '';
-      icp.Parameter := Parameter;
-      ClassName := LowerCase(FetchValue(Parameter, 'class="', '";', 'shortcut'));
+    result := 0;
+    Inst := nil;
+    pinned := false;
+    try
+      icp := Default(TDItemCreateParams);
+      icp.ItemSize              := FItemSize;
+      icp.BigItemSize           := FBigItemSize;
+      icp.ItemSpacing           := FItemSpacing;
+      icp.LaunchInterval        := FLaunchInterval;
+      icp.ActivateRunning       := FActivateRunning;
+      icp.UseShellContextMenus  := FUseShellContextMenus;
+      icp.Site                  := integer(FSite);
+      icp.Reflection            := FReflection;
+      icp.ReflectionSize        := FReflectionSize;
+      icp.ShowHint              := FShowHint;
+      icp.AnimationType         := FItemAnimation;
+      icp.LockDragging          := FLockDragging;
+      icp.StackAnimationEnabled := FStackAnimationEnabled;
+      icp.SeparatorAlpha        := FSeparatorAlpha;
+      icp.AeroPeekEnabled       := FAeroPeekEnabled;
+      icp.TaskLivePreviews      := FTaskLivePreviews;
+      icp.TaskThumbSize         := FTaskThumbSize;
+      icp.TaskGrouping          := FTaskGrouping;
+      icp.TaskSystemMenus       := FTaskSystemMenus;
+      CopyFontData(FFont, icp.Font);
+      if IniFile <> '' then
+      begin
+        icp.IniFile := IniFile;
+        icp.IniSection := IniSection;
+        icp.Parameter := '';
+        ClassName := LowerCase(Trim(ReadIniStringW(IniFile, IniSection, 'class', 'shortcut')));
+      end else begin
+        icp.IniFile := '';
+        icp.IniSection := '';
+        icp.Parameter := Parameter;
+        ClassName := LegacyItemClass(Parameter);
+      end;
+
+      if ItemTypes.Find(ClassName, ItemType) then
+      begin
+        if Assigned(ItemType.Validate) then ItemType.Validate(icp);
+        if ItemType.Plugin then Inst := CreatePluginItem(icp)
+        else Inst := ItemType.ItemClass.Create(FParentHWnd, icp);
+      end;
+      if assigned(Inst) then
+      begin
+        if Inst.State = imsRetiring then exit;
+        if not FModels.Add(Inst) then raise Exception.Create('Item belongs to another model store');
+        identity := ItemRegistry.IdentityOf(Inst.Handle);
+        pinned := PinManagedItem(identity, Inst);
+        if not pinned then exit;
+        if Inst is TPluginItem then TPluginItem(Inst).CallCreate;
+      end;
+    except
+      on e: Exception do
+      begin
+        failure := 'ItemManager.CreateItem.' + ClassName + LineEnding + e.Message;
+        if assigned(Inst) then DisposeOwnedItem(Inst, 'ItemManager.CreateItem');
+        raise Exception.Create(failure);
+      end;
     end;
 
-    if ClassName = 'shortcut' then Inst := TShortcutItem.Create(FParentHWnd, icp)
-    else
-    if ClassName = 'separator' then Inst := TSeparatorItem.Create(FParentHWnd, icp)
-    else
-    if ClassName = 'plugin' then
-    begin
-      Inst := TPluginItem.Create(FParentHWnd, icp);
-      TPluginItem(Inst).CallCreate;
-    end
-    else
-    if ClassName = 'stack' then Inst := TStackItem.Create(FParentHWnd, icp)
-    else
-    if ClassName = 'task' then Inst := TTaskItem.Create(FParentHWnd, icp);
-  except
-    on e: Exception do raise Exception.Create('ItemManager.CreateItem.' + ClassName + LineEnding + e.message);
-  end;
-
-  try
-    if assigned(Inst) then
-      if Inst.Freed then Inst.Free else result := Inst.Handle;
-  except
-    on e: Exception do raise Exception.Create('ItemManager.CreateItem.Fin ' + LineEnding + e.message);
+    try
+      if assigned(Inst) then
+        if Inst.Freed then DisposeOwnedItem(Inst, 'ItemManager.CreateItem.Fin') else result := Inst.Handle;
+    except
+      on e: Exception do raise Exception.Create('ItemManager.CreateItem.Fin ' + LineEnding + e.message);
+    end;
+  finally
+    try
+      if pinned then ItemRegistry.Unpin(identity);
+    finally
+      try
+        try FModels.EndCreation;
+        except on E: Exception do AddLog('ItemManager.CreationCleanup' + LineEnding + E.Message); end;
+      finally EndItemHostOperation(scope); end;
+    end;
   end;
 end;
 //------------------------------------------------------------------------------
@@ -834,60 +1497,51 @@ end;
 // items call this using DockH.DockDeleteItem
 // use TCustomItem.Delete instead
 procedure TItemManager.DeleteItem(HWnd: THandle);
-var
-  index: integer;
+begin DeleteItemById(ItemViews.ItemIdOf(HWnd)); end;
+
+procedure TItemManager.DeleteItemById(Id: TItemId);
+var scope: TItemHostScope; index: integer; item: TCustomItem; deleted: boolean;
 begin
-  if FEnabled then
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    index := ItemIndex(HWnd);
-    if index <> NOT_AN_ITEM then
-    begin
-      _itemsDeleted.Add(Pointer(HWnd)); // add to list of deleted items //
-      while index < FItemCount - 1 do // remove from FItemArray //
+    if FEnabled and TryGetItemById(Id, item) and item.Pin then
+    try
+      index := FItems.IndexOf(Id);
+      deleted := FItems.Delete(Id);
+      if not deleted and (item.State = imsPending) then deleted := FItems.DeletePending(Id, FItemSize);
+      if deleted then
       begin
-        FItemArray[index].h := FItemArray[index + 1].h;
-        FItemArray[index].x := FItemArray[index + 1].x;
-        FItemArray[index].y := FItemArray[index + 1].y;
-        FItemArray[index].s := FItemArray[index + 1].s;
-        inc(index);
+        item.State := imsDeleted;
+        item.Freed := true;
+        EnableWindow(item.Handle, false);
+        ShowWindow(item.Handle, SW_HIDE);
+        try item.PrepareDeletion;
+        finally
+          ItemViews.ForgetMouseLocks(Id);
+          SyncDropPlace;
+          FDraggingItem := FItems.DraggedId <> 0;
+          FDragItemId := FItems.DraggedId;
+          if not FDraggingItem then FDropPlaceEx := NOT_AN_ITEM;
+          if (index <> NOT_AN_ITEM) and (FDropPlaceEx <> NOT_AN_ITEM) then
+          begin
+            if FDropPlaceEx = index then FDropPlaceEx := NOT_AN_ITEM
+            else if FDropPlaceEx > index then dec(FDropPlaceEx);
+          end;
+          if FHoverItemId = Id then FHoverItemId := 0;
+          if FSelectedItemId = Id then FSelectedItemId := 0;
+          ItemsChanged;
+          if assigned(FOnItemRemoved) then FOnItemRemoved(Id);
+          FlushPendingTasks;
+        end;
       end;
-      dec(FItemCount);
-      ItemsChanged; // update dock //
+    finally
+      ReleaseItemModel(Id);
     end;
-  except
-    on e: Exception do raise Exception.Create('ItemManager.DeleteItem ' + LineEnding + e.message);
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
-function TItemManager.IsRegisteredExecutable(processName: string): boolean;
-var
-  index: integer;
-  Inst: TCustomItem;
-  instExecutable: string;
-begin
-  result := false;
-  try
-    processName := LowerCase(processName);
-    index := 0;
-    while index < FItemCount do
-    begin
-        Inst := TCustomItem(GetWindowLongPtr(FItemArray[index].h, GWL_USERDATA));
-        if Inst is TCustomItem then
-        begin
-            instExecutable := LowerCase(Inst.Executable);
-            if instExecutable <> '' then
-                if (instExecutable = processName) or (instExecutable = ExtractFileName(processName)) then
-                begin
-                  result := true;
-                  exit;
-                end;
-        end;
-        inc(index);
-    end;
-  except
-    on e: Exception do raise Exception.Create('ItemManager.IsRegisteredExecutable ' + LineEnding + e.message);
-  end;
-end;
 //------------------------------------------------------------------------------
 //
 //
@@ -898,338 +1552,174 @@ end;
 //
 //------------------------------------------------------------------------------
 function TItemManager.ZOrder(InsertAfter: THandle): THandle;
-var
-  idx: integer;
+var scope: TItemHostScope; identities: TItemIdentities; index: integer; item: TCustomItem;
 begin
-  result := 0;
-  if FEnabled then
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    if FItemCount > 0 then result := ItemHWnd(0);
-    idx := 0;
-    while idx < FItemCount do
-    begin
-      SetWindowPos(FItemArray[idx].h, InsertAfter, 0, 0, 0, 0, SWP_NO_FLAGS);
-      inc(idx);
-    end;
-  except
-    on e: Exception do err('ItemManager.ZOrder', e);
+    result := 0;
+    if not FEnabled then exit;
+    identities := CaptureItems(false);
+    if Length(identities) > 0 then result := identities[0].Handle;
+    for index := 0 to High(identities) do
+      if PinActiveItem(identities[index], item) then
+      try
+        SetWindowPos(identities[index].Handle, InsertAfter, 0, 0, 0, 0, SWP_NO_FLAGS);
+      finally
+        ItemRegistry.Unpin(identities[index]);
+      end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 // entry point for a timer event
 // preferrably > 10 times per second
-procedure TItemManager.Timer;
+procedure TItemManager.ForegroundChanged(wnd: HWND);
+var scope: TItemHostScope; identities: TItemIdentities; index: integer; item: TCustomItem;
 begin
-  if FEnabled then
-  begin
-    ZoomInOut;
-    AllItemTimer;
+  scope := BeginItemHostOperation(FParentHWnd);
+  try
+    if not FEnabled then exit;
+    identities := CaptureItems(false);
+    for index := 0 to High(identities) do
+      if PinActiveItem(identities[index], item) then
+      try
+        item.ForegroundChanged(wnd);
+      finally
+        ItemRegistry.Unpin(identities[index]);
+      end;
+  finally
+    EndItemHostOperation(scope);
+  end;
+end;
+
+function TItemManager.ClockNow: QWord;
+begin Result := GetTickCount64; end;
+
+function TItemManager.NeedsFrames: boolean;
+var scope: TItemHostScope; identities: TItemIdentities; index: integer; item: TCustomItem;
+begin
+  Result := false;
+  scope := BeginItemHostOperation(FParentHWnd);
+  try
+    if not FEnabled then exit;
+    if (FZooming and (ZoomItemSizeDiff < FBigItemSize - FItemSize)) or
+      (not FZooming and (ZoomItemSizeDiff > 0)) then exit(true);
+    identities := CaptureItems(false);
+    for index := 0 to High(identities) do
+      if PinActiveItem(identities[index], item) then
+      try
+        if item.NeedsFrame then exit(true);
+      finally
+        ItemRegistry.Unpin(identities[index]);
+      end;
+  finally
+    EndItemHostOperation(scope);
+  end;
+end;
+
+procedure TItemManager.Timer;
+var scope: TItemHostScope;
+begin
+  scope := BeginItemHostOperation(FParentHWnd);
+  try
+    if FEnabled then
+    begin
+      ZoomInOut;
+      AllItemTimer;
+    end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.SetTheme;
+var scope: TItemHostScope;
 begin
-  AllItemCmd(tcThemeChanged, 0);
-  ItemsChanged(true);
+  scope := BeginItemHostOperation(FParentHWnd);
+  try
+    AllItemCmd(tcThemeChanged, 0);
+    ItemsChanged(true);
+  finally
+    EndItemHostOperation(scope);
+  end;
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.ItemsChanged(FullUpdate: boolean = false);
+var scope: TItemHostScope;
 begin
-  if FEnabled then
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    RecalcItems;
-    RecalcDock;
-    UpdateItems(FullUpdate);
-    UpdateDock(FullUpdate);
-  except
-    on e: Exception do err('ItemManager.ItemsChanged', e);
+    if FEnabled then
+    try
+      inc(FLayoutRevision);
+      RecalcItems;
+      RecalcDock;
+      UpdateItems(FullUpdate);
+      UpdateDock(FullUpdate);
+    except
+      on e: Exception do err('ItemManager.ItemsChanged', e);
+    end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.SetVisible(value: boolean);
+var scope: TItemHostScope;
 begin
-  if FVisible <> value then
-  begin
-    UnZoom(true);
-    AllItemCmd(icHover, 0);
-    AllItemCmd(icSelect, 0);
-    AllItemCmd(icVisible, PtrInt(value));
-    FHoverItemHWnd := 0;
-    FSelectedItemHWnd := 0;
+  scope := BeginItemHostOperation(FParentHWnd);
+  try
+    if FVisible <> value then
+    begin
+      UnZoom(true);
+      AllItemCmd(icHover, 0);
+      AllItemCmd(icSelect, 0);
+      AllItemCmd(icVisible, PtrInt(value));
+      FHoverItemId := 0;
+      FSelectedItemId := 0;
+    end;
+    FVisible := value;
+    ItemsChanged;
+  finally
+    EndItemHostOperation(scope);
   end;
-  FVisible := value;
-  ItemsChanged;
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.RecalcItems;
-  function getHalfBubble: extended;
-  var
-    i: extended;
-  begin
-    result := ZoomItemSizeDiff / 2;
-    i := 0.5;
-    while i < FZoomWidth / 2 do
-    begin
-      result := result + (ZoomItemSizeDiff - 1) * (cos(PI * i * 2 / FZoomWidth) + 1) / 2;
-      i := i + 1;
-    end;
-  end;
-
-var
-  i, itemPos: integer;
-  sizeInc: extended;
-  offset: extended;
+var items: TDockLayoutItems; i: integer;
 begin
   if not FEnabled then exit;
-
-  try
-    if FSiteVertical then
-    begin
-      y := FMonitorRect.Top + (FMonitorRect.Bottom - FMonitorRect.Top - IASize) * FCenterOffsetPercent div 100;
-    end else begin
-      x := FMonitorRect.Left + (FMonitorRect.Right - FMonitorRect.Left - IASize) * FCenterOffsetPercent div 100;
-    end;
-
-    // zoomed bubble additional size //
-    offset := getHalfBubble;
-
-    // calc FItemArray' pos and size //
-    i := 0;
-    while i < FItemCount do
-    begin
-      // icon size //
-      sizeInc := 0;
-      if ZoomItemSizeDiff > 0 then
-      begin
-        if (i < trunc(FZoomInOutItem) - FZoomWidth / 2) or (i > trunc(FZoomInOutItem) + FZoomWidth / 2) then sizeInc := 0
-        else if i = trunc(FZoomInOutItem) then sizeInc := ZoomItemSizeDiff
-        else if i < trunc(FZoomInOutItem) then sizeInc := (ZoomItemSizeDiff - 1) * (cos(PI * 2 * (i - FZoomInOutItem + 1) / FZoomWidth) + 1) / 2
-        else if i > trunc(FZoomInOutItem) then sizeInc := (ZoomItemSizeDiff - 1) * (cos(PI * 2 * (i - FZoomInOutItem) / FZoomWidth) + 1) / 2;
-      end;
-      FItemArray[i].se := FItemSize + sizeInc;
-      FItemArray[i].s := round(FItemArray[i].se);
-
-      // icon position when not FZooming //
-      itemPos := FItemSpacing div 2 + i * (FItemSize + FItemSpacing);
-      if FSite = bsBottom then
-      begin
-        FItemArray[i].y := FMonitorRect.Bottom - FItemArray[i].s - FMargin + FWndOffset - FEdgeOffset;
-        if not IsSeparator(FItemArray[i].h) then FItemArray[i].y -= FMargin2;
-        FItemArray[i].x := x + itemPos;
-      end
-      else
-      if FSite = bsTop then
-      begin
-        FItemArray[i].y := FMonitorRect.Top + FMargin + FEdgeOffset - FWndOffset;
-        if not IsSeparator(FItemArray[i].h) then FItemArray[i].y += FMargin2;
-        FItemArray[i].x := x + itemPos;
-      end
-      else
-      if FSite = bsLeft then
-      begin
-        FItemArray[i].x := FMonitorRect.Left + FMargin + FEdgeOffset - FWndOffset;
-        if not IsSeparator(FItemArray[i].h) then FItemArray[i].x += FMargin2;
-        FItemArray[i].y := y + itemPos;
-      end
-      else
-      if FSite = bsRight then
-      begin
-        FItemArray[i].x := FMonitorRect.Right - FItemArray[i].s - FMargin + FWndOffset - FEdgeOffset;
-        if not IsSeparator(FItemArray[i].h) then FItemArray[i].x -= FMargin2;
-        FItemArray[i].y := y + itemPos;
-      end;
-
-      // icon position when FZooming (icons out of bubble and center bubble icon) //
-      if ZoomItemSizeDiff > 0 then
-      begin
-        if FSiteVertical then
-        begin
-          if i < trunc(FZoomInOutItem) then FItemArray[i].ye := FItemArray[i].y - offset
-          else if i > trunc(FZoomInOutItem) then FItemArray[i].ye := FItemArray[i].y + offset
-          else if i = trunc(FZoomInOutItem) then FItemArray[i].ye := FItemArray[i].y - ZoomItemSizeDiff * frac(FZoomInOutItem);
-          FItemArray[i].y := round(FItemArray[i].ye);
-        end
-        else
-        begin
-          if i < trunc(FZoomInOutItem) then FItemArray[i].xe := FItemArray[i].x - offset
-          else if i > trunc(FZoomInOutItem) then FItemArray[i].xe := FItemArray[i].x + offset
-          else if i = trunc(FZoomInOutItem) then FItemArray[i].xe := FItemArray[i].x - ZoomItemSizeDiff * frac(FZoomInOutItem);
-          FItemArray[i].x := round(FItemArray[i].xe);
-        end;
-      end;
-
-      inc(i);
-    end;
-
-    // icons positions while FZooming (within bubble, excluding center bubble icon) //
-    if ZoomItemSizeDiff > 0 then
-    begin
-      i := trunc(FZoomInOutItem) - 1;
-      while (i > trunc(FZoomInOutItem) - FZoomWidth / 2) and (i >= 0)  do
-      begin
-        if FSiteVertical then
-        begin
-          FItemArray[i].ye := FItemArray[i + 1].ye - FItemArray[i].se - FItemSpacing;
-          FItemArray[i].y := round(FItemArray[i].ye);
-        end
-        else
-        begin
-          FItemArray[i].xe := FItemArray[i + 1].xe - FItemArray[i].se - FItemSpacing;
-          FItemArray[i].x := round(FItemArray[i].xe);
-        end;
-        dec(i);
-      end;
-      i := trunc(FZoomInOutItem) + 1;
-      while (i <= trunc(FZoomInOutItem) + FZoomWidth / 2) and (i < FItemCount)  do
-      begin
-        if FSiteVertical then
-        begin
-          FItemArray[i].ye := FItemArray[i - 1].ye + FItemArray[i - 1].se + FItemSpacing;
-          if i = trunc(FZoomInOutItem) + FZoomWidth / 2 then FItemArray[i].y := FItemArray[i].y + FItemSize - FItemArray[i].s
-          else FItemArray[i].y := round(FItemArray[i].ye);
-        end
-        else
-        begin
-          FItemArray[i].xe := FItemArray[i - 1].xe + FItemArray[i - 1].se + FItemSpacing;
-          if i = trunc(FZoomInOutItem) + FZoomWidth / 2 then FItemArray[i].x := FItemArray[i].x + FItemSize - FItemArray[i].s
-          else FItemArray[i].x := round(FItemArray[i].xe);
-        end;
-        inc(i);
-      end;
-    end;
-
-  except
-    on e: Exception do err('ItemManager.SetItems1', e);
+  items := CalculateItemLayout(GetLayoutInput, GetLayoutItems);
+  for i := 0 to High(items) do
+  begin
+    FItems[i]^.x := items[i].X;
+    FItems[i]^.y := items[i].Y;
+    FItems[i]^.s := items[i].Size;
+    FItems[i]^.xe := items[i].ExactX;
+    FItems[i]^.ye := items[i].ExactY;
+    FItems[i]^.se := items[i].ExactSize;
   end;
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.RecalcDock;
+var geometry: TDockGeometry;
 begin
-  if FEnabled then
-  try
-    // width if vertical and height if horizontal //
-    width := 0;
-    height := 0;
-    widthZoomed := 0;
-    heightZoomed := 0;
-    if FSite = bsLeft then
-    begin
-      width := FItemsArea.Left + FItemsArea2.Left + FItemSize + FItemsArea.Right + FItemsArea2.Right;
-      widthZoomed := max(width, FItemsArea.Left + FItemsArea2.Left + FItemSize + ZoomItemSizeDiff);
-    end else
-    if FSite = bsRight then
-    begin
-      width := FItemsArea.Left + FItemsArea2.Left + FItemSize + FItemsArea.Right + FItemsArea2.Right;
-      widthZoomed := max(width, FItemsArea.Right + FItemsArea2.Right + FItemSize + ZoomItemSizeDiff);
-    end else
-    if FSite = bsTop then
-    begin
-      height := FItemsArea.Top + FItemsArea2.Top + FItemSize + FItemsArea.Bottom + FItemsArea2.Bottom;
-      heightZoomed := max(height, FItemsArea.Top + FItemsArea2.Top + FItemSize + ZoomItemSizeDiff);
-    end else
-    begin
-      height := FItemsArea.Top + FItemsArea2.Top + FItemSize + FItemsArea.Bottom + FItemsArea2.Bottom;
-      heightZoomed := max(height, FItemsArea.Bottom + FItemsArea2.Bottom + FItemSize + ZoomItemSizeDiff);
-    end;
-
-    // self XY relative to FBaseWindowRect //
-    if FSiteVertical then
-    begin
-      // x
-      x := 0;
-      if FSite = bsLeft then x := FMargin - FItemsArea.Left - FItemsArea2.Left;
-      // y, height
-      if FOccupyFullMonitor then
-      begin
-        y := 0;
-        height := FMonitorRect.Bottom - FMonitorRect.Top;
-      end else
-      begin
-        if FItemCount > 0 then
-        begin
-          y := FItemArray[0].y - FItemSpacing div 2 - FItemsArea.Top - FItemsArea2.Top - FMonitorRect.Top;
-          height := FItemsArea.Top + FItemsArea2.Top + FItemArray[FItemCount - 1].y + FItemArray[FItemCount - 1].s - FItemArray[0].y +
-            FItemSpacing + FItemsArea.Bottom + FItemsArea2.Bottom;
-        end
-        else
-        begin
-          height := FItemSize + FItemsArea.Top + FItemsArea.Bottom + FItemsArea2.Top + FItemsArea2.Bottom;
-          y := (FMonitorRect.Bottom - FMonitorRect.Top - IASize) * FCenterOffsetPercent div 100 -
-            FItemsArea.Top - FItemsArea2.Top + (IASize - height + FItemsArea.Top + FItemsArea.Bottom + FItemsArea2.Top + FItemsArea2.Bottom - FItemSpacing) div 2;
-        end;
-      end;
-
-    end else
-    begin
-
-      // y
-      y := 0;
-      if FSite = bsTop then y := FMargin - FItemsArea.Top - FItemsArea2.Top;
-      // x, width
-      if FOccupyFullMonitor then
-      begin
-        x := 0;
-        width := FMonitorRect.Right - FMonitorRect.Left;
-      end else
-      begin
-        if FItemCount > 0 then
-        begin
-          x := FItemArray[0].x - FItemSpacing div 2 - FItemsArea.Left - FItemsArea2.Left - FMonitorRect.Left;
-          width := FItemsArea.Left + FItemsArea2.Left + FItemArray[FItemCount - 1].x + FItemArray[FItemCount - 1].s - FItemArray[0].x +
-            FItemSpacing + FItemsArea.Right + FItemsArea2.Right;
-        end
-        else
-        begin
-          width := FItemSize + FItemsArea.Left + FItemsArea.Right + FItemsArea2.Left + FItemsArea2.Right;
-          x := (FMonitorRect.Right - FMonitorRect.Left - IASize) * FCenterOffsetPercent div 100 -
-            FItemsArea.Left - FItemsArea2.Left +
-            (IASize - width + FItemsArea.Left + FItemsArea.Right + FItemsArea2.Left + FItemsArea2.Right - FItemSpacing) div 2;
-        end;
-      end;
-
-    end;
-
-    // background image rect //
-    FBaseImageRect.x := x;
-    FBaseImageRect.y := y;
-    FBaseImageRect.Width := Width;
-    FBaseImageRect.Height := Height;
-
-    // main form rect //
-    if FSiteVertical then
-    begin
-      FBaseWindowRect.Width := Width;
-      if FSite = bsRight then FBaseWindowRect.Width += FMargin - FItemsArea.Right - FItemsArea2.Right;
-      FBaseWindowRect.Height := FMonitorRect.Bottom - FMonitorRect.Top;
-    end else begin
-      FBaseWindowRect.Width := FMonitorRect.Right - FMonitorRect.Left;
-      FBaseWindowRect.Height := Height;
-      if FSite = bsBottom then FBaseWindowRect.Height += FMargin - FItemsArea.Bottom - FItemsArea2.Bottom;
-    end;
-
-    FBaseWindowRect.x := FMonitorRect.Left;
-    FBaseWindowRect.y := FMonitorRect.Top;
-    if FSite = bsLeft then FBaseWindowRect.x := FMonitorRect.Left - FWndOffset + FEdgeOffset
-    else if FSite = bsTop then FBaseWindowRect.y := FMonitorRect.Top - FWndOffset + FEdgeOffset
-    else if FSite = bsRight then FBaseWindowRect.x := FMonitorRect.Right - FBaseWindowRect.Width + FWndOffset - FEdgeOffset
-    else if FSite = bsBottom then FBaseWindowRect.y := FMonitorRect.Bottom - FBaseWindowRect.Height + FWndOffset - FEdgeOffset;
-  except
-    on e: Exception do raise Exception.Create('ItemManager.RecalcDock ' + LineEnding + e.message);
-  end;
+  if not FEnabled then exit;
+  geometry := CalculateDockGeometry(GetLayoutInput, GetLayoutItems);
+  x := geometry.X;
+  y := geometry.Y;
+  width := geometry.Width;
+  height := geometry.Height;
+  widthZoomed := geometry.WidthZoomed;
+  heightZoomed := geometry.HeightZoomed;
+  FBaseImageRect := geometry.BaseImageRect;
+  FBaseWindowRect := geometry.BaseWindowRect;
 end;
 //------------------------------------------------------------------------------
 function TItemManager.GetRect: windows.TRect;
 begin
-  result.Left := FBaseWindowRect.X + X;
-  result.Top := FBaseWindowRect.Y + Y;
-  result.Right := result.Left + Width;
-  result.Bottom := result.Top + Height;
-  case FSite of
-    bsLeft: result.Right := max(result.Right, GetZoomEdge);
-    bsTop: result.Bottom := max(result.Bottom, GetZoomEdge);
-    bsRight: result.Left := min(result.Left, GetZoomEdge);
-    bsBottom: result.Top := min(result.Top, GetZoomEdge);
-  end;
+  result := DockBounds(GetLayoutInput, GetDockGeometry);
 end;
 //------------------------------------------------------------------------------
 function TItemManager.GetZoomEdge: integer;
@@ -1253,33 +1743,47 @@ begin
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.UpdateItems(forceDraw: boolean);
-var
-  idx: integer;
-  wpi: HDWP;
-  show_items: uint;
+var scope: TItemHostScope; identities: TItemIdentities; geometry: TItemArray; index: integer;
+  item: TCustomItem; wpi: HDWP; showItems: uint;
+  revision: QWord; registered: TObject;
 begin
-  if FEnabled then
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    idx := FItemCount;
-    {$ifdef EXT_DEBUG} AddLog('SetItems2. FItemCount = ' + inttostr(FItemCount)); {$endif}
-    wpi := BeginDeferWindowPos(idx);
-    show_items := swp_hidewindow;
-    if FVisible then show_items := swp_showwindow;
-
-    // draw FItemArray //
-    idx := 0;
-    while idx < FItemCount do
-    begin
-      if FItemArray[idx].h <> 0 then
-        TCustomItem(GetWindowLongPtr(FItemArray[idx].h, GWL_USERDATA)).Draw(
-          FItemArray[idx].x, FItemArray[idx].y, FItemArray[idx].s, forceDraw, wpi, show_items);
-      inc(idx);
+    if not FEnabled then exit;
+    revision := FLayoutRevision;
+    SetLength(geometry, LayoutCount);
+    for index := 0 to High(geometry) do geometry[index] := FItems[index]^;
+    SetLength(identities, Length(geometry));
+    for index := 0 to High(geometry) do
+      identities[index] := ItemViews.IdentityForId(geometry[index].Id);
+    wpi := BeginDeferWindowPos(Length(identities));
+    showItems := SWP_HIDEWINDOW;
+    if FVisible then showItems := SWP_SHOWWINDOW;
+    try
+      for index := 0 to High(identities) do
+      begin
+        if PinActiveItem(identities[index], item) then
+        try
+          item.Draw(geometry[index].x, geometry[index].y, geometry[index].s,
+            forceDraw, wpi, showItems);
+        finally
+          ItemRegistry.Unpin(identities[index]);
+        end;
+        if revision <> FLayoutRevision then break;
+      end;
+    finally
+      EndDeferWindowPos(wpi);
     end;
-
-    EndDeferWindowPos(wpi);
-    {$ifdef EXT_DEBUG} AddLog('EndDeferWindowPos'); {$endif}
-  except
-    on e: Exception do err('ItemManager.SetItems2', e);
+    if revision <> FLayoutRevision then
+    begin
+      for index := 0 to High(identities) do
+        if (FItems.IndexOf(identities[index].ItemId) = NO_ITEM_INDEX) and
+          ItemRegistry.TryResolve(identities[index], FParentHWnd, registered) then
+          ShowWindow(identities[index].Handle, SW_HIDE);
+      UpdateItems(true);
+    end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
@@ -1315,22 +1819,22 @@ begin
     if FDropPlace <> NOT_AN_ITEM then
     begin
       if FDropPlace < 0 then FDropPlace := 0;
-      if FItemCount < 1 then FDropPlace := 0
+      if LayoutCount < 1 then FDropPlace := 0
       else begin
         if FDraggingFile then
         begin
           if prevDropPlace = NOT_AN_ITEM then
           begin
-            if FDropPlace > FItemCount then FDropPlace := NOT_AN_ITEM;
+            if FDropPlace > LayoutCount then FDropPlace := NOT_AN_ITEM;
           end else begin
-            if FDropPlace >= FItemCount then FDropPlace := NOT_AN_ITEM;
+            if FDropPlace >= LayoutCount then FDropPlace := NOT_AN_ITEM;
           end;
         end else
         if prevDropPlace = NOT_AN_ITEM then
         begin
-          if FDropPlace > FItemCount then FDropPlace := FItemCount;
+          if FDropPlace > LayoutCount then FDropPlace := LayoutCount;
         end else begin
-          if FDropPlace >= FItemCount then FDropPlace := FItemCount - 1;
+          if FDropPlace >= LayoutCount then FDropPlace := LayoutCount - 1;
         end;
       end;
     end;
@@ -1343,7 +1847,7 @@ begin
     if FDropPlaceEx <> NOT_AN_ITEM then
     begin
       if FDropPlaceEx < 0 then FDropPlaceEx := 0;
-      if FDropPlaceEx > FItemCount - 1 then FDropPlaceEx := NOT_AN_ITEM;
+      if FDropPlaceEx > LayoutCount - 1 then FDropPlaceEx := NOT_AN_ITEM;
     end;
     if prevDropPlaceEx <> FDropPlaceEx then SetDropPlaceEx(FDropPlaceEx);
   except
@@ -1351,72 +1855,18 @@ begin
   end;
 end;
 //------------------------------------------------------------------------------
-// physically create/move/delete empty item at DropPlace
+// create, move, or remove the separate drag preview
 procedure TItemManager.SetDropPlace(index: integer);
-var
-  i, currentDropPlace: integer;
+var previous: integer;
 begin
   try
     AllItemCmd(icDropIndicator, 0);
-
-    FDropPlace := index;
-    // seek for current FDropPlace in the FItemArray array (item.h = 0) //
-    currentDropPlace := NOT_AN_ITEM;
-    if FItemCount > 0 then
-      for i := 0 to FItemCount - 1 do
-      begin
-        if FItemArray[i].h = 0 then
-        begin
-          currentDropPlace := i;
-          break;
-        end;
-      end;
-
-    if (currentDropPlace = NOT_AN_ITEM) and (FDropPlace = NOT_AN_ITEM) then exit;
-    if currentDropPlace = FDropPlace then exit;
-
-    // add empty item //
-    if (currentDropPlace = NOT_AN_ITEM) and (FDropPlace <> NOT_AN_ITEM) then
-    begin
-      if FDropPlace > FItemCount then FDropPlace := FItemCount;
-      FItemArray[FItemCount].h := 0;
-      FItemArray[FItemCount].s := FItemSize;
-      if FDropPlace < FItemCount then
-      begin
-        for i := FItemCount downto FDropPlace + 1 do FItemArray[i].h := FItemArray[i - 1].h;
-      end;
-      inc(FItemCount);
-      FItemArray[FDropPlace].h := 0;
-      ItemsChanged(true);
-      exit;
-    end;
-
-    // move empty item //
-    if (currentDropPlace <> NOT_AN_ITEM) and (FDropPlace <> NOT_AN_ITEM) then
-    begin
-      if FDropPlace < currentDropPlace then
-      begin
-        for i := currentDropPlace downto FDropPlace + 1 do FItemArray[i].h := FItemArray[i - 1].h;
-      end;
-      if FDropPlace > currentDropPlace then
-      begin
-        for i := currentDropPlace to FDropPlace - 1 do FItemArray[i].h := FItemArray[i + 1].h;
-      end;
-      FItemArray[FDropPlace].h := 0;
-      ItemsChanged;
-      exit
-    end;
-
-    // delete empty item //
-    if (currentDropPlace <> NOT_AN_ITEM) and (FDropPlace = NOT_AN_ITEM) then
-    begin
-      if currentDropPlace < FItemCount - 1 then
-      begin
-        for i := currentDropPlace to FItemCount - 2 do FItemArray[i].h := FItemArray[i + 1].h;
-      end;
-      dec(FItemCount);
-      ItemsChanged(true);
-    end;
+    previous := FItems.PreviewIndex;
+    if index = NOT_AN_ITEM then FItems.ClearPreview
+    else FItems.SetPreview(index, FItemSize);
+    SyncDropPlace;
+    if previous <> FItems.PreviewIndex then
+      ItemsChanged((previous = NO_ITEM_INDEX) or (FItems.PreviewIndex = NO_ITEM_INDEX));
   except
     on e: Exception do err('ItemManager.SetDropPlace', e);
   end;
@@ -1429,6 +1879,7 @@ var
   indicatorType: integer;
 begin
   try
+    if (index < 0) or (index >= LayoutCount) then index := NOT_AN_ITEM;
     FDropPlaceEx := index;
     indicatorType := DII_NONE;
 
@@ -1436,8 +1887,8 @@ begin
     if FDropPlaceEx <> NOT_AN_ITEM then
       if FDraggingItem then
       begin
-        Inst := TCustomItem(GetWindowLongPtr(FItemArray[FDropPlaceEx].h, GWL_USERDATA));
-        DragInst := TCustomItem(GetWindowLongPtr(FDragHWnd, GWL_USERDATA));
+        Inst := GetModel(FItems[FDropPlaceEx]^.Id);
+        DragInst := GetModel(FDragItemId);
 
         if ((Inst is TStackItem) and (DragInst is TStackItem)) or
             ((Inst is TStackItem) and (DragInst is TShortcutItem)) or
@@ -1451,8 +1902,8 @@ begin
     if FDraggingItem then
     begin
       AllItemCmd(icDropIndicator, 0);
-      if indicatorType > 0 then
-        ItemCmd(FItemArray[FDropPlaceEx].h, icDropIndicator, indicatorType);
+      if (indicatorType > 0) and (FDropPlaceEx >= 0) and (FDropPlaceEx < LayoutCount) then
+        ItemCmd(ItemViews.HandleOf(FItems[FDropPlaceEx]^.Id), icDropIndicator, indicatorType);
     end;
   except
     on e: Exception do err('ItemManager.SetDropPlaceEx', e);
@@ -1462,116 +1913,35 @@ end;
 // items area width or height //
 function TItemManager.IASize: integer;
 begin
-  result := FItemCount * (FItemSize + FItemSpacing);
+  result := LayoutCount * (FItemSize + FItemSpacing);
 end;
 //------------------------------------------------------------------------------
 // calculate item index based on mouse position
 // do not care of the current items positions
 function TItemManager.ItemFromPoint(Ax, Ay, distance: integer): extended;
-var
-  BasePoint: integer; // left or top of the first item
-  rItemArea: windows.TRect;
+var emptyBounds: Windows.TRect;
 begin
   result := NOT_AN_ITEM;
   if not FEnabled then exit;
-
-  try
-    if FItemCount = 0 then
-    begin
-      rItemArea := DockGetRect;
-      if PtInRect(rItemArea, classes.Point(Ax, Ay)) then result := 0;
-      exit;
-    end;
-
-    // calc position relative to the beginning of the first item //
-
-    if FSiteVertical then
-    begin
-      BasePoint := FMonitorRect.Top + (FMonitorRect.Bottom - FMonitorRect.Top - IASize) * FCenterOffsetPercent div 100;
-      result := (Ay - BasePoint) / (FItemSize + FItemSpacing);
-    end else begin
-      BasePoint := FMonitorRect.Left + (FMonitorRect.Right - FMonitorRect.Left - IASize) * FCenterOffsetPercent div 100;
-      result := (Ax - BasePoint) / (FItemSize + FItemSpacing);
-    end;
-    if result < -1 then result := NOT_AN_ITEM;
-    if result >= FItemCount + 1 then result := NOT_AN_ITEM;
-
-    // check boundaries //
-
-    rItemArea := FItemsArea;
-    if FSite = bsLeft then rItemArea.Right := 0
-    else if FSite = bsTop then rItemArea.Bottom := 0
-    else if FSite = bsRight then rItemArea.Left := 0
-    else if FSite = bsBottom then rItemArea.Top := 0;
-
-    if FSite = bsBottom then
-    begin
-      if (Ay < FBaseWindowRect.Y + FBaseWindowRect.Height - FMargin - FItemSize - rItemArea.Top - ZoomItemSizeDiff - distance) or
-        (Ay > FBaseWindowRect.Y + FBaseWindowRect.Height + distance) or
-        (Ax < BasePoint - FBigItemSize) or
-        (Ax > BasePoint + width)
-        then result := NOT_AN_ITEM;
-    end else
-    if FSite = bsLeft then
-    begin
-      if (Ax < FBaseWindowRect.X - distance) or
-        (Ax > FBaseWindowRect.X + x + FMargin + FItemSize + rItemArea.Right + ZoomItemSizeDiff + distance) or
-        (Ay < BasePoint - FBigItemSize) or
-        (Ay > BasePoint + height)
-        then result := NOT_AN_ITEM;
-    end else
-    if FSite = bsRight then
-    begin
-      if (Ax < FBaseWindowRect.X + FBaseWindowRect.Width - FMargin - FItemSize - rItemArea.Left - ZoomItemSizeDiff - distance) or
-        (Ax > FBaseWindowRect.X + FBaseWindowRect.Width + distance) or
-        (Ay < BasePoint - FBigItemSize) or
-        (Ay > BasePoint + height)
-        then result := NOT_AN_ITEM;
-    end else
-    begin
-      if (Ay < FBaseWindowRect.Y - distance) or
-        (Ay > FBaseWindowRect.Y + y + FMargin + FItemSize + rItemArea.Bottom + ZoomItemSizeDiff + distance) or
-        (Ax < BasePoint - FBigItemSize) or
-        (Ax > BasePoint + width)
-        then result := NOT_AN_ITEM;
-    end;
-
-  except
-    on e: Exception do err('ItemManager.ItemFromPoint', e);
-  end;
+  emptyBounds := Default(Windows.TRect);
+  if LayoutCount = 0 then emptyBounds := DockGetRect;
+  result := ItemPositionFromPoint(GetLayoutInput, GetDockGeometry,
+    LayoutCount, Ax, Ay, distance, emptyBounds);
 end;
 //------------------------------------------------------------------------------
 // calculate item index based on mouse position and items positions
 function TItemManager.ItemRectFromPoint(Ax, Ay: integer): integer;
-var
-  idx: integer;
-  Inst: TCustomItem;
+var rects: array of Windows.TRect; i: integer; item: TCustomItem;
+  emptyBounds: Windows.TRect;
 begin
   result := NOT_AN_ITEM;
   if not FEnabled then exit;
-
-  try
-    if FItemCount = 0 then
-    begin
-      if PtInRect(DockGetRect, classes.Point(Ax, Ay)) then result := 0;
-      exit;
-    end;
-
-    // calc position relative to the beginning of the first item //
-
-    for idx := 0 to FItemCount - 1 do
-    begin
-      Inst := TCustomItem(GetWindowLongPtr(FItemArray[idx].h, GWL_USERDATA));
-      if Inst is TCustomItem then
-        if PtInRect(Inst.ScreenRect, classes.Point(Ax, Ay)) then
-        begin
-          result := idx;
-          break;
-        end;
-    end;
-  except
-    on e: Exception do err('ItemManager.ItemFromPoint', e);
-  end;
+  emptyBounds := Default(Windows.TRect);
+  if LayoutCount = 0 then emptyBounds := DockGetRect;
+  SetLength(rects, LayoutCount);
+  for i := 0 to High(rects) do
+    if TryGetItemById(FItems[i]^.Id, item) then rects[i] := item.ScreenRect;
+  result := ItemRectIndexFromPoint(rects, Ax, Ay, emptyBounds);
 end;
 //------------------------------------------------------------------------------
 // enter/exit zooming mode, maintain zooming
@@ -1588,14 +1958,14 @@ begin
       if item <> NOT_AN_ITEM then
       begin
         if item < 0 then item := NOT_AN_ITEM;
-        if item >= FItemCount then item := NOT_AN_ITEM;
+        if item >= LayoutCount then item := NOT_AN_ITEM;
       end;
     end;
 
     // enter FZooming mode //
     if not FZooming and (item <> NOT_AN_ITEM) then
     begin
-      FZoomStartTime := GetTickCount64;
+      FZoomAnimation.Retarget(ClockNow, FBigItemSize - FItemSize, FZoomTime);
       FZoomInOutItem := item;
       FZooming := true;
     end;
@@ -1626,45 +1996,39 @@ begin
   if FEnabled and (FZooming or do_now) then
   begin
     FZooming := false;
-    FZoomStartTime := GetTickCount64;
-    if (FItemCount <= 0) or do_now then
+    FZoomAnimation.Retarget(ClockNow, 0, FZoomTime);
+    if (LayoutCount <= 0) or do_now then
     begin
       ZoomItemSizeDiff := 0;
+      FZoomAnimation := Default(TScalarAnimation);
       ItemsChanged;
     end;
   end;
 end;
 //------------------------------------------------------------------------------
 // meant to be called from a timer event handler
-procedure TItemManager.ZoomInOut;
-var
-  elapsed: QWord;
-  doUpdate: boolean;
+procedure TItemManager.RetargetZoom;
+var target, limit: integer;
 begin
-  doUpdate := false;
+  limit := Max(0, FBigItemSize - FItemSize);
+  if FZooming and FZoomItems then target := limit else target := 0;
+  FZoomAnimation.Retarget(ClockNow, target, FZoomTime);
+  if FZoomAnimation.StartValue < 0 then FZoomAnimation.StartValue := 0;
+  if FZoomAnimation.StartValue > limit then FZoomAnimation.StartValue := limit;
+  ZoomInOut;
+end;
 
-  if FZoomItems or (ZoomItemSizeDiff > 0) then
-  try
-      elapsed := GetTickCount64 - FZoomStartTime;
-
-      if FZooming and (ZoomItemSizeDiff < FBigItemSize - FItemSize) then
-      begin
-        doUpdate := true;
-        if elapsed > FZoomTime then elapsed := FZoomTime;
-        ZoomItemSizeDiff := (FBigItemSize - FItemSize) * elapsed div FZoomTime;
-      end;
-
-      if not FZooming and (ZoomItemSizeDiff > 0) then
-      begin
-        doUpdate := true;
-        if elapsed > FZoomTime then elapsed := FZoomTime;
-        ZoomItemSizeDiff := FBigItemSize - FItemSize - (FBigItemSize - FItemSize) * elapsed div FZoomTime;
-      end;
-  except
-    on e: Exception do err('ItemManager.Timer.SmoothZoom', e);
-  end;
-
-  if doUpdate then ItemsChanged;
+procedure TItemManager.ZoomInOut;
+var nextSize: integer;
+begin
+  if not FZoomItems and (ZoomItemSizeDiff = 0) then exit;
+  if FZoomAnimation.TargetValue < FZoomAnimation.StartValue then
+    nextSize := Ceil(FZoomAnimation.ValueAt(ClockNow))
+  else nextSize := Trunc(FZoomAnimation.ValueAt(ClockNow));
+  nextSize := EnsureRange(nextSize, 0, Max(0, FBigItemSize - FItemSize));
+  if nextSize = ZoomItemSizeDiff then exit;
+  ZoomItemSizeDiff := nextSize;
+  ItemsChanged;
 end;
 //------------------------------------------------------------------------------
 // check mouse is over the dock
@@ -1677,7 +2041,7 @@ begin
   result := false;
   if FEnabled then
   try
-    windows.GetCursorPos(pt);
+    if not GetCursorPoint(pt) then exit(false);
     wnd := WindowFromPoint(pt);
     if FDraggingItem or FDraggingFile or FZooming then
       item := trunc(ItemFromPoint(pt.x, pt.y, ifthen(FDraggingItem or FDraggingFile, FDropDistance, 0)))
@@ -1696,22 +2060,22 @@ var
 begin
   if FEnabled and FVisible then
   try
-    if FItemCount > 0 then
+    if LayoutCount > 0 then
     begin
       // hint //
       wnd := WindowFromPoint(pt);
       if ItemIndex(wnd) = NOT_AN_ITEM then wnd := 0;
-      if wnd <> FHoverItemHWnd then
+      if ItemViews.ItemIdOf(wnd) <> FHoverItemId then
       begin
-        if FHoverItemHWnd <> 0 then ItemCmd(FHoverItemHWnd, icHover, 0);
+        if FHoverItemId <> 0 then ItemCmd(ItemViews.HandleOf(FHoverItemId), icHover, 0);
         if wnd <> 0 then ItemCmd(wnd, icHover, 1);
       end;
-      FHoverItemHWnd := wnd;
+      FHoverItemId := ItemViews.ItemIdOf(wnd);
     end;
 
     if FDraggingItem or FDraggingFile then SetDropPlaceFromPoint(pt);
 
-    if (FItemCount > 0) and allow_zoom and FZoomItems then Zoom(pt.x, pt.y);
+    if (LayoutCount > 0) and allow_zoom and FZoomItems then Zoom(pt.x, pt.y);
   except
     on e: Exception do raise Exception.Create('ItemManager.WHMouseMove ' + LineEnding + e.message);
   end;
@@ -1728,14 +2092,15 @@ procedure TItemManager.DragLeave;
 begin
   if FDraggingItem or FDraggingFile then
   begin
-    FDraggingItem := false;
+    FDraggingItem := FItems.DraggedId <> 0;
+    if not FDraggingItem then FDragItemId := 0;
     FDraggingFile := false;
     SetDropPlaceEx(NOT_AN_ITEM);
     SetDropPlace(NOT_AN_ITEM);
     ItemsChanged;
-    ItemCmd(FSelectedItemHWnd, icDragLeave, 0);
-    ItemCmd(FSelectedItemHWnd, icSelect, 0);
-    FSelectedItemHWnd := 0;
+    ItemCmd(ItemViews.HandleOf(FSelectedItemId), icDragLeave, 0);
+    ItemCmd(ItemViews.HandleOf(FSelectedItemId), icSelect, 0);
+    FSelectedItemId := 0;
     AllItemCmd(icHover, 0);
   end;
 end;
@@ -1747,17 +2112,17 @@ var
 begin
   if FEnabled then
   try
-    GetCursorPos(pt);
+    if not GetCursorPoint(pt) then exit;
     if not FLockMouseEffect then WHMouseMove(pt);
     wnd := WindowFromPoint(pt);
     wnd := IsItem(wnd);
-    if wnd <> FSelectedItemHWnd then
+    if ItemViews.ItemIdOf(wnd) <> FSelectedItemId then
     begin
-      ItemCmd(FSelectedItemHWnd, icSelect, 0);
-      ItemCmd(FSelectedItemHWnd, icDragLeave, 0);
-      FSelectedItemHWnd := wnd;
-      ItemCmd(FSelectedItemHWnd, icSelect, 1);
-      ItemCmd(FSelectedItemHWnd, icDragEnter, 0);
+      ItemCmd(ItemViews.HandleOf(FSelectedItemId), icSelect, 0);
+      ItemCmd(ItemViews.HandleOf(FSelectedItemId), icDragLeave, 0);
+      FSelectedItemId := ItemViews.ItemIdOf(wnd);
+      ItemCmd(ItemViews.HandleOf(FSelectedItemId), icSelect, 1);
+      ItemCmd(ItemViews.HandleOf(FSelectedItemId), icDragEnter, 0);
     end;
     ItemCmd(wnd, icDragOver, 0);
   except
@@ -1778,9 +2143,9 @@ begin
   if FEnabled then
   try
     idx := 0;
-    while idx < FItemCount do
+    while idx < LayoutCount do
     begin
-      if FItemArray[idx].h <> 0 then postmessage(FItemArray[idx].h, WM_ACTIVATEAPP, 0, 0);
+      if FItems[idx]^.Id <> 0 then postmessage(ItemViews.HandleOf(FItems[idx]^.Id), WM_ACTIVATEAPP, 0, 0);
       inc(idx);
     end;
   except
@@ -1798,111 +2163,134 @@ end;
 //------------------------------------------------------------------------------
 // detach the item
 procedure TItemManager.Undock(wnd: HWND);
-var
-  index: integer;
+var scope: TItemHostScope; item: TCustomItem; identity: TItemIdentity;
 begin
-  if FEnabled and not FDraggingItem then
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    FDraggingFile := false;
-    FDraggingItem := true;
-    FDragHWnd := wnd;
-    index := ItemIndex(wnd);
-    try if index <> NOT_AN_ITEM then
-      begin
-        FItemArray[index].h := 0;
-        SetDropPlace(index);
-        SetDropPlaceEx(index);
+    if FEnabled and not FDraggingItem then
+    try
+      identity := ItemRegistry.IdentityOf(wnd);
+      if not PinManagedItem(identity, item) then exit;
+      try
+        if not FItems.BeginDrag(ItemViews.ItemIdOf(wnd), FItemSize) then exit;
+        item.State := imsDragging;
+
+        FDraggingFile := false;
+        FDraggingItem := true;
+        FDragItemId := item.ItemId;
+        SyncDropPlace;
+        SetDropPlaceEx(FDropPlace);
+        ItemsChanged(true);
+      finally
+        ItemRegistry.Unpin(identity);
       end;
-    except end;
-  except
-    on e: Exception do err('ItemManager.Undock', e);
+    except
+      on e: Exception do err('ItemManager.Undock', e);
+    end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 // put the item to dock
 // if necessary create a new stack or put into existing one
 procedure TItemManager.Dock(wnd: HWND);
-var
-  idx: integer;
-  DragInst, Inst, NewInst: TCustomItem;
-  NewItemWnd: THandle;
+var scope: TItemHostScope; idx: integer;
+  DragInst, Inst, NewInst: TCustomItem; NewItemWnd: THandle;
+  MergeData: TStringList;
+  dragIdentity, targetIdentity, newIdentity: TItemIdentity;
   pt: windows.TPoint;
+  procedure Redock;
+  begin
+    if FItems.DropDragged <> 0 then ItemDock(wnd);
+    SyncDropPlace;
+  end;
 begin
-  //if not FEnabled or (FDragHWnd <> wnd) then exit;
-  if FEnabled then
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    SetWindowPos(wnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE + SWP_NOSIZE + SWP_NOSENDCHANGING);
-    GetCursorPos(pt);
-    SetDropPlaceFromPoint(pt);
-
-    DragInst := TCustomItem(GetWindowLongPtr(wnd, GWL_USERDATA));
-
-    // delete //
-    if (FDropPlace < 0) or (FDropPlace >= FItemCount) then
-    begin
-      DragInst.Delete;
-    end else
-    // put to a free slot //
-    if FDropPlace = FDropPlaceEx then
-    begin
-      FItemArray[FDropPlace].h := wnd;
-      ItemDock(wnd);
-    end else
-    // combine with existing item //
-    begin
-      Inst := TCustomItem(GetWindowLongPtr(FItemArray[FDropPlaceEx].h, GWL_USERDATA));
-      // shortcut to stack //
-      if (DragInst is TShortcutItem) and (Inst is TStackItem) then
-      begin
-        TStackItem(Inst).AddSubitem(TShortcutItem(DragInst).ToString);
-        DragInst.Delete;
-      end else
-      // stack to stack //
-      if (DragInst is TStackItem) and (Inst is TStackItem) then
-      begin
-        idx := 0;
-        while idx < TStackItem(DragInst).ItemCount do
-        begin
-          TStackItem(Inst).AddSubitem(TStackItem(DragInst).SubitemToString(idx));
-          inc(idx);
-        end;
-        DragInst.Delete;
-      end else
-      // shortcut to shortcut //
-      if (DragInst is TShortcutItem) and (Inst is TShortcutItem) then
-      begin
-        if (FDropPlace >= 0) and (FDropPlace < FItemCount) then
-        begin
-          NewItemWnd := CreateItemFromString(TStackItem.Make);
-          if NewItemWnd <> THandle(0) then
-          begin
-            FItemArray[FDropPlace].h := NewItemWnd;
-            NewInst := TCustomItem(GetWindowLongPtr(NewItemWnd, GWL_USERDATA));
-            TStackItem(NewInst).AddSubitem(TShortcutItem(Inst).ToString);
-            TStackItem(NewInst).AddSubitem(TShortcutItem(DragInst).ToString);
-            DragInst.Delete;
-            Inst.Delete;
-            ItemsChanged(true);
+    if not FEnabled or (FItems.DraggedId <> ItemViews.ItemIdOf(wnd)) then exit;
+    dragIdentity := ItemRegistry.IdentityOf(wnd);
+    if not PinManagedItem(dragIdentity, DragInst) then exit;
+    try
+      try
+        try
+          SetWindowPos(wnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE + SWP_NOSIZE + SWP_NOSENDCHANGING);
+          if not GetCursorPoint(pt) then exit;
+          SetDropPlaceFromPoint(pt);
+          if DragInst.Freed or (FItems.DraggedId <> DragInst.ItemId) then exit;
+          if FItems.PreviewIndex = NO_ITEM_INDEX then DragInst.Delete
+          else if (FDropPlaceEx < 0) or (FDropPlaceEx >= LayoutCount) or
+            (FDropPlace = FDropPlaceEx) then Redock
+          else begin
+            targetIdentity := ItemViews.IdentityForId(FItems[FDropPlaceEx]^.Id);
+            if not PinActiveItem(targetIdentity, Inst) then
+            begin
+              Redock;
+              exit;
+            end;
+            try
+              if (DragInst is TShortcutItem) and (Inst is TStackItem) then
+              begin
+                if TStackItem(Inst).AddSubitem(TShortcutItem(DragInst).ToString) then
+                begin
+                  if not DragInst.Freed then DragInst.Delete;
+                end else Redock;
+              end else if (DragInst is TStackItem) and (Inst is TStackItem) then
+              begin
+                MergeData := TStringList.Create;
+                try
+                  for idx := 0 to TStackItem(DragInst).ItemCount - 1 do
+                    MergeData.Add(TStackItem(DragInst).SubitemToString(idx));
+                  if TStackItem(Inst).AddSubitems(MergeData) then
+                  begin
+                    if not DragInst.Freed then DragInst.Delete;
+                  end else Redock;
+                finally MergeData.Free; end;
+              end else if (DragInst is TShortcutItem) and (Inst is TShortcutItem) then
+              begin
+                NewItemWnd := CreateItemFromString(TStackItem.Make);
+                newIdentity := ItemRegistry.IdentityOf(NewItemWnd);
+                if PinManagedItem(newIdentity, NewInst) then
+                try
+                  try
+                    if not TStackItem(NewInst).AddSubitem(TShortcutItem(Inst).ToString) then
+                      raise ERangeError.Create('Cannot copy the first shortcut');
+                    if NewInst.Freed or DragInst.Freed then exit;
+                    if not TStackItem(NewInst).AddSubitem(TShortcutItem(DragInst).ToString) then
+                      raise ERangeError.Create('Cannot copy the second shortcut');
+                    if AddItem(NewItemWnd) = 0 then raise Exception.Create('Cannot insert the new stack');
+                  except
+                    if not FItems.Contains(ItemViews.ItemIdOf(NewItemWnd)) then
+                      DisposeOwnedItem(NewInst, 'ItemManager.Dock.NewStack');
+                    raise;
+                  end;
+                  if not DragInst.Freed then DragInst.Delete;
+                  if not Inst.Freed then Inst.Delete;
+                finally
+                  ItemRegistry.Unpin(newIdentity);
+                end;
+              end else Redock;
+            finally
+              ItemRegistry.Unpin(targetIdentity);
+            end;
           end;
+        except
+          on e: Exception do err('ItemManager.Dock', e);
         end;
-      end else begin
-          if (FDropPlace >= 0) and (FDropPlace < FItemCount) then
-          begin
-            FItemArray[FDropPlace].h := wnd;
-            ItemDock(wnd);
-          end else begin
-            DragInst.Delete;
-          end;
+      finally
+        if FItems.CancelDrag <> 0 then ItemDock(wnd);
+        FDraggingItem := false;
+        FDragItemId := 0;
+        SetDropPlaceEx(NOT_AN_ITEM);
+        SetDropPlace(NOT_AN_ITEM);
+        ItemsChanged(true);
+        FlushPendingTasks;
       end;
+    finally
+      ItemRegistry.Unpin(dragIdentity);
     end;
-
-    FDraggingItem := false;
-    FDragHWnd := 0;
-    SetDropPlaceEx(NOT_AN_ITEM);
-    SetDropPlace(NOT_AN_ITEM);
-    ItemsChanged;
-  except
-    on e: Exception do err('ItemManager.Dock', e);
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
@@ -1911,152 +2299,184 @@ end;
 // if subitem is found - result is its parent item HWnd
 // if no match found result is 0
 function TItemManager.IsItem(wnd: HWND): HWND;
-var
-  idx: integer;
-  Inst: TCustomItem;
+var scope: TItemHostScope; identities: TItemIdentities; index: integer; item: TCustomItem; candidate: PtrInt;
 begin
-  result := HWND(0);
-  if FEnabled then
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    idx := 0;
-    while idx < FItemCount do
-    begin
-      if FItemArray[idx].h = wnd then
-      begin
-        result := wnd;
-        break;
+    result := 0;
+    if not FEnabled then exit;
+    identities := CaptureItems(false);
+    for index := 0 to High(identities) do
+      if PinActiveItem(identities[index], item) then
+      try
+        if identities[index].Handle = wnd then exit(wnd);
+        candidate := item.cmd(icIsItem, PtrInt(wnd));
+        if (candidate <> 0) and ResolveActiveItem(identities[index], item) then
+          exit(HWND(candidate));
+      finally
+        ItemRegistry.Unpin(identities[index]);
       end;
-
-      Inst := TCustomItem(GetWindowLongPtr(FItemArray[idx].h, GWL_USERDATA));
-      if Inst is TCustomItem then result := Inst.cmd(icIsItem, PtrInt(wnd));
-      if result <> 0 then break;
-      inc(idx);
-    end;
-  except
-    on e: Exception do err('ItemManager.IsItem', e);
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 function TItemManager.ItemDropFile(wndItem: HWND; pt: windows.TPoint; filename: string): boolean;
-var
+var scope: TItemHostScope;
   Inst: TCustomItem;
-  wndChild: HWND;
+  wndChild: HWND; identity: TItemIdentity;
 begin
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    result := false;
-    wndChild := wndItem;
-    wndItem := IsItem(wndItem);
-    if wndItem <> THandle(0) then
-    begin
-      Inst := TCustomItem(GetWindowLongPtr(wndItem, GWL_USERDATA));
-      if Inst is TCustomItem then result := Inst.DropFile(wndChild, pt, filename);
+    try
+      result := false;
+      wndChild := wndItem;
+      wndItem := IsItem(wndItem);
+      if wndItem <> THandle(0) then
+      begin
+        identity := ItemRegistry.IdentityOf(wndItem);
+        if PinManagedItem(identity, Inst) then
+        try
+          result := Inst.DropFile(wndChild, pt, filename);
+        finally
+          ItemRegistry.Unpin(identity);
+        end;
+      end;
+    except
+      on e: Exception do err('ItemManager.ItemDrop', e);
     end;
-  except
-    on e: Exception do err('ItemManager.ItemDrop', e);
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 function TItemManager.ItemDropFiles(wndItem: HWND; pt: windows.TPoint; files: TStrings): boolean;
-var
-  idx: integer;
-  Inst: TCustomItem;
-  wndChild: HWND;
+var scope: TItemHostScope; index: integer; item: TCustomItem; wndChild: HWND;
+  identity: TItemIdentity; dropped: boolean;
 begin
+  scope := BeginItemHostOperation(FParentHWnd);
   try
     result := false;
     wndChild := wndItem;
     wndItem := IsItem(wndItem);
-    if wndItem <> THandle(0) then
-    begin
-      Inst := TCustomItem(GetWindowLongPtr(wndItem, GWL_USERDATA));
-      if Inst is TCustomItem then
-        for idx := 0 to files.Count - 1 do
-          result := result or Inst.DropFile(wndChild, pt, files.strings[idx]);
-    end;
-  except
-    on e: Exception do err('ItemManager.ItemDrop', e);
+    identity := ItemRegistry.IdentityOf(wndItem);
+    for index := 0 to files.Count - 1 do
+      if PinManagedItem(identity, item) then
+      try
+        dropped := item.DropFile(wndChild, pt, files[index]);
+        result := result or dropped;
+      finally
+        ItemRegistry.Unpin(identity);
+      end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.ItemDock(wnd: HWND);
-var
-  Inst: TCustomItem;
+var scope: TItemHostScope;
+  Inst: TCustomItem; identity: TItemIdentity;
 begin
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    Inst := TCustomItem(GetWindowLongPtr(wnd, GWL_USERDATA));
-    if Inst is TCustomItem then Inst.Dock;
-  except
-    on e: Exception do err('ItemManager.ItemDock', e);
+    try
+      identity := ItemRegistry.IdentityOf(wnd);
+      if PinManagedItem(identity, Inst) then
+      try
+        ApplyCurrentSettings(wnd);
+        if not Inst.Freed then
+        begin
+          if FItems.IndexOf(Inst.ItemId) <> NO_ITEM_INDEX then Inst.State := imsActive;
+          Inst.Dock;
+        end;
+      finally
+        ItemRegistry.Unpin(identity);
+      end;
+    except
+      on e: Exception do err('ItemManager.ItemDock', e);
+    end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 function TItemManager.ItemCmd(wnd: HWND; id: TDParam; param: PtrInt): PtrInt;
-var
-  Inst: TCustomItem;
+var scope: TItemHostScope;
+  Inst: TCustomItem; identity: TItemIdentity;
 begin
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    result := 0;
-    Inst := TCustomItem(GetWindowLongPtr(wnd, GWL_USERDATA));
-    if Inst is TCustomItem then result := Inst.cmd(id, param);
-  except
-    on e: Exception do err('ItemManager.ItemCmd', e);
+    try
+      result := 0;
+      identity := ItemRegistry.IdentityOf(wnd);
+      if PinManagedItem(identity, Inst) then
+      try
+        result := Inst.cmd(id, param);
+      finally
+        ItemRegistry.Unpin(identity);
+      end;
+    except
+      on e: Exception do err('ItemManager.ItemCmd', e);
+    end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 function TItemManager.AllItemCmd(id: TDParam; param: PtrInt): PtrInt;
-var
-  item: integer;
-  Inst: TCustomItem;
+var scope: TItemHostScope; identities: TItemIdentities; index: integer; item: TCustomItem;
 begin
-  result := 0;
-  if FEnabled then
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    item := 0;
-    while item < FItemCount do
-    begin
-      Inst := TCustomItem(GetWindowLongPtr(FItemArray[item].h, GWL_USERDATA));
-      if Inst is TCustomItem then result := Inst.cmd(id, param);
-      inc(item);
-    end;
-  except
-    on e: Exception do err('ItemManager.AllItemCmd', e);
+    result := 0;
+    if not FEnabled then exit;
+    identities := CaptureItems(false);
+    for index := 0 to High(identities) do
+      if PinActiveItem(identities[index], item) then
+      try
+        result := item.cmd(id, param);
+      finally
+        ItemRegistry.Unpin(identities[index]);
+      end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.AllItemTimer;
-var
-  item: integer;
-  Inst: TCustomItem;
+var scope: TItemHostScope; identities: TItemIdentities; index: integer; item: TCustomItem;
 begin
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    item := 0;
-    while item < FItemCount do
-    begin
-      Inst := TCustomItem(GetWindowLongPtr(FItemArray[item].h, GWL_USERDATA));
-      if Inst is TCustomItem then Inst.Timer;
-      inc(item);
-    end;
-  except
-    on e: Exception do err('ItemManager.AllItemTimer', e);
+    identities := CaptureItems(false);
+    for index := 0 to High(identities) do
+      if PinActiveItem(identities[index], item) then
+      try
+        if item.NeedsFrame then item.Timer;
+      finally
+        ItemRegistry.Unpin(identities[index]);
+      end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.SetFont(var Value: TDFontData);
-var
-  item: integer;
-  Inst: TCustomItem;
+var scope: TItemHostScope; identities: TItemIdentities; index: integer; item: TCustomItem;
 begin
+  scope := BeginItemHostOperation(FParentHWnd);
   try
     CopyFontData(Value, FFont);
-    item := 0;
-    while item < FItemCount do
-    begin
-      Inst := TCustomItem(GetWindowLongPtr(FItemArray[item].h, GWL_USERDATA));
-      if Inst is TCustomItem then Inst.SetFont(Value);
-      inc(item);
-    end;
-  except
-    on e: Exception do err('ItemManager.SetFont', e);
+    identities := CaptureItems(false);
+    for index := 0 to High(identities) do
+      if PinActiveItem(identities[index], item) then
+      try
+        item.SetFont(Value);
+      finally
+        ItemRegistry.Unpin(identities[index]);
+      end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
@@ -2066,7 +2486,7 @@ var
 begin
   try
     result := '';
-    Inst := TCustomItem(GetWindowLongPtr(wnd, GWL_USERDATA));
+    Inst := GetManagedItem(wnd);
     if Inst is TPluginItem then result := TPluginItem(Inst).Filename;
   except
     on e: Exception do err('ItemManager.GetPluginFile', e);
@@ -2074,55 +2494,88 @@ begin
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.SetPluginImage(wnd: HWND; lpImageNew: Pointer; AutoDelete: boolean);
-var
-  Inst: TCustomItem;
+var Inst: TCustomItem; identity: TItemIdentity; scope: TItemHostScope;
 begin
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    Inst := TCustomItem(GetWindowLongPtr(wnd, GWL_USERDATA));
-    if Inst is TPluginItem then TPluginItem(Inst).UpdateImage(lpImageNew, AutoDelete);
-  except
-    on e: Exception do err('ItemManager.SetPluginImage', e);
+    identity := ItemRegistry.IdentityOf(wnd);
+    if not PinManagedItem(identity, Inst) then exit;
+    try
+      try
+        if Inst is TPluginItem then TPluginItem(Inst).UpdateImage(lpImageNew, AutoDelete);
+      except
+        on e: Exception do err('ItemManager.SetPluginImage', e);
+      end;
+    finally
+      ItemRegistry.Unpin(identity);
+    end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.SetPluginOverlay(wnd: HWND; lpOverlayNew: Pointer; AutoDelete: boolean);
-var
-  Inst: TCustomItem;
+var Inst: TCustomItem; identity: TItemIdentity; scope: TItemHostScope;
 begin
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    if wnd <> 0 then Inst := TCustomItem(GetWindowLongPtr(wnd, GWL_USERDATA));
-    if Inst is TPluginItem then TPluginItem(Inst).UpdateOverlay(lpOverlayNew, AutoDelete);
-  except
-    on e: Exception do err('ItemManager.SetPluginOverlay', e);
+    identity := ItemRegistry.IdentityOf(wnd);
+    if not PinManagedItem(identity, Inst) then exit;
+    try
+      try
+        if Inst is TPluginItem then TPluginItem(Inst).UpdateOverlay(lpOverlayNew, AutoDelete);
+      except
+        on e: Exception do err('ItemManager.SetPluginOverlay', e);
+      end;
+    finally
+      ItemRegistry.Unpin(identity);
+    end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 procedure TItemManager.PluginAnimate(wnd: HWND);
-var
-  Inst: TCustomItem;
+var Inst: TCustomItem; identity: TItemIdentity; scope: TItemHostScope;
 begin
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    Inst := TCustomItem(GetWindowLongPtr(wnd, GWL_USERDATA));
-    if (Inst is TCustomItem) and (FItemAnimation > 0) then Inst.Animate;
-  except
-    on e: Exception do err('ItemManager.PluginAnimate', e);
+    identity := ItemRegistry.IdentityOf(wnd);
+    if not PinManagedItem(identity, Inst) then exit;
+    try
+      try
+        if FItemAnimation > 0 then Inst.Animate;
+      except
+        on e: Exception do err('ItemManager.PluginAnimate', e);
+      end;
+    finally
+      ItemRegistry.Unpin(identity);
+    end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
 function TItemManager.SetPluginCaption(wnd: HWND; NewCaption: string): integer;
-var
-  Inst: TCustomItem;
+var Inst: TCustomItem; identity: TItemIdentity; scope: TItemHostScope;
 begin
-  result := 0;
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    Inst := TCustomItem(GetWindowLongPtr(wnd, GWL_USERDATA));
-    if Inst is TCustomItem then
-    begin
-      Inst.Caption := NewCaption;
-      result := length(Inst.Caption);
+    result := 0;
+    identity := ItemRegistry.IdentityOf(wnd);
+    if not PinManagedItem(identity, Inst) then exit;
+    try
+      try
+        Inst.Caption := NewCaption;
+        result := Length(Inst.Caption);
+      except
+        on e: Exception do err('ItemManager.SetPluginCaption', e);
+      end;
+    finally
+      ItemRegistry.Unpin(identity);
     end;
-  except
-    on e: Exception do err('ItemManager.SetPluginCaption', e);
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
@@ -2132,7 +2585,7 @@ var
 begin
   try
     result := '';
-    Inst := TCustomItem(GetWindowLongPtr(wnd, GWL_USERDATA));
+    Inst := GetManagedItem(wnd);
     if Inst is TCustomItem then result := Inst.Caption;
   except
     on e: Exception do err('ItemManager.GetPluginCaption', e);
@@ -2146,7 +2599,7 @@ begin
   try
     result := Visible;
     r := classes.Rect(0, 0, 0, 0);
-    Inst := TCustomItem(GetWindowLongPtr(wnd, GWL_USERDATA));
+    Inst := GetManagedItem(wnd);
     if Inst is TCustomItem then r := Inst.ScreenRect;
   except
     on e: Exception do err('ItemManager.GetPluginRect', e);
@@ -2159,7 +2612,7 @@ var
 begin
   try
     result := false;
-    Inst := TCustomItem(GetWindowLongPtr(wnd, GWL_USERDATA));
+    Inst := GetManagedItem(wnd);
     if Inst is TCustomItem then result := Inst.Undocked;
   except
     on e: Exception do err('ItemManager.IsPluginUndocked', e);
@@ -2169,7 +2622,7 @@ end;
 function TItemManager.IsSeparator(wnd: HWND): boolean;
 begin
   try
-    result := TCustomItem(GetWindowLongPtr(wnd, GWL_USERDATA)) is TSeparatorItem;
+    result := GetManagedItem(wnd) is TSeparatorItem;
   except
     on e: Exception do err('ItemManager.IsSeparator', e);
   end;
@@ -2184,112 +2637,149 @@ end;
 //
 //------------------------------------------------------------------------------
 procedure TItemManager.Taskbar;
-var
-  index: integer;
-  Inst: TCustomItem;
+var scope: TItemHostScope; windows: TTaskWindows; index: integer;
 begin
-  if FDraggingItem then exit;
+  scope := BeginItemHostOperation(FParentHWnd);
   try
-    // remove deleted windows //
-    try
-      index := 0;
-      while index < FItemCount do
-      begin
-        Inst := TCustomItem(GetWindowLongPtr(FItemArray[index].h, GWL_USERDATA));
-        if Inst is TTaskItem then TTaskItem(Inst).RemoveNonExisting;
-        inc(index);
+    if FDraggingItem then
+    begin
+      FTaskRefreshPending := true;
+      FTaskSnapshotPending := false;
+      FPendingTaskWindows := nil;
+      exit;
+    end;
+    if not assigned(ProcessHelper) then exit;
+    SetLength(windows, ProcessHelper.GetAppWindowsCount);
+    for index := 0 to High(windows) do
+    begin
+      windows[index].Handle := ProcessHelper.GetAppWindowHandle(index);
+      windows[index].Executable := ProcessHelper.GetWindowProcessName(windows[index].Handle);
+      windows[index].Visible := IsWindowVisible(windows[index].Handle);
+    end;
+    SynchronizeTasks(windows);
+  finally
+    EndItemHostOperation(scope);
+  end;
+end;
+
+procedure TItemManager.SynchronizeTasks(const AppWindows: TTaskWindows);
+var scope: TItemHostScope; input: TTaskSyncInput; plan: TTaskSyncPlan; identities, created: TItemIdentities;
+  index, sourceIndex: integer; item: TCustomItem; action: TTaskSyncAction;
+  identity: TItemIdentity; wnd: HWND;
+begin
+  scope := BeginItemHostOperation(FParentHWnd);
+  try
+    if FDraggingItem then
+    begin
+      FTaskRefreshPending := true;
+      FTaskSnapshotPending := true;
+      FPendingTaskWindows := Copy(AppWindows);
+      exit;
+    end;
+    FTaskRefreshPending := false;
+    FTaskSnapshotPending := false;
+    FPendingTaskWindows := nil;
+    identities := CaptureItems(false);
+    SetLength(input.Entries, Length(identities));
+    for index := 0 to High(identities) do
+    begin
+      input.Entries[index].ItemId := identities[index].ItemId;
+      if PinActiveItem(identities[index], item) then
+      try
+        if item is TTaskItem then input.Entries[index] := TTaskItem(item).TaskSnapshot
+        else input.Entries[index].RegisteredExecutable := item.Executable;
+      finally
+        ItemRegistry.Unpin(identities[index]);
       end;
-      Inst := nil;
-    except
-      on e: Exception do err('ItemManager.RemoveTaskWindow', e);
     end;
-
-    // add existing windows //
-    index := 0;
-    while index < ProcessHelper.GetAppWindowsCount do
+    input.AppWindows := Copy(AppWindows);
+    input.TaskSpot := FTaskSpot;
+    input.Grouping := FTaskGrouping;
+    input.Dragging := FDraggingItem;
+    plan := ReconcileTasks(input);
+    SetLength(created, Length(plan.Actions) + 1);
+    for index := 0 to High(plan.Actions) do
     begin
-      AddTaskWindow(ProcessHelper.GetAppWindowHandle(index));
-      inc(index);
-    end;
-
-    // delete empty items and update not empty ones
-    index := FItemCount - 1;
-    while index >= 0 do
-    begin
-      Inst := TCustomItem(GetWindowLongPtr(FItemArray[index].h, GWL_USERDATA));
-      if Inst is TTaskItem then
-        if TTaskItem(Inst).IsEmpty then TTaskItem(Inst).Delete else TTaskItem(Inst).UpdateItem;
-      dec(index);
-    end;
-  except
-    on e: Exception do err('ItemManager.Taskbar', e);
-  end;
-end;
-//------------------------------------------------------------------------------
-procedure TItemManager.AddTaskWindow(HWndTask: THandle);
-var
-  index, found: integer;
-  wndItem: HWND;
-  Inst: TCustomItem;
-begin
-  try
-    // do not add registered programs, so check for it
-    if IsRegisteredExecutable(ProcessHelper.GetWindowProcessName(HWndTask)) then exit;
-
-    // search existing TaskItem for the given window
-    found := -1;
-    index := 0;
-    while index < FItemCount do
-    begin
-      Inst := TCustomItem(GetWindowLongPtr(FItemArray[index].h, GWL_USERDATA));
-      if Inst is TTaskItem then
-        if TTaskItem(Inst).WindowInList(HWndTask) then
-        begin
-          found := index;
-          break;
-        end;
-      inc(index);
-    end;
-
-    // if there is no item for the window - add a new item //
-    if found = -1 then
-    begin
-      // determine where to place a newly created item
-      index := FTaskSpot;
-      if (index < 0) or (index >= FItemCount) then
-        index := NOT_AN_ITEM
-      else
+      action := plan.Actions[index];
+      if action.Kind = tsaCreateGroup then
       begin
-        while index < FItemCount do
-	      begin
-	        Inst := TCustomItem(GetWindowLongPtr(FItemArray[index].h, GWL_USERDATA));
-	        if not (Inst is TTaskItem) then break;
-	        inc(index);
-	      end;
-        if index >= FItemCount then index := NOT_AN_ITEM
-			end;
-
-			SetDropPlace(index);
-      wndItem := AddItem(CreateTaskItem, true);
-      Inst := TCustomItem(GetWindowLongPtr(wndItem, GWL_USERDATA));
-      if Inst is TTaskItem then TTaskItem(Inst).UpdateTaskItem(HWndTask);
+        SetDropPlace(action.InsertIndex);
+        wnd := AddItem(CreateTaskItem, true);
+        if wnd = 0 then
+        begin
+          SetDropPlace(NOT_AN_ITEM);
+          exit;
+        end;
+        created[action.NewGroupKey] := ItemRegistry.IdentityOf(wnd);
+        if not PinActiveItem(created[action.NewGroupKey], item) then exit;
+        try
+          TTaskItem(item).UpdateTaskItem(action.Window);
+        finally
+          ItemRegistry.Unpin(created[action.NewGroupKey]);
+        end;
+        continue;
+      end;
+      identity := Default(TItemIdentity);
+      if action.NewGroupKey > 0 then identity := created[action.NewGroupKey]
+      else
+        for sourceIndex := 0 to High(identities) do
+          if identities[sourceIndex].ItemId = action.ItemId then
+          begin
+            identity := identities[sourceIndex];
+            break;
+          end;
+      if not PinActiveItem(identity, item) then continue;
+      try
+        if not (item is TTaskItem) then continue;
+        case action.Kind of
+          tsaRemoveWindow: TTaskItem(item).RemoveSnapshotWindow(action.Window);
+          tsaRefreshGroup: TTaskItem(item).RefreshSnapshotGroup;
+          tsaAddWindow: TTaskItem(item).UpdateTaskItem(action.Window);
+          tsaDeleteGroup: item.Delete;
+          tsaUpdateGroup: TTaskItem(item).UpdateItem;
+        end;
+      finally
+        ItemRegistry.Unpin(identity);
+      end;
     end;
-  except
-    on e: Exception do err('ItemManager.AddTaskWindow', e);
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
-procedure TItemManager.ClearTaskbar;
-var
-  idx: integer;
-  Inst: TCustomItem;
+//------------------------------------------------------------------------------
+procedure TItemManager.FlushPendingTasks;
+var windows: TTaskWindows; useSnapshot: boolean;
 begin
-  idx := FItemCount - 1;
-  while idx >= 0 do
-  begin
-    Inst := TCustomItem(GetWindowLongPtr(FItemArray[idx].h, GWL_USERDATA));
-    if Inst is TTaskItem then Inst.Delete;
-    dec(idx);
+  if not FTaskRefreshPending or FDraggingItem or not FEnabled or
+    (FRebuildDepth > 0) then exit;
+  useSnapshot := FTaskSnapshotPending;
+  if not useSnapshot and not Assigned(ProcessHelper) then exit;
+  windows := FPendingTaskWindows;
+  FTaskRefreshPending := false;
+  FTaskSnapshotPending := false;
+  FPendingTaskWindows := nil;
+  if useSnapshot then SynchronizeTasks(windows) else Taskbar;
+end;
+
+procedure TItemManager.ClearTaskbar;
+var scope: TItemHostScope; identities: TItemIdentities; index: integer; item: TCustomItem;
+begin
+  scope := BeginItemHostOperation(FParentHWnd);
+  try
+    FTaskRefreshPending := false;
+    FTaskSnapshotPending := false;
+    FPendingTaskWindows := nil;
+    identities := CaptureItems(false);
+    for index := High(identities) downto 0 do
+      if PinActiveItem(identities[index], item) then
+      try
+        if item is TTaskItem then item.Delete;
+      finally
+        ItemRegistry.Unpin(identities[index]);
+      end;
+  finally
+    EndItemHostOperation(scope);
   end;
 end;
 //------------------------------------------------------------------------------
