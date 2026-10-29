@@ -50,7 +50,7 @@
         <PackageName Value="LCL"/>
       </Item2>
     </RequiredPackages>
-    <Units Count="81">
+    <Units Count="83">
       <Unit0>
         <Filename Value="terry.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -415,6 +415,14 @@
         <Filename Value="shellactivationu.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit80>
+      <Unit81>
+        <Filename Value="appwindowsu.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit81>
+      <Unit82>
+        <Filename Value="windowlayoutu.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit82>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

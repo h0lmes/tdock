@@ -21,7 +21,6 @@ type
     listProcess: TStrings; // process + PID
     listProcessFullName: TStrings; // process full module name + PID
     listAppWindows: TFPList; // app windows
-    FParentHWnd: THandle; // if this handle <> 0, then every app window is being checked if it is on the same monitor
     FWindowsCount: integer;
     FWindowsCountChanged: boolean;
     hKernel32: HMODULE;
@@ -86,7 +85,7 @@ var
   ProcessHelper: TProcessHelper;
 
 implementation
-uses frmmainu;
+uses frmmainu, appwindowsu;
 //------------------------------------------------------------------------------
 function windowEnumProc(h: THandle; lp: LPARAM): WINBOOL; stdcall;
 var
@@ -120,7 +119,6 @@ begin
   listProcess := TStringList.Create;
   listProcessFullName := TStringList.Create;
   listAppWindows := TFPList.Create;
-  FParentHWnd := 0;
   FWindowsCount := 0;
   FWindowsCountChanged := false;
 
@@ -610,38 +608,10 @@ begin
   list.Sort(CmpWindows);
 end;
 //------------------------------------------------------------------------------
-function EnumWProc(h: THandle; l: LPARAM): bool; stdcall;
-var
-  helper: TProcessHelper absolute l;
-  exstyle: PtrUInt;
-  ch: array [0..10] of char;
-begin
-  result := true;
-  inc(helper.FWindowsCount);
-
-  if IsWindowVisible(h) then
-  begin
-      exstyle := GetWindowLongPtr(h, GWL_EXSTYLE);
-      if exstyle and WS_EX_APPWINDOW = 0 then
-      begin
-          if GetWindow(h, GW_OWNER) <> THandle(0) then exit;
-          if exstyle and WS_EX_TOOLWINDOW <> 0 then exit;
-          if windows.GetWindowText(h, ch, 10) < 1 then exit;
-          if GetProp(h, 'ITaskList_Deleted') <> 0 then exit;
-          if assigned(DWM) then
-            if DWM.IsWindowCloaked(h) then exit;
-      end;
-
-      if not (helper.FParentHWnd = 0) then
-          if not helper.WindowsOnTheSameMonitor(h, helper.FParentHWnd) then exit;
-
-      helper.listAppWindows.Add(pointer(h));
-  end;
-end;
-//------------------------------------------------------------------------------
 procedure TProcessHelper.EnumAppWindows(ParentHWnd: THandle = 0);
 var
-  oldWindowsCount: integer;
+  oldWindowsCount, TotalCount, Index: integer;
+  Handles: TApplicationWindows;
 begin
   crsection.Acquire;
   try
@@ -649,9 +619,14 @@ begin
     FWindowsCountChanged := false;
     FWindowsCount := 0;
     if not FReady then exit;
-    FParentHWnd := ParentHWnd;
     listAppWindows.Clear;
-    EnumWindows(@EnumWProc, LPARAM(self));
+    if CaptureApplicationWindows(Handles, TotalCount) then
+    begin
+      FWindowsCount := TotalCount;
+      for Index := 0 to High(Handles) do
+        if (ParentHWnd = 0) or WindowsOnTheSameMonitor(Handles[Index], ParentHWnd) then
+          listAppWindows.Add(Pointer(Handles[Index]));
+    end;
     SortAppWindows(listAppWindows);
     FWindowsCountChanged := oldWindowsCount <> FWindowsCount;
   finally

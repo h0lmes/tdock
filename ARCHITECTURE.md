@@ -18,6 +18,8 @@ The main form connects dock services to Windows events.
 | Registry compatibility and host callbacks | `itemregistryu.pas`, `itemhostu.pas` |
 | Layout calculations | `docklayoutu.pas` |
 | Task reconciliation decisions | `tasksyncu.pas` |
+| Shared application window discovery | `appwindowsu.pas` |
+| Application window layout snapshots | `windowlayoutu.pas` |
 | Dock background and blur rendering | `dockrendereru.pas` |
 | Icon selection, extraction, sizing, and native cleanup | `iconserviceu.pas` |
 | Native window, input, and command adapters | `win32docku.pas`, `win32inputu.pas`, `win32commandu.pas` |
@@ -121,6 +123,19 @@ The form handles application actions.
 Native adapters handle Windows commands and launch requests.
 The public command names and settings sections remain compatible.
 Empty command lines return without indexing an empty string.
+
+`/savewindows` and `/restorewindows` use one in-memory snapshot per application instance.
+`TDockApplication` owns the window layout service and releases its window properties during shutdown.
+Task refresh and layout capture use the same application window discovery function.
+Layout capture does not change the cached task list or apply its monitor restriction.
+Each saved window receives a unique lifetime property before geometry capture.
+Restore validates that property, process, thread, current eligibility, and display setup before applying placement.
+Failed saves preserve the previous snapshot when every window fails or the display setup changes.
+Native placement uses asynchronous requests for foreign input queues.
+Reported restoration counts describe accepted placement requests.
+Failure results retain window descriptions and reasons alongside the existing counts.
+Native calls capture error codes before cleanup can overwrite them.
+The notifier displays and logs those details through its existing message path.
 
 ## Shutdown and persistence
 

@@ -213,3 +213,16 @@ The metadata suite contains 19 checks for dock and stack captions, icons, overri
 It exercises a real stack drop with controlled metadata supplied by a real filesystem Shell item.
 These three suites total 78 executions across checked and release modes.
 No broad regression or interaction-smoke run is required for this follow-up.
+
+Window layout tests run in checked and release modes:
+
+```powershell
+.\tests\run-windowlayout-tests.ps1
+```
+
+They cover saved geometry, window states, lifetime markers, display checks, partial failures, and repeated restoration.
+Diagnostic checks cover window names, native errors, exceptions, and missing reasons.
+Native checks use hidden windows and an isolated desktop.
+They leave the user's application windows unchanged.
+The main runner also checks command routing and application service ownership.
+Logs stay in `tests/.build/windowlayout-{checked,release}/`.

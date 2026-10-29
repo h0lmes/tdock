@@ -77,6 +77,7 @@ type
     procedure QuotedCommandKeepsParameters;
     procedure MultipleCommandsKeepCallerAndDirectories;
     procedure InternalCommandUsesTypedRoute;
+    procedure WindowLayoutCommandsUseTypedRoutes;
     procedure DisabledAutoHideFinishesMovement;
     procedure DraggingPreventsHide;
     procedure ExplicitHideClearsManualReveal;
@@ -644,6 +645,25 @@ begin
   finally UnbindItemHost(9000); App.Free; end;
 end;
 
+procedure TCoreMigrationTests.WindowLayoutCommandsUseTypedRoutes;
+var Controller: TDockCommandController; App: TDockApplication;
+begin
+  Controller := TDockCommandController.Create(RecordCommand, nil);
+  try
+    Controller.ExecuteCommandLine('/savewindows');
+    AssertEquals(Ord(aaSaveWindows), Ord(LastAction));
+    Controller.ExecuteCommandLine('/restorewindows');
+    AssertEquals(Ord(aaRestoreWindows), Ord(LastAction));
+    Controller.ExecuteCommandLine('/restore');
+    AssertEquals('Settings restoration must retain its command', Ord(aaRestore), Ord(LastAction));
+  finally Controller.Free; end;
+  App := TDockApplication.Create(0, nil, nil);
+  try
+    AssertTrue(App.WindowLayout <> nil);
+    App.ReleaseServices;
+    AssertTrue(App.WindowLayout = nil);
+  finally App.Free; end;
+end;
 initialization
   RegisterTest(TCoreMigrationTests);
 end.

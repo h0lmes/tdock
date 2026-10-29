@@ -7,7 +7,7 @@ interface
 uses Windows, SysUtils, SyncObjs, declu, setsu, themeu, itemmgru, hintu,
   DropTgtU, trayu, dockstateu, applifecycleu, dockcommandu, settingscoordinatoru,
   dockrendereru, win32docku, win32commandu, launchserviceu, pluginhostu, itemsettingsu, settingssaveu,
-  itemmodelu;
+  itemmodelu, windowlayoutu;
 
 type
   TDeferredCloseEvent = procedure of object;
@@ -28,6 +28,7 @@ type
     FRenderer: TDockRenderer;
     FNativeWindow: TDockWindowAdapter;
     FNativeCommands: TWin32CommandAdapter;
+    FWindowLayout: TWindowLayoutService;
     FLaunch: TLaunchService;
     FSaveLock: TCriticalSection;
     FPersistence: TSettingsSaveCoordinator;
@@ -69,6 +70,7 @@ type
     property Renderer: TDockRenderer read FRenderer;
     property NativeWindow: TDockWindowAdapter read FNativeWindow;
     property NativeCommands: TWin32CommandAdapter read FNativeCommands;
+    property WindowLayout: TWindowLayoutService read FWindowLayout;
     property Launch: TLaunchService read FLaunch;
     property SaveLock: TCriticalSection read FSaveLock;
     property Persistence: TSettingsSaveCoordinator read FPersistence;
@@ -104,6 +106,7 @@ begin
   FRenderer := TDockRenderer.Create(Window);
   FNativeWindow := TDockWindowAdapter.Create(Window);
   FNativeCommands := TWin32CommandAdapter.Create(Window);
+  FWindowLayout := TWindowLayoutService.Create;
   FSaveLock := TCriticalSection.Create;
 end;
 
@@ -191,6 +194,7 @@ begin
   if FNativeWindow <> nil then FNativeWindow.Stop;
   if FPlugins <> nil then FPlugins.Unbind;
   UnbindItemHost(FWindow);
+  try FreeAndNil(FWindowLayout); except on E: Exception do RecordCleanupFailure(E); end;
   try FreeAndNil(FPersistence); except on E: Exception do RecordCleanupFailure(E); end;
   try FreeAndNil(FDrop); except on E: Exception do RecordCleanupFailure(E); end;
   try FreeAndNil(FItems); except on E: Exception do RecordCleanupFailure(E); end;

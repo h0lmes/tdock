@@ -1271,3 +1271,111 @@ msgstr "Дальше"
 msgid "Tip"
 msgstr "Подсказка"
 
+#: windowlayoutu.xwindowaccessdenied
+#, object-pascal-format
+msgid "%s: access denied (Windows error %d). The application may run as administrator."
+msgstr "%s: доступ запрещён (ошибка Windows %d). Возможно, приложение работает от имени администратора."
+
+#: windowlayoutu.xwindowboundsfailed
+msgid "Cannot read window size and position"
+msgstr "Не удалось прочитать размер и положение окна"
+
+#: windowlayoutu.xwindowchanged
+msgid "The window closed or changed."
+msgstr "Окно закрыто или изменено."
+
+#: windowlayoutu.xwindowerrorcode
+#, object-pascal-format
+msgid "%s (Windows error %d)."
+msgstr "%s (ошибка Windows %d)."
+
+#: windowlayoutu.xwindowfailure
+#, object-pascal-format
+msgid "- %s: %s"
+msgstr "- %s: %s"
+
+#: windowlayoutu.xwindowidentifyfailed
+msgid "Cannot identify the window"
+msgstr "Не удалось определить окно"
+
+#: windowlayoutu.xwindowmarkerfailed
+#, object-pascal-format
+msgid "Cannot create a window identity marker (HRESULT 0x%s)."
+msgstr "Не удалось создать метку окна (HRESULT 0x%s)."
+
+#: windowlayoutu.xwindowmarkfailed
+msgid "Cannot mark window identity"
+msgstr "Не удалось установить метку окна"
+
+#: windowlayoutu.xwindowmonitorfailed
+msgid "Cannot read the window monitor"
+msgstr "Не удалось определить монитор окна"
+
+#: windowlayoutu.xwindowplacementfailed
+msgid "Cannot read window placement"
+msgstr "Не удалось прочитать расположение окна"
+
+#: windowlayoutu.xwindowrestorefailed
+msgid "Cannot restore window placement"
+msgstr "Не удалось восстановить расположение окна"
+
+#: windowlayoutu.xwindowsbusy
+msgid "A window layout command is already running."
+msgstr "Команда расположения окон уже выполняется."
+
+#: windowlayoutu.xwindowsdisplaychanged
+msgid "Display setup differs. Restore the saved resolution, monitors, scaling, and work areas first."
+msgstr "Параметры экранов отличаются. Сначала восстановите сохранённое разрешение, мониторы, масштаб и рабочие области."
+
+#: windowlayoutu.xwindowsnosnapshot
+msgid "No window layout saved. Use /savewindows first."
+msgstr "Расположение окон не сохранено. Сначала выполните /savewindows."
+
+#: windowlayoutu.xwindowsrestored
+#, object-pascal-format
+msgid "Windows restored: %d. Skipped: %d. Failed: %d."
+msgstr "Восстановлено окон: %d. Пропущено: %d. Ошибок: %d."
+
+#: windowlayoutu.xwindowssaved
+#, object-pascal-format
+msgid "Window layout saved: %d. Failed: %d."
+msgstr "Расположение окон сохранено: %d. Ошибок: %d."
+
+#: windowlayoutu.xwindowssavefailed
+#, object-pascal-format
+msgid "No windows saved. Previous layout unchanged. Failed: %d."
+msgstr "Окна не сохранены. Прежнее расположение не изменено. Ошибок: %d."
+
+#: windowlayoutu.xwindowsunavailable
+msgid "Cannot read application windows or display settings. Saved layout unchanged."
+msgstr "Не удалось получить окна приложений или параметры экранов. Сохранённое расположение не изменено."
+
+#: windowlayoutu.xwindowsystemerror
+#, object-pascal-format
+msgid "%s: %s (Windows error %d)."
+msgstr "%s: %s (ошибка Windows %d)."
+
+#: windowlayoutu.xwindowunknown
+#, object-pascal-format
+msgid "Window 0x%s"
+msgstr "Окно 0x%s"
+
+#: windowlayoutu.xwindowunknownfailure
+msgid "The application did not provide an error reason."
+msgstr "Приложение не сообщило причину ошибки."
+
+#: windowlayoutu.xwindowuntitled
+#, object-pascal-format
+msgid "Untitled window [%s]"
+msgstr "Окно без заголовка [%s]"
+
+#: windowlayoutu.xwindowwithhandle
+#, object-pascal-format
+msgid "%s (window 0x%s)"
+msgstr "%s (окно 0x%s)"
+
+#: windowlayoutu.xwindowwithprocess
+#, object-pascal-format
+msgid "\"%s\" (PID %d)"
+msgstr "«%s» (PID %d)"
+

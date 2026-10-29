@@ -71,7 +71,9 @@ type
     aaFindWindow,
     aaFindWindowEx,
     aaShowWindow,
-    aaSendMessage);
+    aaSendMessage,
+    aaSaveWindows,
+    aaRestoreWindows);
   TCommandRequest = record
     Command, Parameters, Directory: string;
     ShowCommand: Integer;
@@ -130,6 +132,8 @@ begin
   if Name = 'help' then Exit(aaHelp);
   if Name = 'backup' then Exit(aaBackup);
   if Name = 'restore' then Exit(aaRestore);
+  if Name = 'savewindows' then Exit(aaSaveWindows);
+  if Name = 'restorewindows' then Exit(aaRestoreWindows);
   if Name = 'paste' then Exit(aaPaste);
   if Name = 'setvolume' then Exit(aaSetVolume);
   if Name = 'autotray' then Exit(aaAutoTray);

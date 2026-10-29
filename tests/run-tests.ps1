@@ -14,7 +14,7 @@ if (-not $Compiler) { throw 'Specify the Free Pascal compiler with -Compiler.' }
 
 $projectRoot = Split-Path $PSScriptRoot -Parent
 foreach ($mode in @('checked', 'release')) {
-    foreach ($suite in @('itemmodel', 'itemcollection', 'itemidentity', 'itemmanager', 'propertylifetime', 'runthread', 'coremigration', 'itemregistry', 'itemhost', 'subitemlifetime', 'settingssave', 'docklayout', 'tasksync', 'nativeinput', 'pluginhost', 'serialization', 'docktiming', 'hotkey', 'animationtiming', 'itemtiming', 'shelltiming', 'dropownership', 'appmetadata', 'iconservice', 'apptarget', 'launchservice', 'dropimport', 'targetpreservation', 'launchfailure', 'variableexpansion', 'activation')) {
+    foreach ($suite in @('itemmodel', 'itemcollection', 'itemidentity', 'itemmanager', 'propertylifetime', 'runthread', 'coremigration', 'itemregistry', 'itemhost', 'subitemlifetime', 'settingssave', 'docklayout', 'tasksync', 'windowlayout', 'nativeinput', 'pluginhost', 'serialization', 'docktiming', 'hotkey', 'animationtiming', 'itemtiming', 'shelltiming', 'dropownership', 'appmetadata', 'iconservice', 'apptarget', 'launchservice', 'dropimport', 'targetpreservation', 'launchfailure', 'variableexpansion', 'activation')) {
         $buildPath = Join-Path $PSScriptRoot ".build\$suite-$mode"
         New-Item -ItemType Directory -Path $buildPath -Force | Out-Null
         $flags = @('-B', '-Mdelphi', "-Fu$projectRoot", "-FU$buildPath", "-FE$buildPath")

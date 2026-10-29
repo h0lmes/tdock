@@ -10,7 +10,7 @@ uses
   DropTgtU, setsu, trayu, shelltraywndu, aeropeeku, loggeru,
   dockapplicationu, dockstateu, applifecycleu, dockcommandu, settingscoordinatoru,
   dockrendereru, win32docku, win32inputu, docklayoutu, pluginhostu, itemhostu,
-  docktimingu, dockpolicyu, win32hotkeyu;
+  docktimingu, dockpolicyu, win32hotkeyu, windowlayoutu;
 
 type
   { Tfrmmain }
@@ -1971,6 +1971,8 @@ begin
     aaHelp: TfrmTip.Open;
     aaBackup: sets.Backup;
     aaRestore: TfrmRestore.Open;
+    aaSaveWindows: notify(UTF8Decode(WindowLayoutMessage(FApp.WindowLayout.Save)));
+    aaRestoreWindows: notify(UTF8Decode(WindowLayoutMessage(FApp.WindowLayout.Restore)));
     aaPaste: ItemMgr.InsertItem(GetClipboard);
     aaAutoTray: Tray.SwitchAutoTray;
     aaTray: Tray.ShowTrayOverflow(sets.container.Site, hwndCaller, ItemMgr.Rect, GetMonitorWorkareaRect);
