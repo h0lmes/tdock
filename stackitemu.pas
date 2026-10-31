@@ -1195,7 +1195,7 @@ begin
   begin
       showItems := FStateProgress = 0;
 
-      FStateProgress := FStackAnimation.ValueAt(AnimationNow);
+      FStateProgress := FStackAnimation.ValueAt(MotionNow);
       if not FOpenAnimation then FStateProgress := 1;
       if FStateProgress >= 1 then
       begin
@@ -1209,7 +1209,7 @@ begin
   else
   if FState = stsClosing then
   begin
-      FStateProgress := FStackAnimation.ValueAt(AnimationNow);
+      FStateProgress := FStackAnimation.ValueAt(MotionNow);
       if not FOpenAnimation then FStateProgress := 0;
 
       if FStateProgress <= 0 then
@@ -1231,15 +1231,15 @@ begin
   end;
 end;
 procedure TStackItem.StartStackAnimation(Target: Double);
-var step: extended; duration, now: QWord;
+var step: extended; duration, now: Double;
 begin
-  now := AnimationNow;
+  now := MotionNow;
   if FState in [stsOpening, stsClosing] then FStateProgress := FStackAnimation.ValueAt(now);
   step := mc.GetStep(FMode, FItemCount);
   if FAnimationSpeed > MID_ANIM_SPEED then step := step * (1 + (FAnimationSpeed - MID_ANIM_SPEED) * 0.5);
   if FAnimationSpeed < MID_ANIM_SPEED then step := step * (1 - (MID_ANIM_SPEED - FAnimationSpeed) * 0.15);
   if step <= 0 then step := 0.01;
-  duration := Max(1, Round(Abs(Target - FStateProgress) * 10 / step));
+  duration := Max(1.0, Abs(Target - FStateProgress) * 15.625 / step);
   FStackAnimation.StartValue := FStateProgress;
   FStackAnimation.TargetValue := FStateProgress;
   FStackAnimation.DurationMs := 0;

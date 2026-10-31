@@ -32,11 +32,11 @@ function ReduceVisibility(const State: TDockVisibilityState;
   Event: TVisibilityEvent): TDockVisibilityState;
 function EffectiveVisibility(const State: TDockVisibilityState): Boolean;
 function ReconcileReveal(const State: TDockRevealState;
-  const Input: TDockRevealInput; Now: QWord): TDockRevealState;
-function AdvanceReveal(const State: TDockRevealState; Now: QWord): TDockRevealState;
+  const Input: TDockRevealInput; Now: Double): TDockRevealState;
+function AdvanceReveal(const State: TDockRevealState; Now: Double): TDockRevealState;
 function RevealNeedsFrames(const State: TDockRevealState): Boolean;
 function CollapseReveal(const State: TDockRevealState; Target: Integer;
-  Now: QWord): TDockRevealState;
+  Now: Double): TDockRevealState;
 
 implementation
 
@@ -61,15 +61,13 @@ begin
     not (State.FullscreenEnabled and State.FullscreenActive);
 end;
 
-procedure StartMotion(var State: TDockRevealState; Target: Integer; Now: QWord);
-var Duration: QWord;
+procedure StartMotion(var State: TDockRevealState; Target: Integer; Now: Double);
 begin
   State.Target := Target;
   State.Motion.StartValue := State.Offset;
   State.Motion.TargetValue := Target;
   State.Motion.StartedAt := Now;
-  Duration := (QWord(Abs(Target - State.Offset)) * 10 + 3) div 4;
-  State.Motion.DurationMs := Duration;
+  State.Motion.DurationMs := Abs(Target - State.Offset) * 15.625 / 4;
   if Target = State.Offset then
   begin
     if Target = 0 then State.Phase := rpExpanded else State.Phase := rpCollapsed;
@@ -78,7 +76,7 @@ begin
 end;
 
 function CollapseReveal(const State: TDockRevealState; Target: Integer;
-  Now: QWord): TDockRevealState;
+  Now: Double): TDockRevealState;
 begin
   Result := State;
   Result.ManualReveal := False;
@@ -88,7 +86,7 @@ begin
 end;
 
 function ReconcileReveal(const State: TDockRevealState;
-  const Input: TDockRevealInput; Now: QWord): TDockRevealState;
+  const Input: TDockRevealInput; Now: Double): TDockRevealState;
 var Wanted: Integer; Delay: QWord;
 begin
   Result := AdvanceReveal(State, Now);
@@ -149,14 +147,14 @@ begin
     Delay := Input.HideDelay;
     Result.Phase := rpWaitingToHide;
   end;
-  Result.Deadline.Schedule(Now, Delay);
+  Result.Deadline.Schedule(Trunc(Now), Delay);
 end;
-function AdvanceReveal(const State: TDockRevealState; Now: QWord): TDockRevealState;
-var StartAt: QWord;
+function AdvanceReveal(const State: TDockRevealState; Now: Double): TDockRevealState;
+var StartAt: Double;
 begin
   Result := State;
   if Result.Phase in [rpSuspended, rpBlocked] then Exit;
-  if Result.Deadline.IsDue(Now) then
+  if Result.Deadline.IsDue(Trunc(Now)) then
   begin
     StartAt := Result.Deadline.DueAt;
     Result.Deadline.Cancel;

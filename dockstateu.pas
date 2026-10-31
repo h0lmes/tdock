@@ -29,12 +29,12 @@ type
     procedure SetMouseEffectLock(Id: TItemId; Locked: Boolean);
     procedure ReleaseItemLocks(Id: TItemId);
     procedure BindSettings(Settings: PDockSettings);
-    procedure RequestHide(Thickness, VisiblePixels: Integer; Dragging: Boolean; Now: QWord = 0);
+    procedure RequestHide(Thickness, VisiblePixels: Integer; Dragging: Boolean; Now: Double = 0);
     procedure RequestShow;
     function Step(StepSize: Integer): Boolean;
     procedure ObserveFullscreen(Active, Enabled: Boolean);
-    procedure Reconcile(const Input: TDockRevealInput; Now: QWord);
-    function Advance(Now: QWord): Boolean;
+    procedure Reconcile(const Input: TDockRevealInput; Now: Double);
+    function Advance(Now: Double): Boolean;
     function RevealSnapshot: TDockRevealState;
     function NeedsFrames: Boolean;
     property MouseEffectLocked: Boolean read GetMouseEffectLocked;
@@ -100,7 +100,7 @@ begin
   if not Value then FReveal.Target := 0;
 end;
 
-procedure TDockState.RequestHide(Thickness, VisiblePixels: Integer; Dragging: Boolean; Now: QWord);
+procedure TDockState.RequestHide(Thickness, VisiblePixels: Integer; Dragging: Boolean; Now: Double);
 var Target: Integer;
 begin
   if Dragging or not GetAutoHide then Exit;
@@ -149,9 +149,9 @@ begin
   if Enabled then FVisibility := ReduceVisibility(FVisibility, vePolicyEnabled)
   else FVisibility := ReduceVisibility(FVisibility, vePolicyDisabled);
 end;
-procedure TDockState.Reconcile(const Input: TDockRevealInput; Now: QWord);
+procedure TDockState.Reconcile(const Input: TDockRevealInput; Now: Double);
 begin FReveal := ReconcileReveal(FReveal, Input, Now); end;
-function TDockState.Advance(Now: QWord): Boolean;
+function TDockState.Advance(Now: Double): Boolean;
 var Previous: Integer;
 begin
   Previous := FReveal.Offset;

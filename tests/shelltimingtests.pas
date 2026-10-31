@@ -31,6 +31,15 @@ type
     procedure FailedShowWorkareaRetriesOnWatchdog;
     procedure MissingTaskbarDefersPendingLayout;
     procedure FailedRectangleQueryDefersPendingLayout;
+    procedure NotificationStartsFastAndSlows;
+    procedure MovingNotificationKeepsFullExpiry;
+    procedure ExpiredNotificationWaitsForPointerExit;
+    procedure NotificationUsesFractionalFrameTime;
+    procedure NotificationIgnoresFramePartition;
+    procedure ClosedNotificationPerformsNoFrames;
+    procedure NotificationAlphaUsesPrecisePosition;
+    procedure NotificationExpiryWaitsForFullDuration;
+    procedure NotificationStopsFramesAfterEntry;
   end;
 
 implementation
@@ -44,6 +53,24 @@ begin
 end;
 
 type
+  TNotifierTimingProbe = class(TNotifier)
+  protected
+    function ClockNow: QWord; override;
+    function MotionNow: Double; override;
+    function PointerInside: Boolean; override;
+    procedure ApplyWindowPosition(Alpha: Integer); override;
+  public
+    Now: Double;
+    Inside: Boolean;
+    LastAlpha, Presentations: Integer;
+    procedure BeginMove;
+    function LeftPosition: Integer;
+    function Active: Boolean;
+    function ExpiryAt: QWord;
+    function FrameActive: Boolean;
+    function DeadlineInterval: UINT;
+  end;
+
   TTestShell = class(TShellTrayWndController)
   public
     Writes, LastMonitor: Integer;
@@ -60,6 +87,43 @@ type
     function SetWorkarea(NewWorkArea: Windows.TRect): Boolean; override;
   end;
 
+function TNotifierTimingProbe.ClockNow: QWord;
+begin Result := Trunc(Now); end;
+function TNotifierTimingProbe.MotionNow: Double;
+begin Result := Now; end;
+function TNotifierTimingProbe.PointerInside: Boolean;
+begin Result := Inside; end;
+procedure TNotifierTimingProbe.ApplyWindowPosition(Alpha: Integer);
+begin LastAlpha := Alpha; Inc(Presentations); end;
+procedure TNotifierTimingProbe.BeginMove;
+begin
+  Now := 1000;
+  FActive := True;
+  FW := 320;
+  FH := 100;
+  FX := 160; FXTarget := 0;
+  FY := 0; FYTarget := 0;
+  FTimeout := 8000;
+  FExpiry.Schedule(Trunc(Now), FTimeout);
+  FXAnimation.StartValue := FX;
+  FXAnimation.TargetValue := FXTarget;
+  FXAnimation.StartedAt := Now;
+  FXAnimation.DurationMs := 400;
+  FYAnimation.StartValue := FY;
+  FYAnimation.TargetValue := FYTarget;
+end;
+function TNotifierTimingProbe.LeftPosition: Integer;
+begin Result := FX; end;
+function TNotifierTimingProbe.Active: Boolean;
+begin Result := FActive; end;
+function TNotifierTimingProbe.ExpiryAt: QWord;
+begin Result := FExpiry.DueAt; end;
+function TNotifierTimingProbe.FrameActive: Boolean;
+begin Result := FFrameTimerActive; end;
+function TNotifierTimingProbe.DeadlineInterval: UINT;
+begin Result := FTimerInterval; end;
+
+type
   TTestTray = class(TTrayController)
   public
     Now: QWord;
@@ -458,6 +522,139 @@ begin
     Shell.Timer;
     AssertEquals('A valid observation resumes the retained layout request', 2, Shell.Writes);
   finally Shell.Free; end;
+end;
+
+procedure TShellTimingTests.NotificationStartsFastAndSlows;
+var Notification: TNotifierTimingProbe;
+begin
+  Notification := TNotifierTimingProbe.Create;
+  try
+    Notification.BeginMove;
+    Notification.Now := 1100;
+    Notification.Timer;
+    AssertTrue('The first quarter must cover most of the entry distance',
+      Notification.LeftPosition < 80);
+    Notification.Now := 1300;
+    Notification.Timer;
+    AssertTrue('The final quarter must approach the resting position',
+      Notification.LeftPosition < 10);
+  finally Notification.Free; end;
+end;
+
+procedure TShellTimingTests.MovingNotificationKeepsFullExpiry;
+var Notification: TNotifierTimingProbe;
+begin
+  Notification := TNotifierTimingProbe.Create;
+  try
+    Notification.BeginMove;
+    Notification.Now := 1400;
+    Notification.Timer;
+    AssertEquals('Timeout starts after entry reaches its target', 9400, Int64(Notification.ExpiryAt));
+  finally Notification.Free; end;
+end;
+
+procedure TShellTimingTests.ExpiredNotificationWaitsForPointerExit;
+var Notification: TNotifierTimingProbe;
+begin
+  Notification := TNotifierTimingProbe.Create;
+  try
+    Notification.BeginMove;
+    Notification.Now := 1400;
+    Notification.Timer;
+    Notification.Now := 9400;
+    Notification.Inside := True;
+    Notification.Timer;
+    AssertTrue('Hover retains an expired message', Notification.Active);
+    Notification.Inside := False;
+    Notification.Timer;
+    AssertFalse('Pointer exit releases an expired message', Notification.Active);
+  finally Notification.Free; end;
+end;
+
+procedure TShellTimingTests.NotificationUsesFractionalFrameTime;
+var Notification: TNotifierTimingProbe;
+begin
+  Notification := TNotifierTimingProbe.Create;
+  try
+    Notification.BeginMove;
+    Notification.Now := 1000.75;
+    Notification.Timer;
+    AssertTrue('Fractional milliseconds must affect entry position', Notification.LeftPosition < 160);
+  finally Notification.Free; end;
+end;
+
+procedure TShellTimingTests.NotificationIgnoresFramePartition;
+var Sparse, Dense: TNotifierTimingProbe;
+begin
+  Sparse := TNotifierTimingProbe.Create;
+  Dense := TNotifierTimingProbe.Create;
+  try
+    Sparse.BeginMove;
+    Dense.BeginMove;
+    Dense.Now := 1008.25; Dense.Timer;
+    Dense.Now := 1016.75; Dense.Timer;
+    Dense.Now := 1025.5; Dense.Timer;
+    Dense.Now := 1037.5; Dense.Timer;
+    Sparse.Now := 1037.5; Sparse.Timer;
+    AssertEquals('Entry position must ignore frame count', Sparse.LeftPosition, Dense.LeftPosition);
+    AssertEquals('Entry alpha must ignore frame count', Sparse.LastAlpha, Dense.LastAlpha);
+  finally Dense.Free; Sparse.Free; end;
+end;
+
+procedure TShellTimingTests.ClosedNotificationPerformsNoFrames;
+var Notification: TNotifierTimingProbe;
+begin
+  Notification := TNotifierTimingProbe.Create;
+  try
+    Notification.BeginMove;
+    Notification.Close;
+    Notification.Now := 1100;
+    Notification.Timer;
+    AssertEquals('Closed messages must perform no presentation work', 0, Notification.Presentations);
+  finally Notification.Free; end;
+end;
+
+procedure TShellTimingTests.NotificationAlphaUsesPrecisePosition;
+var Notification: TNotifierTimingProbe;
+begin
+  Notification := TNotifierTimingProbe.Create;
+  try
+    Notification.BeginMove;
+    Notification.Now := 1000.75;
+    Notification.Timer;
+    AssertEquals('Alpha must use the precise position before native rounding', 1, Notification.LastAlpha);
+  finally Notification.Free; end;
+end;
+
+procedure TShellTimingTests.NotificationExpiryWaitsForFullDuration;
+var Notification: TNotifierTimingProbe;
+begin
+  Notification := TNotifierTimingProbe.Create;
+  try
+    Notification.BeginMove;
+    Notification.Now := 1370;
+    Notification.Timer;
+    Notification.Now := 1400;
+    Notification.Timer;
+    AssertEquals('Pixel rounding must not shorten the expiration delay', 9400, Int64(Notification.ExpiryAt));
+  finally Notification.Free; end;
+end;
+
+procedure TShellTimingTests.NotificationStopsFramesAfterEntry;
+var Notification: TNotifierTimingProbe;
+begin
+  Notification := TNotifierTimingProbe.Create;
+  try
+    Notification.BeginMove;
+    Notification.Now := 1100;
+    Notification.Timer;
+    AssertTrue('Entry movement requires frame callbacks', Notification.FrameActive);
+    AssertEquals('Entry movement needs no deadline wakeups', 0, Integer(Notification.DeadlineInterval));
+    Notification.Now := 1400;
+    Notification.Timer;
+    AssertFalse('A settled message stops frame callbacks', Notification.FrameActive);
+    AssertEquals('A settled message waits for its deadline', 8000, Integer(Notification.DeadlineInterval));
+  finally Notification.Free; end;
 end;
 
 initialization

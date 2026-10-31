@@ -4,7 +4,7 @@ unit docklayouttests;
 
 interface
 
-uses Types, Windows, SysUtils, fpcunit, testregistry, docklayoutu;
+uses Types, Windows, SysUtils, fpcunit, testregistry, docklayoutu, stackmodeu;
 
 type
   TDockLayoutTests = class(TTestCase)
@@ -24,9 +24,37 @@ type
     procedure BoundsIncludeZoomOnEachEdge;
     procedure PositionHitTestKeepsInclusiveDockBoundary;
     procedure RectangleHitTestKeepsExclusiveRightAndBottom;
+    procedure StackReversalKeepsVisibleGeometry;
   end;
 
 implementation
+
+procedure TDockLayoutTests.StackReversalKeepsVisibleGeometry;
+const ProgressSamples: array[0..4] of Double = (0.1, 0.3, 0.5, 0.7, 0.9);
+var Mode, Site, Index, Sample: Integer; Opening, Closing: TStackItemData;
+  Controller: TStackModeController; Context: string;
+begin
+  Controller := TStackModeController.Create;
+  try
+    for Mode := 0 to MODE_COUNT do
+      for Site := 0 to 3 do
+        for Index := 0 to 4 do
+          for Sample := 0 to High(ProgressSamples) do
+          begin
+            Context := Format('Mode %d, edge %d, child %d, progress %.1f',
+              [Mode, Site, Index, ProgressSamples[Sample]]);
+            Opening := Controller.GetItemData(Mode, True, True,
+              ProgressSamples[Sample], Index, 5, Site, 48, 10, 2);
+            Closing := Controller.GetItemData(Mode, False, True,
+              ProgressSamples[Sample], Index, 5, Site, 48, 10, 2);
+            AssertEquals(Context + ': horizontal position', Opening.x, Closing.x);
+            AssertEquals(Context + ': vertical position', Opening.y, Closing.y);
+            AssertEquals(Context + ': size', Opening.s, Closing.s);
+            AssertEquals(Context + ': opacity', Opening.alpha, Closing.alpha);
+            AssertEquals(Context + ': rotation', Opening.angle, Closing.angle, 0.0001);
+          end;
+  finally Controller.Free; end;
+end;
 
 procedure TDockLayoutTests.SetUp;
 begin

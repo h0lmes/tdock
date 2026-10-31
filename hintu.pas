@@ -3,7 +3,7 @@ unit hintu;
 interface
 
 uses Windows, Messages, SysUtils, Forms, Math,
-  declu, toolu, GDIPAPI, gfx, setsu, dockh;
+  declu, toolu, GDIPAPI, gfx, setsu, dockh, animationclocku, framepaceru;
 
 const
   TDHINT_WCLASS = 'TDockHintWClass';
@@ -31,11 +31,19 @@ type
     FHTarget: integer;
     FBorder: integer;
     FFrameTimerActive: boolean;
-    FLastFrameAt: QWord;
+    FFramePacer: TFramePacer;
+    FSurfaceReady: Boolean;
+    FLastFrameAt: Double;
+    FXMotion, FYMotion, FWMotion, FHMotion, FAlphaMotion: Double;
     procedure err(where: string; e: Exception);
   protected
     function AnimationNow: QWord; virtual;
+    function MotionNow: Double; virtual;
     procedure Paint; virtual;
+    procedure ApplyWindowPosition; virtual;
+    function PresentNativePixels(const Bitmap: _SimpleBitmap): Boolean; virtual;
+    function PresentNativePosition: Boolean; virtual;
+    procedure PresentPixels(const Bitmap: _SimpleBitmap);
     procedure StartFrameTimer;
     procedure StopFrameTimer;
   public
@@ -52,16 +60,28 @@ implementation
 function THint.AnimationNow: QWord;
 begin Result := GetTickCount64; end;
 
+function THint.MotionNow: Double;
+begin Result := AnimationTimeMs; end;
+
 procedure THint.StartFrameTimer;
 begin
   if FFrameTimerActive then exit;
-  FLastFrameAt := AnimationNow;
-  FFrameTimerActive := SetTimer(FHWnd, ID_TIMER, 10, nil) <> 0;
+  FLastFrameAt := MotionNow;
+  FXMotion := FX;
+  FYMotion := FY;
+  FWMotion := FW;
+  FHMotion := FH;
+  FAlphaMotion := FAlpha;
+  if not Assigned(FFramePacer) then FFramePacer := TFramePacer.Create(FHWnd, DOCK_FRAME_MESSAGE);
+  FFramePacer.SetMonitorForWindow(FHWnd);
+  FFramePacer.SetRefreshRate(RefreshRateForWindow(FHWnd));
+  FFramePacer.SetActive(True);
+  FFrameTimerActive := FFramePacer.Active;
 end;
 
 procedure THint.StopFrameTimer;
 begin
-  KillTimer(FHWnd, ID_TIMER);
+  if Assigned(FFramePacer) then FFramePacer.SetActive(False);
   FFrameTimerActive := false;
 end;
 //------------------------------------------------------------------------------
@@ -74,10 +94,24 @@ begin
     result := HTTRANSPARENT;
     exit;
   end
-  else if (message = WM_TIMER) and (wParam = ID_TIMER) then
+  else if message = WM_DISPLAYCHANGE then
   begin
     objHint := THint(GetWindowLongPtr(wnd, GWL_USERDATA));
-    if objHint is THint then objHint.Timer;
+    if (objHint is THint) and Assigned(objHint.FFramePacer) then
+    begin
+      objHint.FFramePacer.SetMonitorForWindow(wnd);
+      objHint.FFramePacer.SetRefreshRate(RefreshRateForWindow(wnd));
+    end;
+  end
+  else if message = DOCK_FRAME_MESSAGE then
+  begin
+    objHint := THint(GetWindowLongPtr(wnd, GWL_USERDATA));
+    if (objHint is THint) and Assigned(objHint.FFramePacer) and
+      objHint.FFramePacer.ConsumeMessage(wParam) then
+    begin
+      BeginAnimationFrame;
+      try objHint.Timer; finally EndAnimationFrame; end;
+    end;
     exit;
   end;
   Result := DefWindowProc(wnd, message, wParam, lParam);
@@ -128,6 +162,8 @@ end;
 //------------------------------------------------------------------------------
 destructor THint.Destroy;
 begin
+  StopFrameTimer;
+  FreeAndNil(FFramePacer);
   DestroyWindow(FHWnd);
 end;
 //------------------------------------------------------------------------------
@@ -150,6 +186,7 @@ var
   workArea: Windows.TRect;
   monInfo: MONITORINFO;
 begin
+  Timer;
   if IsWindow(FHWnd) then
   try
     FActivating := True;
@@ -215,6 +252,9 @@ begin
         FY := y;
         FW := awidth;
         FH := aheight;
+        FXMotion := FX; FYMotion := FY;
+        FWMotion := FW; FHMotion := FH;
+        FAlphaMotion := FAlpha;
       end else if not FVisible and (FAlpha = 0) then
       begin
         FAlpha := 0;
@@ -222,6 +262,9 @@ begin
         FY := y;
         FW := awidth;
         FH := aheight;
+        FXMotion := FX; FYMotion := FY;
+        FWMotion := FW; FHMotion := FH;
+        FAlphaMotion := FAlpha;
         {if (FSite = bsTop) or (FSite = bsBottom) then
         begin
           FW := 10;
@@ -235,9 +278,13 @@ begin
         begin
           FY := y;
           FH := aheight;
+          FYMotion := FY;
+          FHMotion := FH;
         end else begin
           FX := x;
           FW := awidth;
+          FXMotion := FX;
+          FWMotion := FW;
         end;
       end;
     except
@@ -251,8 +298,8 @@ begin
 
     try
       Paint;
-      if sets.container.HintEffects and ((FAlpha <> FAlphaTarget) or
-        (FX <> FXTarget) or (FY <> FYTarget) or (FW <> FWTarget) or (FH <> FHTarget)) then
+      if not FSurfaceReady or (sets.container.HintEffects and ((FAlpha <> FAlphaTarget) or
+        (FX <> FXTarget) or (FY <> FYTarget) or (FW <> FWTarget) or (FH <> FHTarget))) then
         StartFrameTimer
       else StopFrameTimer;
       FVisible := True;
@@ -276,6 +323,7 @@ var
   bmp: _SimpleBitmap;
   points: array [0..3] of GDIPAPI.TPoint;
 begin
+    FSurfaceReady := False;
     // background //
     try
       bmp.topleft.x := FX - FBorder;
@@ -325,7 +373,7 @@ begin
       GdipDrawString(dst, PWideChar(FCaption), -1, font, @rect, nil, brush);
       GdipDeleteBrush(brush);
 
-      UpdateLWindow(FHWnd, bmp, FAlpha);
+      PresentPixels(bmp);
       SetWindowPos(FHWnd, hwnd_topmost, 0, 0, 0, 0, SWP_NOACTIVATE + SWP_NOMOVE + SWP_NOSIZE + SWP_SHOWWINDOW);
 
       GdipDeleteFont(font);
@@ -337,64 +385,71 @@ begin
     end;
 end;
 //------------------------------------------------------------------------------
+procedure THint.ApplyWindowPosition;
+begin
+  if not PresentNativePosition then FSurfaceReady := False;
+  if not FSurfaceReady and FVisible and not FActivating then StartFrameTimer;
+end;
+
+function THint.PresentNativePixels(const Bitmap: _SimpleBitmap): Boolean;
+begin Result := TryUpdateLWindow(FHWnd, Bitmap, FAlpha); end;
+
+function THint.PresentNativePosition: Boolean;
+begin Result := TryUpdateLWindowPosAlpha(FHWnd, FX - FBorder, FY - FBorder, FAlpha); end;
+
+procedure THint.PresentPixels(const Bitmap: _SimpleBitmap);
+begin
+  FSurfaceReady := PresentNativePixels(Bitmap);
+  if not FSurfaceReady and FVisible and not FActivating then StartFrameTimer;
+end;
+
 procedure THint.Timer;
-const
-  STEP = 1;
-  ITER = 4;
-  ASTEP = 5;
-  AITER = 3;
+  procedure Decay(var Value: Double; Target, Elapsed, Retention, MinimumStep: Double);
+  var Distance, Rate, Speed, TailDistance, DecayTime: Double;
+  begin
+    Distance := Abs(Value - Target);
+    Rate := -Ln(Retention) / 15.625;
+    Speed := MinimumStep / 15.625;
+    TailDistance := Speed / Rate;
+    if Distance > TailDistance then
+    begin
+      DecayTime := Ln(Distance / TailDistance) / Rate;
+      if Elapsed < DecayTime then Distance := Distance * Exp(-Rate * Elapsed)
+      else Distance := TailDistance - Speed * (Elapsed - DecayTime);
+    end else Distance := Distance - Speed * Elapsed;
+    if Distance < 0.000001 then Value := Target
+    else if Value < Target then Value := Target - Distance
+    else Value := Target + Distance;
+  end;
 var
-  delta, frame, frames: integer;
-  now, elapsedFrames: QWord;
-  changed: boolean;
+  Now, Elapsed: Double;
+  OldX, OldY, OldW, OldH, OldAlpha: Integer;
 begin
   if not FFrameTimerActive or FActivating then exit;
   try
-    now := AnimationNow;
-    if now < FLastFrameAt then exit;
-    elapsedFrames := (now - FLastFrameAt) div 10;
-    if elapsedFrames > 1000 then frames := 1000 else frames := elapsedFrames;
-    FLastFrameAt := now - ((now - FLastFrameAt) mod 10);
-    changed := false;
-    for frame := 1 to frames do
-    if (not FVisible and (FAlpha > 0)) or (FVisible and (FAlpha < 255)) or (FXTarget <> FX) or (FYTarget <> FY) or (FWTarget <> FW) or (FHTarget <> FH) then
-    begin
-      changed := true;
-      delta := abs(255 - FAlpha) div AITER;
-      if FVisible then FAlpha += ifthen(delta < ASTEP, ASTEP, delta)
-      else FAlpha -= ifthen(delta < ASTEP, ASTEP, delta);
-      if FAlpha < 0 then FAlpha := 0;
-      if FAlpha > 255 then FAlpha := 255;
-
-      delta := abs(FXTarget - FX) div ITER;
-      if abs(FXTarget - FX) < STEP then FX := FXTarget
-      else if FXTarget > FX then FX += ifthen(delta < STEP, STEP, delta)
-      else if FXTarget < FX then FX -= ifthen(delta < STEP, STEP, delta);
-
-      delta := abs(FYTarget - FY) div ITER;
-      if abs(FYTarget - FY) < STEP then FY := FYTarget
-      else if FYTarget > FY then FY += ifthen(delta < STEP, STEP, delta)
-      else if FYTarget < FY then FY -= ifthen(delta < STEP, STEP, delta);
-
-      delta := abs(FWTarget - FW) div ITER;
-      if abs(FWTarget - FW) < STEP then FW := FWTarget
-      else if FWTarget > FW then FW += ifthen(delta < STEP, STEP, delta)
-      else if FWTarget < FW then FW -= ifthen(delta < STEP, STEP, delta);
-
-      delta := abs(FHTarget - FH) div ITER;
-      if abs(FHTarget - FH) < STEP then FH := FHTarget
-      else if FHTarget > FH then FH += ifthen(delta < STEP, STEP, delta)
-      else if FHTarget < FH then FH -= ifthen(delta < STEP, STEP, delta);
-
-    end;
-    if changed then Paint;
-    if not FVisible and (FAlpha = 0) then
+    Now := MotionNow;
+    if Now < FLastFrameAt then exit;
+    Elapsed := Now - FLastFrameAt;
+    FLastFrameAt := Now;
+    OldX := FX; OldY := FY; OldW := FW; OldH := FH; OldAlpha := FAlpha;
+    Decay(FAlphaMotion, FAlphaTarget, Elapsed, 2 / 3, 5);
+    Decay(FXMotion, FXTarget, Elapsed, 0.75, 1);
+    Decay(FYMotion, FYTarget, Elapsed, 0.75, 1);
+    Decay(FWMotion, FWTarget, Elapsed, 0.75, 1);
+    Decay(FHMotion, FHTarget, Elapsed, 0.75, 1);
+    FX := Round(FXMotion); FY := Round(FYMotion);
+    FW := Round(FWMotion); FH := Round(FHMotion);
+    FAlpha := Round(FAlphaMotion);
+    if not FSurfaceReady or (OldW <> FW) or (OldH <> FH) then Paint
+    else if (OldX <> FX) or (OldY <> FY) or (OldAlpha <> FAlpha) then ApplyWindowPosition;
+    if not FVisible and (FAlphaMotion = 0) then
     begin
       StopFrameTimer;
       ShowWindow(FHWnd, 0);
     end;
-    if FVisible and (FAlpha = 255) and (FXTarget = FX) and (FYTarget = FY)
-      and (FWTarget = FW) and (FHTarget = FH) then StopFrameTimer;
+    if FSurfaceReady and FVisible and (FAlphaMotion = FAlphaTarget) and (FXMotion = FXTarget)
+      and (FYMotion = FYTarget) and (FWMotion = FWTarget)
+      and (FHMotion = FHTarget) then StopFrameTimer;
   except
     on e: Exception do err('Hint.Timer', e);
   end;
@@ -404,6 +459,7 @@ procedure THint.DeactivateHint(hwndOwner: HWND);
 begin
   if hwndOwner = FHWndOwner then
   try
+    Timer;
     FVisible := false;
     FAlphaTarget := 0;
     if sets.container.HintEffects then

@@ -37,8 +37,10 @@ type
     FDockingX: integer;
     FDockingY: integer;
     need_dock: boolean;
-    FDockingProgress: single;
-    FDockingAnimation: TScalarAnimation;
+    FDockingXAnimation, FDockingYAnimation: TSpringAnimation;
+    FDragSampleX, FDragSampleY, FDragSampleAt: Double;
+    FDragVelocityX, FDragVelocityY: Double;
+    FFrameSampling, FFrameRedraw, FFrameForce: boolean;
     FNCHitTestNC: boolean; // if true - HitTest returns true for non-client area
 
     FEnabled: boolean;
@@ -72,7 +74,8 @@ type
     FShowItem: uint;
     FItemAnimationType: integer; // animation type
     FAnimationEnd: integer;
-    FAnimationProgress: integer; // animation progress 0..FAnimationEnd
+    FAnimationProgress: Double; // continuous reference phase
+    FIconAnimationActive: boolean;
     FIconAnimation: TScalarAnimation;
 
     OnMouseHover: TOnMouseHover;
@@ -80,6 +83,8 @@ type
     OnBeforeUndock: TOnBeforeUndock;
 
     function ClockNow: QWord; virtual;
+    function MotionNow: Double; virtual;
+    procedure SampleDragPosition;
     function CreateViewWindow: HWND; virtual;
     procedure Init; virtual;
     procedure BeforeDestruction; override;
@@ -123,6 +128,11 @@ type
     function NeedsFrame: boolean; virtual;
     procedure ForegroundChanged(wnd: HWND); virtual;
     procedure Timer; virtual;
+    procedure BeginMotionFrame;
+    procedure EndMotionFrame;
+    function FrameRedrawPending: boolean;
+    function TakeFrameDrawForce: boolean;
+    procedure SetDockTarget(Ax, Ay: integer);
     procedure Configure; virtual;
     function  CanOpenFolder: boolean; virtual;
     procedure OpenFolder; virtual;
@@ -144,7 +154,7 @@ type
   end;
 
 implementation
-uses itemregistryu, itemhostu, itemviewu;
+uses itemregistryu, itemhostu, itemviewu, animationclocku;
 //------------------------------------------------------------------------------
 function CustomItemClassWindowProc(wnd: HWND; message: uint; wParam: WPARAM; lParam: LPARAM): LRESULT; stdcall;
 var
@@ -395,6 +405,10 @@ begin
     FHover := false;
     FSelected := false;
     need_dock := false;
+    FDragVelocityX := 0;
+    FDragVelocityY := 0;
+    FDragSampleAt := -1;
+    SampleDragPosition;
     Redraw;
   end;
 end;
@@ -405,16 +419,20 @@ var
 begin
   if FUndocked then
   begin
+    SampleDragPosition;
     FUndocked := false;
-    FDockingProgress := 0;
-    FDockingAnimation := Default(TScalarAnimation);
-    FDockingAnimation.Retarget(ClockNow, 1, 100);
     need_dock := true;
     wRect := ScreenRect;
     FDockFromX := wRect.Left;
     FDockFromY := wRect.Top;
     FDockingX := FDockFromX;
     FDockingY := FDockFromY;
+    FDockingXAnimation.Reset(MotionNow, FDockFromX);
+    FDockingYAnimation.Reset(MotionNow, FDockFromY);
+    FDockingXAnimation.Retarget(MotionNow, FX, 180);
+    FDockingYAnimation.Retarget(MotionNow, FY, 180);
+    FDockingXAnimation.StartVelocity := FDragVelocityX;
+    FDockingYAnimation.StartVelocity := FDragVelocityY;
     Redraw;
   end;
 end;
@@ -426,11 +444,70 @@ end;
 //------------------------------------------------------------------------------
 procedure TCustomItem.Redraw(Force: boolean = true);
 begin
+  if FFrameSampling then
+  begin
+    FFrameRedraw := true;
+    FFrameForce := FFrameForce or Force;
+    exit;
+  end;
   Draw(FX, FY, FSize, Force, 0, FShowItem);
 end;
 //------------------------------------------------------------------------------
 function TCustomItem.ClockNow: QWord;
 begin Result := GetTickCount64; end;
+
+function TCustomItem.MotionNow: Double;
+begin Result := AnimationTimeMs; end;
+
+procedure TCustomItem.SampleDragPosition;
+var r: Windows.TRect; now, elapsed: Double;
+begin
+  if not FUndocked or not GetWindowRect(FHWnd, r) then exit;
+  now := MotionNow;
+  elapsed := now - FDragSampleAt;
+  if (FDragSampleAt >= 0) and (elapsed > 0) then
+  begin
+    if (elapsed <= 100) and ((r.Left <> FDragSampleX) or (r.Top <> FDragSampleY)) then
+    begin
+      FDragVelocityX := (r.Left - FDragSampleX) * 1000 / elapsed;
+      FDragVelocityY := (r.Top - FDragSampleY) * 1000 / elapsed;
+    end
+    else if elapsed > 100 then
+    begin
+      FDragVelocityX := 0;
+      FDragVelocityY := 0;
+    end;
+  end;
+  FDragSampleX := r.Left;
+  FDragSampleY := r.Top;
+  FDragSampleAt := now;
+end;
+
+procedure TCustomItem.BeginMotionFrame;
+begin FFrameSampling := true; end;
+procedure TCustomItem.EndMotionFrame;
+begin FFrameSampling := false; end;
+function TCustomItem.FrameRedrawPending: boolean;
+begin Result := FFrameRedraw; end;
+function TCustomItem.TakeFrameDrawForce: boolean;
+begin
+  Result := FFrameForce;
+  FFrameForce := false;
+  FFrameRedraw := false;
+end;
+
+procedure TCustomItem.SetDockTarget(Ax, Ay: integer);
+var now: Double;
+begin
+  if not need_dock then exit;
+  now := MotionNow;
+  if FDockingXAnimation.TargetValue <> Ax then
+    FDockingXAnimation.Retarget(now, Ax, 180);
+  if FDockingYAnimation.TargetValue <> Ay then
+    FDockingYAnimation.Retarget(now, Ay, 180);
+  FDockingX := Round(FDockingXAnimation.ValueAt(now));
+  FDockingY := Round(FDockingYAnimation.ValueAt(now));
+end;
 
 procedure TCustomItem.ForegroundChanged(wnd: HWND);
 begin end;
@@ -438,32 +515,42 @@ begin end;
 function TCustomItem.NeedsFrame: boolean;
 begin
   Result := not FFreed and not FUpdating and
-    (need_dock or (FAnimationProgress > 0));
+    (need_dock or FIconAnimationActive or FFrameRedraw);
 end;
 
 procedure TCustomItem.Timer;
-var nextProgress: integer;
+var now, nextProgress: Double; redrawPosition, redrawImage: boolean;
 begin
   if FFreed or FUpdating then exit;
+  now := MotionNow;
+  redrawPosition := false;
+  redrawImage := false;
   // docking after item dropped onto dock //
   if need_dock then
   begin
-    FDockingProgress := FDockingAnimation.ValueAt(ClockNow);
-    FDockingX := FDockFromX + round((FX - FDockFromX) * FDockingProgress);
-    FDockingY := FDockFromY + round((FY - FDockFromY) * FDockingProgress);
-    Redraw(false);
-    if FDockingProgress >= 1 then need_dock := false;
+    SetDockTarget(FX, FY);
+    redrawPosition := true;
+    if not FDockingXAnimation.ActiveAt(now) and not FDockingYAnimation.ActiveAt(now) then
+    begin
+      need_dock := false;
+      redrawImage := true;
+    end;
   end;
-  if FAnimationProgress > 0 then
+  if FIconAnimationActive then
   begin
-    nextProgress := Trunc(FIconAnimation.ValueAt(ClockNow));
-    if nextProgress >= FAnimationEnd then nextProgress := 0;
+    nextProgress := FIconAnimation.ValueAt(now);
+    if not FIconAnimation.ActiveAt(now) then
+    begin
+      nextProgress := 0;
+      FIconAnimationActive := false;
+    end;
     if nextProgress <> FAnimationProgress then
     begin
       FAnimationProgress := nextProgress;
-      Redraw;
+      redrawImage := true;
     end;
   end;
+  if redrawPosition or redrawImage then Redraw(redrawImage);
 end;
 //------------------------------------------------------------------------------
 procedure TCustomItem.Attention(value: boolean);
@@ -672,13 +759,15 @@ begin
   if FAnimationEnd = 0 then
   begin
     FAnimationProgress := 0;
+    FIconAnimationActive := false;
     exit;
   end;
-  FAnimationProgress := 1;
-  FIconAnimation.StartValue := 1;
+  FAnimationProgress := 0;
+  FIconAnimationActive := true;
+  FIconAnimation.StartValue := 0;
   FIconAnimation.TargetValue := FAnimationEnd;
-  FIconAnimation.StartedAt := ClockNow;
-  FIconAnimation.DurationMs := QWord(FAnimationEnd - 1) * 10;
+  FIconAnimation.StartedAt := MotionNow;
+  FIconAnimation.DurationMs := FAnimationEnd * 15.625;
 end;
 //------------------------------------------------------------------------------
 procedure TCustomItem.LME(lock: boolean);
@@ -719,6 +808,10 @@ begin
     FSelected := false;
     FAttention := false;
     FAnimationProgress := 0;
+    FIconAnimationActive := false;
+    FIconAnimation := Default(TScalarAnimation);
+    FFrameRedraw := false;
+    FFrameForce := false;
     need_dock := false;
     ItemViews.CancelInternalTimers(ItemId);
   end;
@@ -850,6 +943,10 @@ begin
                   services.OnDock(FHWnd)
                 else dockh.Dock(FHWnd);
               end;
+        end
+        else if message = WM_MOVE then
+        begin
+              SampleDragPosition;
         end
         else if message = WM_EXITSIZEMOVE then
         begin

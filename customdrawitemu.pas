@@ -5,25 +5,41 @@ unit customdrawitemu;
 interface
 
 uses Windows, Messages, SysUtils, Controls, Classes, ShellAPI, Math,
-  declu, dockh, GDIPAPI, gfx, customitemu, themeu;
+  declu, dockh, GDIPAPI, gfx, customitemu, themeu, animationcurveu;
 
 type
   TOnBeforeDraw = procedure of object;
   TOnAfterDraw = procedure of object;
   TOnDrawOverlay = procedure(graphics: Pointer; x, y, size: integer) of object;
+  PItemPositionBatch = ^HDWP;
 
   { TCustomDrawItem }
 
   TCustomDrawItem = class(TCustomItem)
+  private
+    FPositionBatch: PItemPositionBatch;
+    function TryMoveDrawWindow(var Batch: HDWP; X, Y: integer; Flags: UINT): boolean;
   protected
+    FDrawSurface: _SimpleBitmap;
+    FDrawSurfaceValid: boolean;
+    FNativePresentationValid: boolean;
     FRunning: boolean;
     OnBeforeDraw: TOnBeforeDraw;
     OnAfterDraw: TOnAfterDraw;
     OnDrawOverlay: TOnDrawOverlay;
+    function CreateDrawSurface(var Bitmap: _SimpleBitmap): boolean; virtual;
+    function CreateDrawGraphics(DC: HDC): Pointer; virtual;
+    function PaintDrawImage(Graphics, Attributes: Pointer; X, Y, Size: integer): boolean; virtual;
+    function PresentDrawSurface(const Bitmap: _SimpleBitmap; Alpha: integer): boolean; virtual;
+    function MoveDrawWindow(var Batch: HDWP; X, Y: integer; Flags: UINT): boolean; virtual;
     procedure DrawNumberOverlay(dst: pointer; x, y, size, number: integer);
   public
     property Running: boolean read FRunning;
     constructor Create(wndParent: HWND; var AParams: TDItemCreateParams); override;
+    destructor Destroy; override;
+    procedure InvalidateNativePresentation;
+    procedure DrawInPositionBatch(Ax, Ay, ASize: integer; AForce: boolean;
+      var Batch: HDWP; AShowItem: UINT);
     procedure Draw(Ax, Ay, ASize: integer; AForce: boolean; wpi: HDWP; AShowItem: uint); override;
   end;
 
@@ -33,6 +49,61 @@ constructor TCustomDrawItem.Create(wndParent: HWND; var AParams: TDItemCreatePar
 begin
   inherited;
   FRunning := false;
+end;
+//------------------------------------------------------------------------------
+destructor TCustomDrawItem.Destroy;
+begin
+  if FDrawSurfaceValid then DeleteBitmap(FDrawSurface);
+  inherited;
+end;
+//------------------------------------------------------------------------------
+function TCustomDrawItem.CreateDrawSurface(var Bitmap: _SimpleBitmap): boolean;
+begin Result := CreateBitmap(Bitmap, FHWnd); end;
+function TCustomDrawItem.CreateDrawGraphics(DC: HDC): Pointer;
+begin
+  Result := nil;
+  GdipCreateFromHDC(DC, Result);
+end;
+function TCustomDrawItem.PaintDrawImage(Graphics, Attributes: Pointer; X, Y, Size: integer): boolean;
+begin
+  if not Assigned(FImage) then exit(true);
+  Result := GdipDrawImageRectRectI(Graphics, FImage, X, Y, Size, Size,
+    0, 0, FIW, FIH, UnitPixel, Attributes, nil, nil) = Ok;
+end;
+function TCustomDrawItem.PresentDrawSurface(const Bitmap: _SimpleBitmap; Alpha: integer): boolean;
+begin Result := TryUpdateLWindow(FHWnd, Bitmap, Alpha); end;
+function TCustomDrawItem.MoveDrawWindow(var Batch: HDWP; X, Y: integer; Flags: UINT): boolean;
+begin
+  if Batch <> 0 then
+  begin
+    Batch := DeferWindowPos(Batch, FHWnd, 0, X, Y, 0, 0, Flags);
+    Result := Batch <> 0;
+  end
+  else Result := SetWindowPos(FHWnd, 0, X, Y, 0, 0, Flags);
+end;
+function TCustomDrawItem.TryMoveDrawWindow(var Batch: HDWP; X, Y: integer; Flags: UINT): boolean;
+begin
+  if FPositionBatch <> nil then Batch := FPositionBatch^;
+  try Result := MoveDrawWindow(Batch, X, Y, Flags);
+  finally
+    if FPositionBatch <> nil then FPositionBatch^ := Batch;
+  end;
+end;
+procedure TCustomDrawItem.InvalidateNativePresentation;
+begin
+  FNativePresentationValid := false;
+  if FFreed then exit;
+  FFrameRedraw := true;
+  FFrameForce := true;
+end;
+procedure TCustomDrawItem.DrawInPositionBatch(Ax, Ay, ASize: integer; AForce: boolean;
+  var Batch: HDWP; AShowItem: UINT);
+var PreviousBatch: PItemPositionBatch;
+begin
+  PreviousBatch := FPositionBatch;
+  FPositionBatch := @Batch;
+  try Draw(Ax, Ay, ASize, AForce, Batch, AShowItem);
+  finally FPositionBatch := PreviousBatch; end;
 end;
 //------------------------------------------------------------------------------
 // set position, size, repaint window //
@@ -45,17 +116,31 @@ var
   ItemRect: windows.TRect;
   animX, animY, animSize: integer;
   button: boolean;
+  motion: TClickAnimationValues;
+  drawAttempted, drawComplete: boolean;
 begin
+  bmp := Default(_SimpleBitmap);
+  dst := nil;
+  hattr := nil;
+  brush := nil;
+  drawAttempted := false;
+  drawComplete := false;
   try
+  try
+    AForce := AForce or FFrameForce or
+      (not FNativePresentationValid and (AShowItem and SWP_HIDEWINDOW = 0));
     if FFreed or not FEnabled or FUpdating or (FUndocked and not AForce)
        or ((FX = Ax) and (FY = Ay) and (FSize = ASize) and (FShowItem = AShowItem) and not AForce and not need_dock) then exit;
+    drawAttempted := true;
 
     // OnBeforeDraw
     if assigned(OnBeforeDraw) then OnBeforeDraw;
+    if FFreed then exit;
 
     animX := 0;
     animY := 0;
     animSize := 0;
+    motion := ClickAnimationValues(FItemAnimationType, FAnimationProgress, FBorder, FItemSize);
 
     // set position //
     try
@@ -75,34 +160,41 @@ begin
       if FAnimationProgress > 0 then
         if (FItemAnimationType >= 2) and (FItemAnimationType <= 4) then
         begin
-          animX := FAnimationProgress mod 30;
-          if animX > 15 then animX := 30 - animX;
-          animX := round(anim_bounce[animX] * min(FBorder, 40));
+          animX := Round(motion.Bounce);
           if (FSite = 0) or (FSite = 2) then dec(screenY, animX);
         end;
 
       if (FSize = ASize) and not AForce then
       begin
-        if wpi > 0 then
-        begin
-          DeferWindowPos(wpi, FHWnd, 0, screenX, screenY, 0, 0,
-            swp_nosize + swp_noactivate + swp_noreposition + swp_nozorder + FShowItem)
-        end else begin
-          SetWindowPos(FHWnd, 0, screenX, screenY, 0, 0,
-            swp_nosize + swp_noactivate + swp_noreposition + swp_nozorder + FShowItem);
-        end;
+        if not TryMoveDrawWindow(wpi, screenX, screenY,
+          swp_nosize + swp_noactivate + swp_noreposition + swp_nozorder + FShowItem) then exit;
         UpdateHint(screenX, screenY);
+        drawComplete := true;
+        FFrameRedraw := false;
+        FFrameForce := false;
         // OnAfterDraw
         if assigned(OnAfterDraw) then OnAfterDraw;
         exit;
       end else begin
-        if wpi > 0 then
-          DeferWindowPos(wpi, FHWnd, 0, 0, 0, 0, 0,
-            swp_nomove + swp_nosize + swp_noactivate + swp_nozorder + swp_noreposition + FShowItem);
+        if FShowItem and SWP_HIDEWINDOW <> 0 then
+        begin
+          if not TryMoveDrawWindow(wpi, screenX, screenY,
+            swp_nosize + swp_noactivate + swp_noreposition + swp_nozorder + FShowItem) then exit;
+        end
+        else if wpi > 0 then
+          if not TryMoveDrawWindow(wpi, 0, 0,
+            swp_nomove + swp_nosize + swp_noactivate + swp_nozorder + swp_noreposition + FShowItem) then exit;
       end;
 
       FSize := ASize;
-      if FShowItem and SWP_HIDEWINDOW <> 0 then exit;
+      if FShowItem and SWP_HIDEWINDOW <> 0 then
+      begin
+        FNativePresentationValid := false;
+        drawComplete := true;
+        FFrameRedraw := false;
+        FFrameForce := false;
+        exit;
+      end;
       UpdateHint(screenX, screenY);
     except
       on e: Exception do raise Exception.Create('SetPosition ' + LineEnding + e.message);
@@ -114,18 +206,30 @@ begin
       bmp.topleft.y := screenY;
       bmp.width := FSize + ItemRect.Left * 2;
       bmp.height := FSize + ItemRect.Top * 2;
-      if not CreateBitmap(bmp, FHWnd) then exit; //raise Exception.Create('CreateBitmap failed');
-      GdipCreateFromHDC(bmp.dc, dst);
-      if not assigned(dst) then
+      if FDrawSurfaceValid and ((FDrawSurface.width <> bmp.width) or
+        (FDrawSurface.height <> bmp.height)) then
       begin
-        DeleteBitmap(bmp);
+        DeleteBitmap(FDrawSurface);
+        FDrawSurfaceValid := false;
       end;
+      if not FDrawSurfaceValid then
+      begin
+        FDrawSurface := bmp;
+        FDrawSurfaceValid := CreateDrawSurface(FDrawSurface);
+        if not FDrawSurfaceValid then exit;
+      end;
+      bmp := FDrawSurface;
+      bmp.topleft := Point(screenX, screenY);
+      FillChar(bmp.BufferBits^, bmp.width * bmp.height * 4, 0);
+      dst := CreateDrawGraphics(bmp.dc);
+      if not assigned(dst) then exit;
       GdipCreateSolidFill(ITEM_BACKGROUND, brush);
       if (FSite = 1) or (FSite = 3) then
         GdipFillRectangleI(dst, brush, ItemRect.Left - FItemSpacing div 2, ItemRect.Top - 1, ItemRect.Right - ItemRect.Left + FItemSpacing, ItemRect.Bottom - ItemRect.Top + 1)
       else
         GdipFillRectangleI(dst, brush, ItemRect.Left - 1, ItemRect.Top - FItemSpacing div 2, ItemRect.Right - ItemRect.Left + 1, ItemRect.Bottom - ItemRect.Top + FItemSpacing);
       GdipDeleteBrush(brush);
+      brush := nil;
       GdipSetInterpolationMode(dst, InterpolationModeHighQualityBicubic);
 
       // draw the button
@@ -146,23 +250,20 @@ begin
           dec(bitmapX, FSize div 2);
           dec(bitmapY, FSize div 2);
           GdipTranslateWorldTransform(dst, -bitmapX, -bitmapY, MatrixOrderPrepend);
-          GdipRotateWorldTransform(dst, FAnimationProgress * 6, MatrixOrderPrepend);
+          GdipRotateWorldTransform(dst, motion.Rotation, MatrixOrderPrepend);
         end;
         // bounce //
         if (FItemAnimationType >= 2) and (FItemAnimationType <= 4) then
         begin
-          animX := FAnimationProgress mod 30;
-          if animX > 15 then animX := 30 - animX;
-          animX := round(anim_bounce[animX] * min(FBorder, 40));
+          animX := Round(motion.Bounce);
           if FSite = 1 then inc(bitmapY, animX)
           else if FSite = 3 then dec(bitmapY, animX);
         end;
         // quake //
         if FItemAnimationType = 5 then
         begin
-          if FAnimationProgress mod 2 = 1 then exit;
-          animX := random(FItemSize div 3) - FItemSize div 6;
-          animY := random(FItemSize div 3) - FItemSize div 6;
+          animX := Round(motion.OffsetX);
+          animY := Round(motion.OffsetY);
           inc(bitmapX, animX);
           inc(bitmapY, animY);
         end;
@@ -174,19 +275,19 @@ begin
           dec(bitmapX, FSize div 2);
           dec(bitmapY, FSize div 2);
           GdipTranslateWorldTransform(dst, -bitmapX, -bitmapY, MatrixOrderPrepend);
-          GdipRotateWorldTransform(dst, sin(FAnimationProgress * 6) * 30, MatrixOrderPrepend);
+          GdipRotateWorldTransform(dst, motion.Rotation, MatrixOrderPrepend);
         end;
         // vibrate //
         if FItemAnimationType = 7 then
         begin
-          animSize := round(sin(FAnimationProgress * 3) * 6);
+          animSize := Round(motion.SizeDelta);
           dec(bitmapX, animSize div 2);
           dec(bitmapY, animSize div 2);
         end;
         // zoom //
         if FItemAnimationType = 8 then
         begin
-          animSize := round(sin(FAnimationProgress * 6) * 10);
+          animSize := Round(motion.SizeDelta);
           dec(bitmapX, animSize div 2);
           dec(bitmapY, animSize div 2);
         end;
@@ -200,10 +301,9 @@ begin
 
     // draw icon //
     CreateColorAttributes(FColorData, FSelected, hattr);
-    if assigned(FImage) then
-      GdipDrawImageRectRectI(dst, FImage, bitmapX, bitmapY, FSize + animSize, FSize + animSize,
-        0, 0, FIW, FIH, UnitPixel, hattr, nil, nil);
+    if not PaintDrawImage(dst, hattr, bitmapX, bitmapY, FSize + animSize) then exit;
     if hattr <> nil then GdipDisposeImageAttributes(hattr);
+    hattr := nil;
 
     // OnDrawOverlay
     if assigned(OnDrawOverlay) then OnDrawOverlay(dst, bitmapX, bitmapY, FSize + animSize);
@@ -220,12 +320,20 @@ begin
         theme.DrawIndicator(dst, ItemRect.Left, ItemRect.Top, FSize, FSite);
     end;
 
-    UpdateLWindow(FHWnd, bmp, ifthen(FUndocked, 127, 255));
-    DeleteGraphics(dst);
-    DeleteBitmap(bmp);
-
+    if not PresentDrawSurface(bmp, ifthen(FUndocked, 127, 255)) then exit;
+    drawComplete := true;
+    FNativePresentationValid := true;
+    FFrameRedraw := false;
+    FFrameForce := false;
     // OnAfterDraw
     if assigned(OnAfterDraw) then OnAfterDraw;
+  finally
+    if hattr <> nil then GdipDisposeImageAttributes(hattr);
+    if brush <> nil then GdipDeleteBrush(brush);
+    DeleteGraphics(dst);
+    if drawAttempted and not drawComplete and not FFreed then
+      InvalidateNativePresentation;
+  end;
   except
     on e: Exception do raise Exception.Create('CustomDrawItem.Draw(' + FCaption + ') ' + LineEnding + e.message);
   end;

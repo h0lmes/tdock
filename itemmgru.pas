@@ -27,7 +27,9 @@ type
     FItemSpacing: integer;
     FZoomItems: boolean; // enables zoom //
     FZoomTime: integer;
-    FZoomAnimation: TScalarAnimation;
+    FZoomAnimation: TSpringAnimation;
+    FZoomLayoutDirty, FSamplingFrames, FFrameItemsDirty, FFrameLayoutDirty,
+      FFrameFullUpdate, FFrameRunning: boolean;
     FReflection: boolean;
     FReflectionSize: integer;
     FItemAnimation: integer;
@@ -67,6 +69,8 @@ type
     FCenterOffsetPercent: integer;
     FEdgeOffset: integer;
     FWndOffset: integer;
+    FQueuedWndOffset: Integer;
+    FWndOffsetQueued: Boolean;
     // Wnd Item Vars //
     FItemsArea: windows.TRect;
     FItemsArea2: windows.TRect;
@@ -155,6 +159,8 @@ type
     function  IsSeparator(wnd: HWND): boolean;
   protected
     function ClockNow: QWord; virtual;
+    function MotionNow: Double; virtual;
+    function FinishPositionBatch(Batch: HDWP): boolean; virtual;
     function GetCursorPoint(out pt: Windows.TPoint): boolean; virtual;
     function CreatePluginItem(var Params: TDItemCreateParams): TCustomItem; virtual;
   public
@@ -193,6 +199,7 @@ type
     function  GetZoomEdge: integer;
 
     procedure Timer;
+    procedure QueueWndOffset(Value: Integer);
     function NeedsFrames: boolean;
     procedure ForegroundChanged(wnd: HWND);
     procedure SetTheme;
@@ -261,7 +268,7 @@ end;
 
 implementation
 
-uses itemserializationu;
+uses itemserializationu, animationclocku, customdrawitemu;
 
 function TItemManager.TryGetManagedItem(wnd: HWND; out Item: TCustomItem): boolean;
 begin
@@ -1596,6 +1603,12 @@ end;
 function TItemManager.ClockNow: QWord;
 begin Result := GetTickCount64; end;
 
+function TItemManager.MotionNow: Double;
+begin Result := AnimationTimeMs; end;
+
+function TItemManager.FinishPositionBatch(Batch: HDWP): boolean;
+begin Result := EndDeferWindowPos(Batch); end;
+
 function TItemManager.NeedsFrames: boolean;
 var scope: TItemHostScope; identities: TItemIdentities; index: integer; item: TCustomItem;
 begin
@@ -1603,8 +1616,7 @@ begin
   scope := BeginItemHostOperation(FParentHWnd);
   try
     if not FEnabled then exit;
-    if (FZooming and (ZoomItemSizeDiff < FBigItemSize - FItemSize)) or
-      (not FZooming and (ZoomItemSizeDiff > 0)) then exit(true);
+    if FWndOffsetQueued or FZoomLayoutDirty or FZoomAnimation.ActiveAt(MotionNow) then exit(true);
     identities := CaptureItems(false);
     for index := 0 to High(identities) do
       if PinActiveItem(identities[index], item) then
@@ -1619,16 +1631,43 @@ begin
 end;
 
 procedure TItemManager.Timer;
-var scope: TItemHostScope;
+var scope: TItemHostScope; SamplingComplete: Boolean;
+  procedure FlushFrame;
+  begin
+    if FFrameLayoutDirty then ItemsChanged(FFrameFullUpdate)
+    else if FFrameItemsDirty then UpdateItems(false);
+  end;
 begin
-  scope := BeginItemHostOperation(FParentHWnd);
+  if FFrameRunning then exit;
+  FFrameRunning := true;
+  scope := Default(TItemHostScope);
   try
+    scope := BeginItemHostOperation(FParentHWnd);
+    BeginAnimationFrame;
+    try
     if FEnabled then
     begin
-      ZoomInOut;
-      AllItemTimer;
+      FFrameItemsDirty := false;
+      FFrameLayoutDirty := false;
+      FFrameFullUpdate := false;
+      FSamplingFrames := true;
+      SamplingComplete := false;
+      try
+        if FWndOffsetQueued then SetWndOffset(FQueuedWndOffset);
+        ZoomInOut;
+        AllItemTimer;
+        SamplingComplete := true;
+      finally
+        FSamplingFrames := false;
+        if SamplingComplete then FlushFrame
+        else
+          try FlushFrame;
+          except on E: Exception do AddLog('Item frame cleanup: ' + E.Message); end;
+      end;
     end;
+    finally EndAnimationFrame; end;
   finally
+    FFrameRunning := false;
     EndItemHostOperation(scope);
   end;
 end;
@@ -1648,6 +1687,12 @@ end;
 procedure TItemManager.ItemsChanged(FullUpdate: boolean = false);
 var scope: TItemHostScope;
 begin
+  if FSamplingFrames then
+  begin
+    FFrameLayoutDirty := true;
+    FFrameFullUpdate := FFrameFullUpdate or FullUpdate;
+    exit;
+  end;
   scope := BeginItemHostOperation(FParentHWnd);
   try
     if FEnabled then
@@ -1735,17 +1780,25 @@ end;
 //------------------------------------------------------------------------------
 procedure TItemManager.SetWndOffset(value: integer);
 begin
+  FWndOffsetQueued := false;
   if FWndOffset <> value then
   begin
     FWndOffset := value;
     ItemsChanged;
   end;
 end;
+
+procedure TItemManager.QueueWndOffset(Value: Integer);
+begin
+  FQueuedWndOffset := Value;
+  FWndOffsetQueued := Value <> FWndOffset;
+end;
 //------------------------------------------------------------------------------
 procedure TItemManager.UpdateItems(forceDraw: boolean);
 var scope: TItemHostScope; identities: TItemIdentities; geometry: TItemArray; index: integer;
   item: TCustomItem; wpi: HDWP; showItems: uint;
   revision: QWord; registered: TObject;
+  batchStarted, batchSucceeded: boolean;
 begin
   scope := BeginItemHostOperation(FParentHWnd);
   try
@@ -1757,6 +1810,7 @@ begin
     for index := 0 to High(geometry) do
       identities[index] := ItemViews.IdentityForId(geometry[index].Id);
     wpi := BeginDeferWindowPos(Length(identities));
+    batchStarted := wpi <> 0;
     showItems := SWP_HIDEWINDOW;
     if FVisible then showItems := SWP_SHOWWINDOW;
     try
@@ -1764,15 +1818,35 @@ begin
       begin
         if PinActiveItem(identities[index], item) then
         try
-          item.Draw(geometry[index].x, geometry[index].y, geometry[index].s,
-            forceDraw, wpi, showItems);
+          item.SetDockTarget(geometry[index].x, geometry[index].y);
+          if item is TCustomDrawItem then
+            TCustomDrawItem(item).DrawInPositionBatch(geometry[index].x,
+              geometry[index].y, geometry[index].s,
+              item.TakeFrameDrawForce or forceDraw, wpi, showItems)
+          else
+            item.Draw(geometry[index].x, geometry[index].y, geometry[index].s,
+              item.TakeFrameDrawForce or forceDraw, wpi, showItems);
         finally
           ItemRegistry.Unpin(identities[index]);
         end;
         if revision <> FLayoutRevision then break;
       end;
     finally
-      EndDeferWindowPos(wpi);
+      if batchStarted then
+      begin
+        batchSucceeded := false;
+        if wpi <> 0 then batchSucceeded := FinishPositionBatch(wpi);
+        // A failed batch can discard positions for earlier items.
+        if not batchSucceeded then
+          for index := 0 to High(identities) do
+            if PinActiveItem(identities[index], item) then
+            try
+              if item is TCustomDrawItem then
+                TCustomDrawItem(item).InvalidateNativePresentation;
+            finally
+              ItemRegistry.Unpin(identities[index]);
+            end;
+      end;
     end;
     if revision <> FLayoutRevision then
     begin
@@ -1965,7 +2039,7 @@ begin
     // enter FZooming mode //
     if not FZooming and (item <> NOT_AN_ITEM) then
     begin
-      FZoomAnimation.Retarget(ClockNow, FBigItemSize - FItemSize, FZoomTime);
+      FZoomAnimation.Retarget(MotionNow, FBigItemSize - FItemSize, FZoomTime);
       FZoomInOutItem := item;
       FZooming := true;
     end;
@@ -1974,15 +2048,11 @@ begin
     begin
       if item = NOT_AN_ITEM then Unzoom
       else begin
-          if ZoomItemSizeDiff = FBigItemSize - FItemSize then
+          if FZoomInOutItem <> item then
           begin
-              if FZoomInOutItem <> item then
-              begin
-                FZoomInOutItem := item;
-                ItemsChanged;
-              end;
-          end
-          else FZoomInOutItem := item;
+            FZoomInOutItem := item;
+            FZoomLayoutDirty := true;
+          end;
       end;
     end;
   except
@@ -1996,11 +2066,12 @@ begin
   if FEnabled and (FZooming or do_now) then
   begin
     FZooming := false;
-    FZoomAnimation.Retarget(ClockNow, 0, FZoomTime);
+    FZoomAnimation.Retarget(MotionNow, 0, FZoomTime);
     if (LayoutCount <= 0) or do_now then
     begin
       ZoomItemSizeDiff := 0;
-      FZoomAnimation := Default(TScalarAnimation);
+      FZoomAnimation.Reset(MotionNow, 0);
+      FZoomLayoutDirty := false;
       ItemsChanged;
     end;
   end;
@@ -2012,7 +2083,7 @@ var target, limit: integer;
 begin
   limit := Max(0, FBigItemSize - FItemSize);
   if FZooming and FZoomItems then target := limit else target := 0;
-  FZoomAnimation.Retarget(ClockNow, target, FZoomTime);
+  FZoomAnimation.Retarget(MotionNow, target, FZoomTime);
   if FZoomAnimation.StartValue < 0 then FZoomAnimation.StartValue := 0;
   if FZoomAnimation.StartValue > limit then FZoomAnimation.StartValue := limit;
   ZoomInOut;
@@ -2022,12 +2093,12 @@ procedure TItemManager.ZoomInOut;
 var nextSize: integer;
 begin
   if not FZoomItems and (ZoomItemSizeDiff = 0) then exit;
-  if FZoomAnimation.TargetValue < FZoomAnimation.StartValue then
-    nextSize := Ceil(FZoomAnimation.ValueAt(ClockNow))
-  else nextSize := Trunc(FZoomAnimation.ValueAt(ClockNow));
+  // Round only displayed pixels. Preserve continuous position and velocity.
+  nextSize := Round(FZoomAnimation.ValueAt(MotionNow));
   nextSize := EnsureRange(nextSize, 0, Max(0, FBigItemSize - FItemSize));
-  if nextSize = ZoomItemSizeDiff then exit;
+  if (nextSize = ZoomItemSizeDiff) and not FZoomLayoutDirty then exit;
   ZoomItemSizeDiff := nextSize;
+  FZoomLayoutDirty := false;
   ItemsChanged;
 end;
 //------------------------------------------------------------------------------
@@ -2452,7 +2523,15 @@ begin
     for index := 0 to High(identities) do
       if PinActiveItem(identities[index], item) then
       try
-        if item.NeedsFrame then item.Timer;
+        if item.NeedsFrame then
+        begin
+          item.BeginMotionFrame;
+          try item.Timer;
+          finally
+            item.EndMotionFrame;
+            FFrameItemsDirty := FFrameItemsDirty or item.FrameRedrawPending;
+          end;
+        end;
       finally
         ItemRegistry.Unpin(identities[index]);
       end;

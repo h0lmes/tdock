@@ -10,7 +10,11 @@ The main form connects dock services to Windows events.
 | Complete settings checkpoints | `settingssaveu.pas` |
 | Visibility, movement, and mouse locks | `dockstateu.pas` |
 | Pure visibility and reveal transitions | `dockpolicyu.pas` |
-| Logical deadlines and elapsed animation sampling | `docktimingu.pas` |
+| Logical deadlines, scalar motion, and analytical springs | `docktimingu.pas` |
+| Precise animation time and shared frame timestamps | `animationclocku.pas` |
+| Native frame scheduling and monitor refresh selection | `framepaceru.pas` |
+| Native display waits, refresh rates, and fallback phase | `displayclocku.pas` |
+| Continuous click animation curves | `animationcurveu.pas` |
 | Typed commands and legacy command mapping | `dockcommandu.pas` |
 | Stable item models and owning stores | `itemmodelu.pas`, `itemmgru.pas` |
 | Item order, drag previews, and undo records | `itemcollectionu.pas` |
@@ -22,6 +26,7 @@ The main form connects dock services to Windows events.
 | Application window layout snapshots | `windowlayoutu.pas` |
 | Dock background and blur rendering | `dockrendereru.pas` |
 | Icon selection, extraction, sizing, and native cleanup | `iconserviceu.pas` |
+| Bounded foreign-window icon worker and owner notifications | `asyncwindowiconu.pas` |
 | Native window, input, and command adapters | `win32docku.pas`, `win32inputu.pas`, `win32commandu.pas` |
 | Global hotkey registration and fallback selection | `win32hotkeyu.pas` |
 | Launch requests and detached workers | `launchserviceu.pas`, `runthreadu.pas` |
@@ -187,11 +192,48 @@ Item view replacement preserves remaining time.
 Deletion cancels internal item timers and owned overlays.
 Legacy plugin timers retain their native compatibility path.
 
-The main fast timer runs only while active work requires it.
+The frame scheduler runs only while active work requires it.
 Active work includes animations, popup discovery, and hotkey fallback.
 Stable items receive no frame callbacks.
 Stable hints, previews, and alerts stop their frame timers.
 Application operation completion refreshes scheduling under a reentry guard.
+
+Animation time uses `QueryPerformanceCounter` with a cached frequency.
+Nested frame scopes share one precise timestamp.
+Item, task, and shell deadlines retain their existing integer clocks.
+Reveal delays share the animation clock with reveal motion.
+This keeps reveal deadlines and movement in one time domain.
+
+The scheduler binds to the window's monitor and reads its rational refresh rate.
+Monitor-specific vertical blank waits provide the preferred clock.
+Stop, wake, and watchdog events keep native waits cancellable.
+Unsupported native waits use primary-monitor DWM timing or a high-resolution timer.
+DWM timing advances monotonically across physical refresh slots.
+The requested rate never exceeds the physical display rate.
+Monitor migration and display changes refresh each active window's binding.
+Older Windows versions use a scoped timer-resolution request while fallback pacing remains active.
+The worker posts frame messages; drawing remains on the UI thread.
+Each pacer keeps at most one pending frame message.
+Rate changes, stopping, and destruction discard obsolete messages.
+Generation checks reject obsolete messages already removed from the queue.
+
+Hover magnification and drag return use analytical springs without overshoot at rest.
+Retargeting preserves current position and velocity.
+Drag return starts with measured release velocity.
+The manager combines pointer changes, reveal offsets, layout, and click motion within one frame.
+Nested frame callbacks cannot repeat item sampling or drawing.
+Stable icons retain reusable drawing surfaces.
+Pixel rounding preserves continuous spring position and velocity.
+Failed rendering, uploads, moves, and position batches retain pending drawing work.
+Only successful native presentation clears that work.
+Click choices retain their settings values and use continuous curves.
+Reference timing uses 15.625 milliseconds per legacy phase.
+
+Hints and previews evaluate continuous decay instead of replaying missed steps.
+Position and opacity changes reuse successfully presented pixels.
+Changed pixels and failed presentations remain eligible for full rendering.
+Notification entry uses an ease-out curve.
+Stack closing follows each opening trajectory in reverse.
 
 Global hotkeys use system-wide registration and `WM_HOTKEY`.
 The dock can receive those messages while hidden or inactive.
@@ -253,7 +295,14 @@ Each returned GDI+ bitmap belongs to its caller.
 Callers release these bitmaps with `GdipDisposeImage`.
 Input PIDLs and window icons remain borrowed.
 The service releases owned native bitmaps and icons exactly once.
-Window requests retain the existing timeout policy.
+Task and preview window requests return cached or fallback pixels immediately.
+`asyncwindowiconu` queries foreign windows on a worker with 40-millisecond message timeouts.
+The worker owns at most 64 cache entries and 256 subscriptions.
+Window properties, process identity, and owner generations reject obsolete results.
+The worker sends completion messages; the UI converts and draws copied icons.
+Denied foreign properties retain readable class icons without caching an unverified window identity.
+Owner destruction cancels subscriptions and queued notifications.
+Application shutdown stops the worker before image-service destruction.
 Task images keep large file icons before requesting window icons.
 
 Run only icon and packaged-app metadata checks:
@@ -269,14 +318,28 @@ Desktop acceptance still covers the actual dock and properties dialogs.
 
 ## Verification
 
-Final verification passed on 2026-10-15.
-All 377 tests passed in checked and release modes across 21 suites.
-All five native interaction checks passed.
+Final verification passed on 2026-10-31.
+All 808 tests passed in checked and release modes across 35 suites.
+All ten native interaction checks passed.
 The application build succeeded with Free Pascal 3.2.2.
-The compiler reported 358 warnings and 28 notes.
+The compiler reported 185 warnings and 26 notes.
 Source whitespace and the Lazarus unit manifest passed their checks.
 Generated build folders retained inherited permissions and normal user access.
 The executable retains 31 legacy exports and adds 13 versioned exports.
+
+The follow-up presentation probe submitted 240 frames at each physical display rate.
+Average submission intervals were 16.668 milliseconds at 60 Hz and 8.341 milliseconds at 120 Hz.
+The slow foreign-window fixture remained active during both measurements.
+Drawing averaged below one millisecond at both rates.
+The probe captured 168 desktop frames at 60 Hz and 160 at 120 Hz.
+Periodic desktop gaps reached approximately 82 milliseconds and 79 milliseconds.
+A separate native GDI control showed similar gaps without tdock's renderer or scheduler.
+The exact cause of these shared capture gaps remains unconfirmed.
+These results verify submission cadence but cannot establish uninterrupted visual smoothness on this host.
+This host rejects combined native vertical-blank waits, so the DWM fallback remains active.
+The original 60 Hz mode was restored after the measurements.
+Tests now only read display parameters; users select the physical rate manually.
+Raw results remain in `tests/.build/animation-present/`.
 
 Run the regression suites:
 

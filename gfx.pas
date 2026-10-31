@@ -97,6 +97,8 @@ procedure DrawEx(dst, src: Pointer; W, H: uint; dstrect: windows.TRect; margins:
 procedure DrawItemIndicator(dst: Pointer; iType: integer; X, Y, Width, Height: integer);
 procedure UpdateLWindow(hWnd: THandle; bmp: _SimpleBitmap; SrcAlpha: integer = 255);
 procedure UpdateLWindowPosAlpha(hWnd: THandle; x, y: integer; SrcAlpha: integer = 255);
+function TryUpdateLWindow(hWnd: THandle; bmp: _SimpleBitmap; SrcAlpha: integer = 255): Boolean;
+function TryUpdateLWindowPosAlpha(hWnd: THandle; x, y: integer; SrcAlpha: integer = 255): Boolean;
 procedure CreateDefaultImage(var image: pointer);
 procedure CreateDefaultStackImage(var image: pointer);
 function IconToGDIPBitmap(AIcon: HICON): Pointer;
@@ -963,7 +965,7 @@ begin
   end;
 end;
 //--------------------------------------------------------------------------------------------------
-procedure UpdateLWindow(hWnd: THandle; bmp: _SimpleBitmap; SrcAlpha: integer = 255);
+function TryUpdateLWindow(hWnd: THandle; bmp: _SimpleBitmap; SrcAlpha: integer): Boolean;
 var
   Blend: TBlendFunction;
   TopLeft: windows.TPoint;
@@ -976,10 +978,10 @@ begin
   Blend.BlendFlags:= 0;
   Blend.SourceConstantAlpha:= SrcAlpha;
   Blend.AlphaFormat:= AC_SRC_ALPHA;
-  UpdateLayeredWindow(hWnd, 0, @bmp.topleft, @Size, bmp.dc, @TopLeft, $1fffffff, @Blend, ULW_ALPHA);
+  Result := UpdateLayeredWindow(hWnd, 0, @bmp.topleft, @Size, bmp.dc, @TopLeft, $1fffffff, @Blend, ULW_ALPHA);
 end;
 //--------------------------------------------------------------------------------------------------
-procedure UpdateLWindowPosAlpha(hWnd: THandle; x, y: integer; SrcAlpha: integer = 255);
+function TryUpdateLWindowPosAlpha(hWnd: THandle; x, y: integer; SrcAlpha: integer): Boolean;
 var
   Blend: TBlendFunction;
   TopLeft: windows.TPoint;
@@ -989,9 +991,19 @@ begin
   Blend.BlendFlags:= 0;
   Blend.SourceConstantAlpha:= SrcAlpha;
   Blend.AlphaFormat:= AC_SRC_ALPHA;
-  UpdateLayeredWindow(hWnd, 0, @topleft, nil, 0, nil, $1fffffff, @Blend, ULW_ALPHA);
+  Result := UpdateLayeredWindow(hWnd, 0, @topleft, nil, 0, nil, $1fffffff, @Blend, ULW_ALPHA);
 end;
 //------------------------------------------------------------------------------
+procedure UpdateLWindow(hWnd: THandle; bmp: _SimpleBitmap; SrcAlpha: integer);
+begin
+  TryUpdateLWindow(hWnd, bmp, SrcAlpha);
+end;
+
+procedure UpdateLWindowPosAlpha(hWnd: THandle; x, y: integer; SrcAlpha: integer);
+begin
+  TryUpdateLWindowPosAlpha(hWnd, x, y, SrcAlpha);
+end;
+
 procedure CreateDefaultImage(var image: pointer);
 var
   dst, brush, pen, path: pointer;

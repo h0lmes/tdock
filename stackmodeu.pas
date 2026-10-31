@@ -459,11 +459,7 @@ begin
   radiusMultiplier := 9;
   SimultItemCount := ItemCount * 2;
 
-  if Opening then
-    ItemProgress := (Progress * (ItemCount + SimultItemCount - 1) / ItemCount - index / ItemCount) * ItemCount / SimultItemCount
-  else
-    ItemProgress := (Progress * (ItemCount + SimultItemCount - 1) / ItemCount - index / ItemCount) * ItemCount / SimultItemCount;
-    //ItemProgress := (Progress * (ItemCount + SimultItemCount - 1) / ItemCount - (ItemCount - index - 1) / ItemCount) * ItemCount / SimultItemCount;
+  ItemProgress := (Progress * (ItemCount + SimultItemCount - 1) / ItemCount - index / ItemCount) * ItemCount / SimultItemCount;
   ItemProgress := 0.5 + ItemProgress * 0.5;
 
   // (0 * (14 + 28 - 1) / 14 - 0 / 14) * 14 / 28
@@ -478,16 +474,10 @@ begin
 
   r := (ItemSize + 3) * 20 * radiusMultiplier / 2 / PI * (1 + Distort / 10);
   degreesPerStep := 18 / radiusMultiplier;
-  if Opening then
-  begin
-    x := r * cos((index - (ItemCount - 1) / 2) * PI * degreesPerStep / 180) * (0.5 + ItemProgress / 2) * sin(ItemProgress * 1.3 * PI / 2) / sin(1.3 * PI / 2);
-    y := r * sin((index - (ItemCount - 1) / 2) * PI * degreesPerStep / 180) * (0.5 + ItemProgress / 2) * sin(ItemProgress * 1.3 * PI / 2) / sin(1.3 * PI / 2);
-    result.s := round(ItemSize * ItemProgress * sin(ItemProgress * 1.3 * PI / 2) / sin(1.3 * PI / 2));
-  end else begin
-    x := r * cos((index - (ItemCount - 1) / 2) * PI * degreesPerStep / 180) * (0.5 + ItemProgress / 2);
-    y := r * sin((index - (ItemCount - 1) / 2) * PI * degreesPerStep / 180) * (0.5 + ItemProgress / 2);
-    result.s := round(ItemSize * ItemProgress);
-  end;
+  // Closing follows the same path in reverse, including its gentle overshoot.
+  x := r * cos((index - (ItemCount - 1) / 2) * PI * degreesPerStep / 180) * (0.5 + ItemProgress / 2) * sin(ItemProgress * 1.3 * PI / 2) / sin(1.3 * PI / 2);
+  y := r * sin((index - (ItemCount - 1) / 2) * PI * degreesPerStep / 180) * (0.5 + ItemProgress / 2) * sin(ItemProgress * 1.3 * PI / 2) / sin(1.3 * PI / 2);
+  result.s := round(ItemSize * ItemProgress * sin(ItemProgress * 1.3 * PI / 2) / sin(1.3 * PI / 2));
   x := x + Offset + ItemSize * 1.5 - r * cos(((ItemCount + 1) / 2) * PI * degreesPerStep / 180);
   result.angle := (index - (ItemCount - 1) / 2) * degreesPerStep;
   case Site of
@@ -531,20 +521,13 @@ begin
   result.angle := 0;
 
   // simultaneous item count = 4 //
-  if Opening then d := (progress * (ItemCount+4-1) / ItemCount - index / ItemCount) * ItemCount / 4
-  else d := (progress * (ItemCount+4-1) / ItemCount - (ItemCount - index - 1) / ItemCount) * ItemCount / 4;
+  d := (progress * (ItemCount+4-1) / ItemCount - index / ItemCount) * ItemCount / 4;
   if d < 0 then d := 0;
   if d > 1 then d := 1;
   d := sin(d * PI / 2);
   x := Offset + d * ItemSize * 2.5 - ItemSize;
-  if Opening then
-  begin
-    y := (ItemSize + 3 + abs(Distort * 2)) * ((index - (ItemCount - 1) / 2));
-    result.s := round(ItemSize * d * sin(d * 1.3 * PI / 2) / sin(1.3 * PI / 2));
-  end else begin
-    y := (ItemSize + 3 + abs(Distort * 2)) * ((index - (ItemCount - 1) / 2));
-    result.s := round(ItemSize * d);
-  end;
+  y := (ItemSize + 3 + abs(Distort * 2)) * ((index - (ItemCount - 1) / 2));
+  result.s := round(ItemSize * d * sin(d * 1.3 * PI / 2) / sin(1.3 * PI / 2));
   result.angle := 0;
   result.alpha := round(255 * d);
   result.hint_alpha := round(max(d - 0.5, 0) * 510);

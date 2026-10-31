@@ -4,42 +4,60 @@ unit animationtimingtests;
 
 interface
 
-uses Windows, Messages, Controls, SysUtils, fpcunit, testregistry,
+uses Windows, Messages, Controls, SysUtils, Classes, MultiMon, fpcunit, testregistry,
   declu, stackitemu, scsubitemu, hintu, aeropeeku, themeu, itemmodelu,
-  itemviewu, setsu;
+  itemviewu, setsu, gfx;
 
 type
   TStackTimingProbe = class(TStackItem)
   protected
     function AnimationNow: QWord; override;
+    function MotionNow: Double; override;
   public
-    Now: QWord;
+    Now: Double;
     function Progress: Double;
     function AnimationState: TStackState;
+    function AnimationDuration: Double;
   end;
 
   THintTimingProbe = class(THint)
   protected
     procedure Paint; override;
     function AnimationNow: QWord; override;
+    function MotionNow: Double; override;
+    procedure ApplyWindowPosition; override;
+    function PresentNativePixels(const Bitmap: _SimpleBitmap): Boolean; override;
+    function PresentNativePosition: Boolean; override;
   public
-    Now: QWord;
+    Now: Double;
+    Paints, Positions: Integer;
+    RejectPixels, RejectPosition: Boolean;
     procedure Stable;
     function FrameActive: boolean;
     procedure BeginFade;
     function Alpha: integer;
+    function PreciseAlpha: Double;
+    procedure BeginResize;
+    procedure ForgetPixels;
+    procedure ActivateStationary;
   end;
 
   TPeekTimingProbe = class(TAeroPeekWindow)
   protected
     procedure Paint; override;
     function AnimationNow: QWord; override;
+    function MotionNow: Double; override;
     function PointerInside: boolean; override;
     procedure ApplyWindowPosition; override;
     procedure UpdateTitles; override;
+    function PresentNativePixels(const Bitmap: _SimpleBitmap): Boolean; override;
+    function PresentNativePosition: Boolean; override;
+    function CreateSurfaceGraphics(DC: HDC): Pointer; override;
+    function CompositionAvailable: Boolean; override;
   public
-    Now: QWord;
-    PointerReads, TitleRefreshes: integer;
+    Now: Double;
+    PointerReads, TitleRefreshes, Paints, Positions: integer;
+    RejectPixels, RejectPosition, NativePaint, RejectGraphics: Boolean;
     procedure Stable;
     procedure Tick;
     function FrameActive: boolean;
@@ -49,6 +67,12 @@ type
     procedure BeginMove;
     function LeftPosition: integer;
     procedure ArmTitleRefresh;
+    procedure ResizeSettled;
+    function PreciseLeft: Double;
+    procedure ForgetPixels;
+    function PreciseAlpha: Double;
+    procedure MoveWithoutPixels;
+    procedure PaintOnce;
   end;
 
   TTimerViewProbe = class(TItemViewAdapter)
@@ -72,6 +96,8 @@ type
     procedure StackClosePreservesPartialOpening;
     procedure StackReopenPreservesPartialClosing;
     procedure StackProgressUsesElapsedTime;
+    procedure StackKeepsLegacyWallTime;
+    procedure StackAdvancesAtFractionalTimes;
     procedure StableHintStopsFrameTimer;
     procedure StablePeekStopsFrameTimer;
     procedure RecreatedViewKeepsRemainingDeadline;
@@ -91,21 +117,67 @@ type
     procedure InactivePreviewCloseNeedsNoFrames;
     procedure EarlyTitleTimerDoesNotRefresh;
     procedure InactiveTitleTimerDoesNotRefresh;
+    procedure HintFrameAdvancesWithinTenMilliseconds;
+    procedure PeekFrameAdvancesWithinTenMilliseconds;
+    procedure SettledPeekResizeRestartsFrames;
+    procedure HintFadeIgnoresFramePartition;
+    procedure PeekMoveIgnoresFramePartition;
+    procedure HintReversalPreservesCurrentAlpha;
+    procedure HintPositionFramesReusePixels;
+    procedure PeekPositionFramesReusePixels;
+    procedure HintSizeFramesRepaintPixels;
+    procedure ImmediateHintCloseCancelsFrames;
+    procedure HintFadeKeepsLegacyDuration;
+    procedure PeekMoveKeepsLegacyDuration;
+    procedure SettledPeekResizeStopsFramesAgain;
+    procedure HintRetriesMissingPixels;
+    procedure PeekRetriesMissingPixels;
+    procedure CheckedLayeredPixelsReportNativeFailure;
+    procedure CheckedLayeredPositionReportsNativeFailure;
+    procedure HintRejectedPixelsRemainScheduled;
+    procedure PeekRejectedPixelsRemainScheduled;
+    procedure HintRejectedPositionResendsPixels;
+    procedure PeekRejectedPositionResendsPixels;
+    procedure StationaryHintRetriesRejectedPixels;
+    procedure PeekRejectedGraphicsReleasesNativeBitmap;
+    procedure PeekReopenPreservesClosingAlpha;
+    procedure PeekPositionCannotValidateMissingPixels;
+    procedure SettledPeekGraphicsFailureStartsRetryFrames;
   end;
 
 implementation
 
+function NativeGetGuiResources(Process: THandle; Flags: DWORD): DWORD; stdcall;
+  external 'user32.dll' name 'GetGuiResources';
+
 function TStackTimingProbe.AnimationNow: QWord;
+begin Result := Trunc(Now); end;
+function TStackTimingProbe.MotionNow: Double;
 begin Result := Now; end;
 function TStackTimingProbe.Progress: Double;
 begin Result := FStateProgress; end;
 function TStackTimingProbe.AnimationState: TStackState;
 begin Result := FState; end;
+function TStackTimingProbe.AnimationDuration: Double;
+begin Result := FStackAnimation.DurationMs; end;
 
 procedure THintTimingProbe.Paint;
-begin end;
+var Bitmap: _SimpleBitmap;
+begin
+  Inc(Paints);
+  Bitmap := Default(_SimpleBitmap);
+  PresentPixels(Bitmap);
+end;
+function THintTimingProbe.PresentNativePixels(const Bitmap: _SimpleBitmap): Boolean;
+begin Result := not RejectPixels; end;
+function THintTimingProbe.PresentNativePosition: Boolean;
+begin Result := not RejectPosition; end;
 function THintTimingProbe.AnimationNow: QWord;
+begin Result := Trunc(Now); end;
+function THintTimingProbe.MotionNow: Double;
 begin Result := Now; end;
+procedure THintTimingProbe.ApplyWindowPosition;
+begin Inc(Positions); inherited; end;
 procedure THintTimingProbe.Stable;
 begin
   FVisible := true;
@@ -115,6 +187,7 @@ begin
   FY := 20; FYTarget := FY;
   FW := 100; FWTarget := FW;
   FH := 30; FHTarget := FH;
+  FSurfaceReady := True;
   StartFrameTimer;
 end;
 function THintTimingProbe.FrameActive: boolean;
@@ -129,15 +202,54 @@ begin
 end;
 function THintTimingProbe.Alpha: integer;
 begin Result := FAlpha; end;
+function THintTimingProbe.PreciseAlpha: Double;
+begin Result := FAlphaMotion; end;
+procedure THintTimingProbe.BeginResize;
+begin
+  Stable;
+  StopFrameTimer;
+  FWTarget := 200;
+  Now := 1000;
+  StartFrameTimer;
+end;
+procedure THintTimingProbe.ForgetPixels;
+begin FSurfaceReady := False; end;
+procedure THintTimingProbe.ActivateStationary;
+var Point: Windows.TPoint;
+begin
+  Point.X := 100; Point.Y := 100;
+  ActivateHint(0, 'Native presentation', 100, 100,
+    MultiMon.MonitorFromPoint(Point, MONITOR_DEFAULTTONEAREST), bsBottom);
+end;
 
 procedure TPeekTimingProbe.Paint;
-begin end;
+var Bitmap: _SimpleBitmap;
+begin
+  Inc(Paints);
+  if NativePaint then inherited
+  else begin
+    Bitmap := Default(_SimpleBitmap);
+    PresentPixels(Bitmap);
+  end;
+end;
+function TPeekTimingProbe.PresentNativePixels(const Bitmap: _SimpleBitmap): Boolean;
+begin Result := not RejectPixels; end;
+function TPeekTimingProbe.PresentNativePosition: Boolean;
+begin Result := not RejectPosition; end;
+function TPeekTimingProbe.CreateSurfaceGraphics(DC: HDC): Pointer;
+begin
+  if RejectGraphics then Result := nil else Result := inherited;
+end;
+function TPeekTimingProbe.CompositionAvailable: Boolean;
+begin Result := True; end;
 function TPeekTimingProbe.AnimationNow: QWord;
+begin Result := Trunc(Now); end;
+function TPeekTimingProbe.MotionNow: Double;
 begin Result := Now; end;
 function TPeekTimingProbe.PointerInside: boolean;
 begin Inc(PointerReads); Result := true; end;
 procedure TPeekTimingProbe.ApplyWindowPosition;
-begin end;
+begin Inc(Positions); inherited; end;
 procedure TPeekTimingProbe.UpdateTitles;
 begin Inc(TitleRefreshes); end;
 procedure TPeekTimingProbe.Stable;
@@ -150,6 +262,9 @@ begin
   Fy := 20; FYTarget := Fy;
   FWidth := 100; FWTarget := FWidth;
   FHeight := 30; FHTarget := FHeight;
+  FSurfaceReady := True;
+  FWorkArea.Left := 0; FWorkArea.Top := 0;
+  FWorkArea.Right := 1920; FWorkArea.Bottom := 1080;
   StartFrameTimer;
 end;
 procedure TPeekTimingProbe.Tick;
@@ -161,7 +276,7 @@ begin MouseEnter; end;
 function TPeekTimingProbe.PeekAllowed: boolean;
 begin Result := FAeroPeekAllowedInt; end;
 function TPeekTimingProbe.PeekRemaining: QWord;
-begin Result := FPeekDeadline.Remaining(Now); end;
+begin Result := FPeekDeadline.Remaining(Trunc(Now)); end;
 procedure TPeekTimingProbe.BeginMove;
 begin
   Stable;
@@ -174,7 +289,26 @@ end;
 function TPeekTimingProbe.LeftPosition: integer;
 begin Result := Fx; end;
 procedure TPeekTimingProbe.ArmTitleRefresh;
-begin FTitleDeadline.Schedule(Now, 1000); end;
+begin FTitleDeadline.Schedule(Trunc(Now), 1000); end;
+procedure TPeekTimingProbe.ResizeSettled;
+begin
+  FWTarget := 200;
+  SetItems;
+end;
+function TPeekTimingProbe.PreciseLeft: Double;
+begin Result := FXMotion; end;
+procedure TPeekTimingProbe.ForgetPixels;
+begin FSurfaceReady := False; end;
+function TPeekTimingProbe.PreciseAlpha: Double;
+begin Result := FAlphaMotion; end;
+procedure TPeekTimingProbe.MoveWithoutPixels;
+begin
+  FAnimate := False;
+  FSurfaceReady := False;
+  SetAPWindowPosition(100, 100);
+end;
+procedure TPeekTimingProbe.PaintOnce;
+begin Paint; end;
 
 function TTimerViewProbe.TimerNow: QWord;
 begin Result := Now; end;
@@ -243,6 +377,22 @@ begin
   Stack.Now := 3000;
   Stack.Timer;
   AssertEquals('A delayed frame must finish elapsed movement', Ord(stsOpen), Ord(Stack.AnimationState));
+end;
+
+procedure TAnimationTimingTests.StackKeepsLegacyWallTime;
+begin
+  Stack.MouseClick(mbLeft, [], 0, 0);
+  AssertEquals('Default stack motion retains its legacy timing',
+    15.625 / 0.15, Stack.AnimationDuration, 0.0001);
+end;
+
+procedure TAnimationTimingTests.StackAdvancesAtFractionalTimes;
+begin
+  Stack.Now := 1000.25;
+  Stack.MouseClick(mbLeft, [], 0, 0);
+  Stack.Now := 1000.5;
+  Stack.Timer;
+  AssertTrue('Precise stack frames retain submillisecond motion', Stack.Progress > 0);
 end;
 
 procedure TAnimationTimingTests.StableHintStopsFrameTimer;
@@ -495,6 +645,389 @@ begin
   try
     Peek.WMTimer(ID_TIMER_SLOW);
     AssertEquals('Inactive previews need no title work', 0, Peek.TitleRefreshes);
+  finally Peek.Free; end;
+end;
+
+procedure TAnimationTimingTests.HintFrameAdvancesWithinTenMilliseconds;
+var Hint: THintTimingProbe;
+begin
+  Hint := THintTimingProbe.Create;
+  try
+    Hint.BeginFade;
+    Hint.Now := 1008;
+    Hint.Timer;
+    AssertTrue('A 120 Hz frame must advance the fade', Hint.Alpha > 0);
+  finally Hint.Free; end;
+end;
+
+procedure TAnimationTimingTests.PeekFrameAdvancesWithinTenMilliseconds;
+var Peek: TPeekTimingProbe;
+begin
+  Peek := TPeekTimingProbe.Create;
+  try
+    Peek.BeginMove;
+    Peek.Now := 1008;
+    Peek.Tick;
+    AssertTrue('A 120 Hz frame must advance the preview', Peek.LeftPosition > 0);
+  finally Peek.Free; end;
+end;
+
+procedure TAnimationTimingTests.SettledPeekResizeRestartsFrames;
+var Peek: TPeekTimingProbe;
+begin
+  Peek := TPeekTimingProbe.Create;
+  try
+    Peek.Stable;
+    Peek.Tick;
+    Peek.ResizeSettled;
+    AssertTrue('A settled preview must schedule its new layout', Peek.FrameActive);
+  finally Peek.Free; end;
+end;
+
+procedure TAnimationTimingTests.HintFadeIgnoresFramePartition;
+var Sparse, Dense: THintTimingProbe;
+begin
+  Sparse := THintTimingProbe.Create;
+  Dense := THintTimingProbe.Create;
+  try
+    Sparse.BeginFade;
+    Dense.BeginFade;
+    Dense.Now := 1008.25; Dense.Timer;
+    Dense.Now := 1016.75; Dense.Timer;
+    Dense.Now := 1025.5; Dense.Timer;
+    Dense.Now := 1037.5; Dense.Timer;
+    Sparse.Now := 1037.5; Sparse.Timer;
+    AssertEquals('Precise fade sampling must ignore frame count',
+      Sparse.PreciseAlpha, Dense.PreciseAlpha, 0.000001);
+  finally Dense.Free; Sparse.Free; end;
+end;
+
+procedure TAnimationTimingTests.PeekMoveIgnoresFramePartition;
+var Sparse, Dense: TPeekTimingProbe;
+begin
+  Sparse := TPeekTimingProbe.Create;
+  Dense := TPeekTimingProbe.Create;
+  try
+    Sparse.BeginMove;
+    Dense.BeginMove;
+    Dense.Now := 1008.25; Dense.Tick;
+    Dense.Now := 1016.75; Dense.Tick;
+    Dense.Now := 1025.5; Dense.Tick;
+    Dense.Now := 1037.5; Dense.Tick;
+    Sparse.Now := 1037.5; Sparse.Tick;
+    AssertEquals('Precise movement must ignore frame count',
+      Sparse.PreciseLeft, Dense.PreciseLeft, 0.000001);
+  finally Dense.Free; Sparse.Free; end;
+end;
+
+procedure TAnimationTimingTests.HintReversalPreservesCurrentAlpha;
+var Hint: THintTimingProbe; Before: Double;
+begin
+  Hint := THintTimingProbe.Create;
+  try
+    Hint.BeginFade;
+    Hint.Now := 1037.5;
+    Hint.Timer;
+    Before := Hint.PreciseAlpha;
+    Hint.DeactivateHint(0);
+    AssertEquals('Reversal must preserve alpha at its timestamp', Before, Hint.PreciseAlpha, 0.000001);
+    Hint.Now := 1045.75;
+    Hint.Timer;
+    AssertTrue('The next frame must follow the new fade target', Hint.PreciseAlpha < Before);
+  finally Hint.Free; end;
+end;
+
+procedure TAnimationTimingTests.HintPositionFramesReusePixels;
+var Hint: THintTimingProbe;
+begin
+  Hint := THintTimingProbe.Create;
+  try
+    Hint.BeginFade;
+    Hint.Now := 1016.75;
+    Hint.Timer;
+    AssertEquals('An alpha frame needs no new pixels', 0, Hint.Paints);
+    AssertEquals('An alpha frame updates the native surface', 1, Hint.Positions);
+  finally Hint.Free; end;
+end;
+
+procedure TAnimationTimingTests.PeekPositionFramesReusePixels;
+var Peek: TPeekTimingProbe;
+begin
+  Peek := TPeekTimingProbe.Create;
+  try
+    Peek.BeginMove;
+    Peek.Now := 1016.75;
+    Peek.Tick;
+    AssertEquals('A position frame needs no new pixels', 0, Peek.Paints);
+    AssertEquals('A position frame updates the native surface', 1, Peek.Positions);
+  finally Peek.Free; end;
+end;
+
+procedure TAnimationTimingTests.HintSizeFramesRepaintPixels;
+var Hint: THintTimingProbe;
+begin
+  Hint := THintTimingProbe.Create;
+  try
+    Hint.BeginResize;
+    Hint.Now := 1016.75;
+    Hint.Timer;
+    AssertEquals('A changed surface size requires new pixels', 1, Hint.Paints);
+  finally Hint.Free; end;
+end;
+
+procedure TAnimationTimingTests.ImmediateHintCloseCancelsFrames;
+var Hint: THintTimingProbe;
+begin
+  Hint := THintTimingProbe.Create;
+  try
+    Hint.BeginFade;
+    Hint.DeactivateImmediate;
+    Hint.Now := 2000;
+    Hint.Timer;
+    AssertFalse('Immediate closure cancels pending frame work', Hint.FrameActive);
+    AssertEquals('Cancelled frames cannot present pixels', 0, Hint.Positions);
+  finally Hint.Free; end;
+end;
+
+procedure TAnimationTimingTests.HintFadeKeepsLegacyDuration;
+var Hint: THintTimingProbe;
+begin
+  Hint := THintTimingProbe.Create;
+  try
+    Hint.BeginFade;
+    Hint.Now := 1250;
+    Hint.Timer;
+    AssertFalse('The fade must finish within its familiar duration', Hint.FrameActive);
+  finally Hint.Free; end;
+end;
+
+procedure TAnimationTimingTests.PeekMoveKeepsLegacyDuration;
+var Peek: TPeekTimingProbe;
+begin
+  Peek := TPeekTimingProbe.Create;
+  try
+    Peek.BeginMove;
+    Peek.Now := 1250;
+    Peek.Tick;
+    AssertFalse('The preview must finish within its familiar duration', Peek.FrameActive);
+  finally Peek.Free; end;
+end;
+
+procedure TAnimationTimingTests.SettledPeekResizeStopsFramesAgain;
+var Peek: TPeekTimingProbe;
+begin
+  Peek := TPeekTimingProbe.Create;
+  try
+    Peek.Stable;
+    Peek.Tick;
+    Peek.ResizeSettled;
+    Peek.Now := 1000;
+    Peek.Tick;
+    AssertFalse('A completed layout change must stop frame work', Peek.FrameActive);
+  finally Peek.Free; end;
+end;
+
+procedure TAnimationTimingTests.HintRetriesMissingPixels;
+var Hint: THintTimingProbe;
+begin
+  Hint := THintTimingProbe.Create;
+  try
+    Hint.BeginFade;
+    Hint.ForgetPixels;
+    Hint.Now := 1016.75;
+    Hint.Timer;
+    AssertEquals('A missing native surface needs a full paint', 1, Hint.Paints);
+  finally Hint.Free; end;
+end;
+
+procedure TAnimationTimingTests.PeekRetriesMissingPixels;
+var Peek: TPeekTimingProbe;
+begin
+  Peek := TPeekTimingProbe.Create;
+  try
+    Peek.BeginMove;
+    Peek.ForgetPixels;
+    Peek.Now := 1016.75;
+    Peek.Tick;
+    AssertEquals('A missing preview surface needs a full paint', 1, Peek.Paints);
+  finally Peek.Free; end;
+end;
+
+procedure TAnimationTimingTests.CheckedLayeredPixelsReportNativeFailure;
+var Bitmap: _SimpleBitmap;
+begin
+  Bitmap := Default(_SimpleBitmap);
+  AssertFalse('An invalid native owner must reject full pixels', TryUpdateLWindow(0, Bitmap));
+end;
+
+procedure TAnimationTimingTests.CheckedLayeredPositionReportsNativeFailure;
+begin
+  AssertFalse('An invalid native owner must reject geometry', TryUpdateLWindowPosAlpha(0, 10, 20));
+end;
+
+procedure TAnimationTimingTests.HintRejectedPixelsRemainScheduled;
+var Hint: THintTimingProbe;
+begin
+  Hint := THintTimingProbe.Create;
+  try
+    Hint.Stable;
+    Hint.ForgetPixels;
+    Hint.RejectPixels := True;
+    Hint.Timer;
+    AssertTrue('Rejected pixels must retain frame work', Hint.FrameActive);
+    Hint.RejectPixels := False;
+    Hint.Now := 10;
+    Hint.Timer;
+    AssertEquals('The next frame must resend full pixels', 2, Hint.Paints);
+    AssertFalse('Successful stationary presentation stops frames', Hint.FrameActive);
+  finally Hint.Free; end;
+end;
+
+procedure TAnimationTimingTests.PeekRejectedPixelsRemainScheduled;
+var Peek: TPeekTimingProbe;
+begin
+  Peek := TPeekTimingProbe.Create;
+  try
+    Peek.Stable;
+    Peek.ForgetPixels;
+    Peek.RejectPixels := True;
+    Peek.Tick;
+    AssertTrue('Rejected preview pixels must retain frame work', Peek.FrameActive);
+    Peek.RejectPixels := False;
+    Peek.Now := 10;
+    Peek.Tick;
+    AssertEquals('The next preview frame must resend full pixels', 2, Peek.Paints);
+    AssertFalse('Successful stationary preview presentation stops frames', Peek.FrameActive);
+  finally Peek.Free; end;
+end;
+
+procedure TAnimationTimingTests.HintRejectedPositionResendsPixels;
+var Hint: THintTimingProbe;
+begin
+  Hint := THintTimingProbe.Create;
+  try
+    Hint.BeginFade;
+    Hint.RejectPosition := True;
+    Hint.Now := 1250;
+    Hint.Timer;
+    AssertTrue('Rejected alpha must retain frame work', Hint.FrameActive);
+    Hint.RejectPosition := False;
+    Hint.Now := 1260;
+    Hint.Timer;
+    AssertEquals('Rejected alpha requires a full pixel retry', 1, Hint.Paints);
+    AssertFalse(Hint.FrameActive);
+  finally Hint.Free; end;
+end;
+
+procedure TAnimationTimingTests.PeekRejectedPositionResendsPixels;
+var Peek: TPeekTimingProbe;
+begin
+  Peek := TPeekTimingProbe.Create;
+  try
+    Peek.BeginMove;
+    Peek.RejectPosition := True;
+    Peek.Now := 1250;
+    Peek.Tick;
+    AssertTrue('Rejected preview geometry must retain frame work', Peek.FrameActive);
+    Peek.RejectPosition := False;
+    Peek.Now := 1260;
+    Peek.Tick;
+    AssertEquals('Rejected geometry requires a full preview retry', 1, Peek.Paints);
+    AssertFalse(Peek.FrameActive);
+  finally Peek.Free; end;
+end;
+
+procedure TAnimationTimingTests.StationaryHintRetriesRejectedPixels;
+var Hint: THintTimingProbe;
+begin
+  Store.container.HintEffects := False;
+  Hint := THintTimingProbe.Create;
+  try
+    Hint.RejectPixels := True;
+    Hint.ActivateStationary;
+    AssertTrue('Stationary activation must retry rejected pixels', Hint.FrameActive);
+    Hint.RejectPixels := False;
+    Hint.Timer;
+    AssertEquals('Stationary activation must resend its full pixels', 2, Hint.Paints);
+    AssertFalse(Hint.FrameActive);
+  finally Hint.Free; end;
+end;
+
+procedure TAnimationTimingTests.PeekRejectedGraphicsReleasesNativeBitmap;
+var Peek: TPeekTimingProbe; Before: DWORD; Index: Integer;
+begin
+  Peek := TPeekTimingProbe.Create;
+  try
+    Peek.Stable;
+    Peek.ForgetPixels;
+    Peek.NativePaint := True;
+    Peek.RejectGraphics := True;
+    Before := NativeGetGuiResources(GetCurrentProcess, 0);
+    for Index := 1 to 8 do
+    begin
+      Peek.Now := Index;
+      Peek.Tick;
+    end;
+    AssertEquals('Failed graphics creation must release bitmap and DC handles',
+      Int64(Before), Int64(NativeGetGuiResources(GetCurrentProcess, 0)));
+    AssertTrue('Failed graphics creation must retain frame work', Peek.FrameActive);
+  finally Peek.Free; end;
+end;
+
+procedure TAnimationTimingTests.PeekReopenPreservesClosingAlpha;
+var Peek, Reference: TPeekTimingProbe; AppList: TFPList; Owner: HWND;
+begin
+  Peek := TPeekTimingProbe.Create;
+  Reference := TPeekTimingProbe.Create;
+  AppList := TFPList.Create;
+  Owner := CreateWindowEx(0, 'STATIC', 'Preview', WS_POPUP, 0, 0, 10, 10,
+    0, 0, HInstance, nil);
+  try
+    AppList.Add(Pointer(PtrUInt(Owner)));
+    Peek.Now := 1000; Peek.Stable; Peek.Tick; Peek.CloseAPWindow;
+    Reference.Now := 1000; Reference.Stable; Reference.Tick; Reference.CloseAPWindow;
+    Peek.Now := 1037.5; Peek.Tick;
+    Reference.Now := 1075; Reference.Tick;
+    Peek.Now := 1075;
+    Peek.OpenAPWindow(0, AppList, 0, 100, 100, 0, 100, True, True);
+    AssertEquals('Reopening must sample closing alpha before retargeting',
+      Reference.PreciseAlpha, Peek.PreciseAlpha, 0.000001);
+    AssertEquals('Reopening must preserve closing position',
+      Reference.PreciseLeft, Peek.PreciseLeft, 0.000001);
+  finally
+    DestroyWindow(Owner);
+    AppList.Free;
+    Reference.Free;
+    Peek.Free;
+  end;
+end;
+
+procedure TAnimationTimingTests.PeekPositionCannotValidateMissingPixels;
+var Peek: TPeekTimingProbe;
+begin
+  Peek := TPeekTimingProbe.Create;
+  try
+    Peek.Stable;
+    Peek.Tick;
+    Peek.MoveWithoutPixels;
+    AssertTrue('Successful movement cannot validate missing pixels', Peek.FrameActive);
+    Peek.Tick;
+    AssertEquals('The retry must send full preview pixels', 1, Peek.Paints);
+    AssertFalse(Peek.FrameActive);
+  finally Peek.Free; end;
+end;
+
+procedure TAnimationTimingTests.SettledPeekGraphicsFailureStartsRetryFrames;
+var Peek: TPeekTimingProbe;
+begin
+  Peek := TPeekTimingProbe.Create;
+  try
+    Peek.Stable;
+    Peek.Tick;
+    Peek.NativePaint := True;
+    Peek.RejectGraphics := True;
+    Peek.PaintOnce;
+    AssertTrue('A settled preview must retry failed graphics creation', Peek.FrameActive);
   finally Peek.Free; end;
 end;
 

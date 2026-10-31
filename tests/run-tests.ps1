@@ -14,7 +14,7 @@ if (-not $Compiler) { throw 'Specify the Free Pascal compiler with -Compiler.' }
 
 $projectRoot = Split-Path $PSScriptRoot -Parent
 foreach ($mode in @('checked', 'release')) {
-    foreach ($suite in @('itemmodel', 'itemcollection', 'itemidentity', 'itemmanager', 'propertylifetime', 'runthread', 'coremigration', 'itemregistry', 'itemhost', 'subitemlifetime', 'settingssave', 'docklayout', 'tasksync', 'windowlayout', 'nativeinput', 'pluginhost', 'serialization', 'docktiming', 'hotkey', 'animationtiming', 'itemtiming', 'shelltiming', 'dropownership', 'appmetadata', 'iconservice', 'apptarget', 'launchservice', 'dropimport', 'targetpreservation', 'launchfailure', 'variableexpansion', 'activation')) {
+    foreach ($suite in @('itemmodel', 'itemcollection', 'itemidentity', 'itemmanager', 'propertylifetime', 'runthread', 'coremigration', 'itemregistry', 'itemhost', 'subitemlifetime', 'settingssave', 'docklayout', 'tasksync', 'windowlayout', 'nativeinput', 'pluginhost', 'serialization', 'docktiming', 'framepacing', 'animationcurve', 'hotkey', 'animationtiming', 'itemtiming', 'shelltiming', 'dropownership', 'appmetadata', 'iconservice', 'asyncwindowicon', 'apptarget', 'launchservice', 'dropimport', 'targetpreservation', 'launchfailure', 'variableexpansion', 'activation')) {
         $buildPath = Join-Path $PSScriptRoot ".build\$suite-$mode"
         New-Item -ItemType Directory -Path $buildPath -Force | Out-Null
         $flags = @('-B', '-Mdelphi', "-Fu$projectRoot", "-FU$buildPath", "-FE$buildPath")
@@ -23,8 +23,9 @@ foreach ($mode in @('checked', 'release')) {
         if ($suite -in @('runthread', 'launchfailure')) { $flags += '-dRUNTHREAD_TESTS' }
         if ($suite -eq 'apptarget') { $flags += '-dPACKAGEDAPP_TESTS' }
         if ($suite -in @('appmetadata', 'iconservice')) { $flags += '-dICONSERVICE_TESTS' }
+        if ($suite -eq 'asyncwindowicon') { $flags += @('-dWINDOW_ICON_TESTS', '-dANIMATION_TIMING_TESTS') }
         if ($suite -eq 'animationtiming') { $flags += '-dANIMATION_TIMING_TESTS' }
-        if ($suite -in @('itemmanager', 'itemidentity', 'propertylifetime', 'coremigration', 'pluginhost', 'nativeinput', 'subitemlifetime', 'serialization', 'animationtiming', 'itemtiming', 'shelltiming', 'dropownership', 'appmetadata', 'iconservice', 'apptarget', 'launchservice', 'dropimport', 'targetpreservation', 'launchfailure', 'variableexpansion')) {
+        if ($suite -in @('itemmanager', 'itemidentity', 'propertylifetime', 'coremigration', 'pluginhost', 'nativeinput', 'subitemlifetime', 'serialization', 'docklayout', 'animationtiming', 'itemtiming', 'shelltiming', 'dropownership', 'appmetadata', 'iconservice', 'asyncwindowicon', 'apptarget', 'launchservice', 'dropimport', 'targetpreservation', 'launchfailure', 'variableexpansion')) {
             $flags += @(
                 "-Fu$LazarusRoot\lcl\units\x86_64-win64",
                 "-Fu$LazarusRoot\lcl\units\x86_64-win64\win32",

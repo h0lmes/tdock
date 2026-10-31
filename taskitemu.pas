@@ -4,14 +4,14 @@ unit taskitemu;
 
 interface
 uses Windows, Messages, SysUtils, Controls, Classes, Math,
-  GDIPAPI, gfx, iconserviceu, declu, dockh, customdrawitemu, processhlp, aeropeeku, loggeru, tasksyncu;
+  GDIPAPI, gfx, iconserviceu, asyncwindowiconu, declu, dockh, customdrawitemu, processhlp, aeropeeku, loggeru, tasksyncu;
 
 type
 
   { TTaskItem }
 
   TTaskItem = class(TCustomDrawItem)
-  private
+  {$ifdef WINDOW_ICON_TESTS}protected{$else}private{$endif}
     FIsExecutable: boolean;
     FExecutable: string;
     FAppList: TFPList;
@@ -23,6 +23,10 @@ type
     FTaskSystemMenus: boolean; // use old-style system menus instead of AeroPeekWindow
     FAeroPeekEnabled: boolean; // allow to use AeroPeek or not
     FAeroPeekWindowActive: boolean;
+    FIconOwner, FIconWindow: HWND;
+    FIconGeneration: WPARAM;
+    FIconRequestSize: Integer;
+    procedure CancelIconRequests;
     procedure BeforeUndock;
     procedure CheckWindowActivated;
     procedure UpdateImage;
@@ -57,12 +61,14 @@ type
     procedure Save(ini, section: string); override;
     procedure PrepareDeletion; override;
     procedure ForegroundChanged(wnd: HWND); override;
+    procedure ViewDestroyed; override;
+    procedure RecreateWindow; override;
     //
     class function Make: string;
   end;
 
 implementation
-uses itemviewu;
+uses itemviewu, itemmodelu;
 //------------------------------------------------------------------------------
 constructor TTaskItem.Create(wndParent: HWND; var AParams: TDItemCreateParams);
 begin
@@ -86,6 +92,7 @@ end;
 //------------------------------------------------------------------------------
 destructor TTaskItem.Destroy;
 begin
+  CancelIconRequests;
   FFreed := true;
   if FAeroPeekWindowActive then TAeroPeekWindow.Close(0);
   FAppList.free;
@@ -233,7 +240,42 @@ end;
 procedure TTaskItem.UpdateImage;
 begin
   if FAppList.Count > 0 then
-    LoadAppImage(FExecutable, THandle(FAppList.Items[0]), FBigItemSize, false, false, FImage, FIW, FIH, 500);
+  begin
+    if (FIconOwner <> FHWnd) or (FIconWindow <> THandle(FAppList.Items[0])) or
+      (FIconRequestSize <> FBigItemSize) or (FIconGeneration = 0) then
+    begin
+      CancelIconRequests;
+      FIconOwner := FHWnd;
+      FIconWindow := THandle(FAppList.Items[0]);
+      FIconRequestSize := FBigItemSize;
+      FIconGeneration := NextWindowIconGeneration;
+    end;
+    LoadAppImageAsync(FExecutable, FIconWindow, FHWnd, FIconGeneration,
+      FBigItemSize, false, true, FImage, FIW, FIH);
+  end;
+end;
+procedure TTaskItem.CancelIconRequests;
+begin
+  UnsubscribeWindowIcons(FIconOwner);
+  FIconOwner := 0;
+  FIconWindow := 0;
+  FIconGeneration := 0;
+end;
+procedure TTaskItem.ViewDestroyed;
+begin
+  CancelIconRequests;
+  inherited;
+end;
+procedure TTaskItem.RecreateWindow;
+var Id: TItemId;
+begin
+  if not Pin then Exit;
+  Id := ItemId;
+  try
+    CancelIconRequests;
+    inherited;
+    if not FFreed and (FAppList <> nil) then UpdateImage;
+  finally ReleaseItemModel(Id); end;
 end;
 //------------------------------------------------------------------------------
 function TTaskItem.cmd(id: TDParam; param: PtrInt): PtrInt;
@@ -453,7 +495,22 @@ begin
 end;
 //------------------------------------------------------------------------------
 procedure TTaskItem.WndMessage(var msg: TMessage);
+var Service: TWindowIconService;
 begin
+  if not FFreed and (msg.Msg = WINDOW_ICON_READY_MESSAGE) then
+  begin
+    msg.Result := 0;
+    if (msg.WParam <> FIconGeneration) or (FHWnd <> FIconOwner) or
+      (HWND(msg.LParam) <> FIconWindow) or (FAppList.Count = 0) or
+      (THandle(FAppList.Items[0]) <> FIconWindow) then Exit;
+    Service := WindowIconService;
+    if (Service <> nil) and Service.AcceptNotification(FIconWindow, FHWnd, FIconGeneration) then
+    begin
+      UpdateImage;
+      Redraw;
+    end;
+    Exit;
+  end;
   if not FFreed then
     with msg do
     begin
@@ -517,6 +574,7 @@ end;
 //------------------------------------------------------------------------------
 procedure TTaskItem.PrepareDeletion;
 begin
+  CancelIconRequests;
   try
     if TAeroPeekWindow.ActivatedBy(FHWnd) then TAeroPeekWindow.Close(0);
     FAeroPeekWindowActive := false;

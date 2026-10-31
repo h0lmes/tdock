@@ -35,12 +35,16 @@ type
     procedure PackagePIDLUsesUnplatedArtwork;
     procedure TaskImageKeepsFilePreference;
     procedure TaskImageFallsBackToWindow;
+    procedure AsyncTaskImageKeepsFilePreference;
+    procedure AsyncTaskImageReplacesSmallFileIcon;
     procedure NonAppIDUsesAppsFolderIcon;
     procedure AppsFolderPrefixesUseCanonicalIconName;
     procedure OrdinaryBangTargetsDoNotUseAppsFolder;
   end;
 
 implementation
+
+uses asyncwindowiconu;
 
 type
   TTestFactory = class(TInterfacedObject, IShellItemImageFactory)
@@ -459,6 +463,46 @@ begin
   end;
 end;
 
+procedure TIconServiceTests.AsyncTaskImageKeepsFilePreference;
+begin
+  AssertEquals('Large file icons must retain priority in the UI loader', 1,
+    LoadAppImageAsync(GetEnvironmentVariable('SystemRoot') + '\System32\notepad.exe',
+      0, 0, 1, 64, False, False, FImage, FWidth, FHeight));
+  AssertEquals('The UI loader must retain the shared factory', 1, FactoryCalls);
+  AssertEquals('The UI file icon must retain its dimensions', 64, FWidth);
+end;
+procedure TIconServiceTests.AsyncTaskImageReplacesSmallFileIcon;
+var Window, Owner: HWND; Icon: HICON; Started: QWord; Message: TMsg; Ready: Boolean;
+begin
+  Window := CreateWindowExW(0, 'STATIC', 'target', 0, 0, 0, 1, 1, 0, 0, HInstance, nil);
+  Owner := CreateWindowExW(0, 'STATIC', 'owner', 0, 0, 0, 1, 1, 0, 0, HInstance, nil);
+  Icon := CopyIcon(LoadIcon(0, IDI_APPLICATION));
+  try
+    SendMessage(Window, WM_SETICON, ICON_BIG, Icon);
+    FactoryWidth := 16; FactoryHeight := 16;
+    AssertEquals('The first request must retain the small file fallback', 1,
+      LoadAppImageAsync(GetEnvironmentVariable('SystemRoot') + '\System32\notepad.exe',
+        Window, Owner, 33, 64, False, False, FImage, FWidth, FHeight));
+    Started := GetTickCount64;
+    Ready := False;
+    repeat
+      while PeekMessage(Message, 0, 0, 0, PM_REMOVE) do
+        if (Message.hwnd = Owner) and (Message.message = WINDOW_ICON_READY_MESSAGE) then Ready := True
+        else DispatchMessage(Message);
+      if not Ready then Sleep(1);
+    until Ready or (GetTickCount64 - Started > 1000);
+    AssertTrue('The small file fallback must subscribe for a window icon', Ready);
+    AssertEquals('The larger cached window icon must replace the small file icon', 2,
+      LoadAppImageAsync(GetEnvironmentVariable('SystemRoot') + '\System32\notepad.exe',
+        Window, Owner, 33, 64, False, False, FImage, FWidth, FHeight));
+    AssertTrue('The selected window icon must exceed the file icon', FWidth > 16);
+  finally
+    UnsubscribeWindowIcons(Owner);
+    DestroyWindow(Window);
+    DestroyWindow(Owner);
+    DestroyIcon(Icon);
+  end;
+end;
 initialization
   RegisterTest(TIconServiceTests);
 end.

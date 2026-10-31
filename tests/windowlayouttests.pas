@@ -781,7 +781,8 @@ begin
   AssertEquals('First  Second', Outcome.Failures[0].Description);
   AssertEquals('Access  denied', Outcome.Failures[0].Reason);
   Message := WindowLayoutMessage(Outcome);
-  AssertEquals(1, Pos('Window layout saved:', Message));
+  AssertEquals(Ord(wlsSaveFailed), Ord(Outcome.Status));
+  AssertEquals(1, Pos('No windows saved.', Message));
   AssertTrue(Pos(LineEnding + '- First  Second: Access  denied', Message) > 0);
 end;
 

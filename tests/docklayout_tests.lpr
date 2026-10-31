@@ -2,7 +2,7 @@ program docklayout_tests;
 
 {$mode delphi}
 
-uses simpletestrunner, docklayouttests;
+uses Interfaces, simpletestrunner, docklayouttests;
 
 var Runner: TTestRunner;
 begin

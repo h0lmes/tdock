@@ -11,6 +11,37 @@ The script runs all regression suites in two modes:
 - Checked mode enables range and overflow checks.
 - Release mode disables those checks and enables optimization.
 
+Animation tests cover pixel settling and failed drawing, upload, movement, and batch retries.
+Frame tests cover native cancellation, monitor migration, rational rates, and monotonic fallback slots.
+Async icon tests cover slow windows, bounded caching, obsolete owners, shutdown, and denied window properties.
+The canonical runner includes these suites in both modes.
+
+Run the desktop presentation probe at the current 60 Hz mode:
+
+```powershell
+.\tests\run-animation-presentation-probe.ps1 -Rates 60
+```
+
+The probe uses the production item renderer and frame scheduler.
+It captures encoded frame identifiers from a small test window.
+It saves timestamps without saving desktop images.
+The default run includes a slow window icon fixture.
+Submitted frames and captured desktop frames remain separate measurements.
+The requested rate must match the physical display mode.
+Select the display rate manually before each 60 Hz or 120 Hz run.
+Tests only read display parameters. They never change them.
+The native GDI control excludes tdock's renderer and scheduler:
+
+```powershell
+.\tests\run-animation-presentation-probe.ps1 -Rates 60 -NativeControl
+```
+
+Use `-Rates 120 -NativeControl` when the display already runs at 120 Hz.
+`-TimerControl`, `-GdiFlushControl`, and `-FlushControl` provide diagnostic comparisons.
+`-WithoutIconStress` disables the slow-window fixture.
+Results remain in `tests/.build/animation-present/`.
+Actual desktop capture can show compositor or capture stalls despite regular frame submission.
+
 Manager tests create hidden Windows item windows.
 The tests cover creation, insertion, previews, dragging, deletion, undo, and settings restoration.
 Allocation failure tests verify that insertion, dropping, and undo preserve ownership.
@@ -132,6 +163,23 @@ Physical keyboard delivery and Explorer popup placement require desktop acceptan
 Timing suites cover pure reveal policy, global hotkey bindings, animations, item deadlines, and shell recovery.
 They use controlled clocks and native-effect seams.
 Tests cover reversal continuity, stale callbacks, view replacement, deletion, undo, and failed shell writes.
+
+Spring tests compare matched timestamps at 60 Hz and 120 Hz.
+They cover velocity preservation, settling, delayed frames, and release velocity.
+Click tests retain all animation choices and verify continuous phases and smooth endpoints.
+Drawing tests cover reusable surfaces, failed presentations, and native resource cleanup.
+Frame scheduler tests cover pending-message bounds, rate changes, stopping, and fallback resolution cleanup.
+
+Measure native frame-message delivery:
+
+```powershell
+.\tests\run-animation-pacing-probe.ps1
+```
+
+The probe measures 240 intervals at each requested rate.
+It reports averages and interval percentiles.
+Results stay in `tests/.build/animation-pacing/results.csv`.
+This probe measures message delivery, not compositor presentation or complete dock rendering.
 
 Run these checks separately:
 

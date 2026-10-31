@@ -10,7 +10,8 @@ uses
   DropTgtU, setsu, trayu, shelltraywndu, aeropeeku, loggeru,
   dockapplicationu, dockstateu, applifecycleu, dockcommandu, settingscoordinatoru,
   dockrendereru, win32docku, win32inputu, docklayoutu, pluginhostu, itemhostu,
-  docktimingu, dockpolicyu, win32hotkeyu, windowlayoutu;
+  docktimingu, dockpolicyu, win32hotkeyu, windowlayoutu, framepaceru, animationclocku,
+  asyncwindowiconu;
 
 type
   { Tfrmmain }
@@ -64,11 +65,14 @@ type
     FMouseOverEdge: boolean;
     FInitDone: boolean;
     FHotkeys: TDockHotkeys;
-    FSettingsOpen, FScheduling, FFrameArmed, FRollArmed: Boolean;
+    FSettingsOpen, FScheduling, FRollArmed: Boolean;
+    FFramePacer: TFramePacer;
+    FFrameMonitor: HMONITOR;
     FTaskArmed, FObservationArmed, FRaiseArmed, FDragArmed: Boolean;
     FRollDue: QWord;
     FRaiseDeadline, FTaskDeadline, FObservationDeadline, FDragDeadline: TDeadline;
     procedure RefreshScheduling;
+    procedure RefreshFrameRate;
     procedure ReconcileRevealState;
     procedure ApplyEffectiveVisibility;
     procedure ObserveFullscreen;
@@ -228,6 +232,8 @@ begin
     FApp.OnDeferredClose := PostDeferredClose;
     FApp.OnActivity := RefreshScheduling;
     FHotkeys := TDockHotkeys.Create(Handle);
+    FFramePacer := TFramePacer.Create(Handle, DOCK_FRAME_MESSAGE);
+    RefreshFrameRate;
     FApp.EnterOperation;
     try
     FSessionEndCommitted := False;
@@ -404,6 +410,7 @@ begin
   if FApp.Busy then
   begin FApp.RequestClose; Exit; end;
   if not FApp.BeginClose then Exit;
+  if FFramePacer <> nil then FFramePacer.SetActive(False);
   Application.OnDeactivate := nil;
   Application.OnException := nil;
   AddLog('CloseQueryI.begin');
@@ -519,6 +526,17 @@ var
   HotkeyAction: Integer;
 begin
   message.result := 0;
+
+  if message.msg = DOCK_FRAME_MESSAGE then
+  begin
+    if not FProgramIsClosing and Assigned(FFramePacer) and
+      FFramePacer.ConsumeMessage(message.wParam) then
+    begin
+      BeginAnimationFrame;
+      try OnTimerMain; finally EndAnimationFrame; end;
+    end;
+    Exit;
+  end;
 
   if message.msg = DOCK_OBSERVATION_MESSAGE then
   begin
@@ -805,10 +823,10 @@ begin
   if FProgramIsClosing then Exit;
   if IsWindowVisible(Handle) then
   begin
-    try if assigned(ItemMgr) then ItemMgr.Timer;
-    except on E: Exception do AddLog('Item frame: ' + E.Message); end;
     try OnTimerDoRollUpDown;
     except on E: Exception do AddLog('Roll frame: ' + E.Message); end;
+    try if assigned(ItemMgr) then ItemMgr.Timer;
+    except on E: Exception do AddLog('Item frame: ' + E.Message); end;
   end;
   try if assigned(Tray) and Tray.NeedsPolling then Tray.Timer;
   except on E: Exception do AddLog('Tray frame: ' + E.Message); end;
@@ -890,8 +908,18 @@ begin
   Input.ShowDelay := Max(10, sets.container.AutoShowTime);
   Input.HideDelay := Max(10, sets.container.AutoHideTime);
   PreviousOffset := FState.Offset;
-  FState.Reconcile(Input, GetTickCount64);
-  if PreviousOffset <> FState.Offset then ItemMgr.WndOffset := FState.Offset;
+  FState.Reconcile(Input, AnimationTimeMs);
+  if PreviousOffset <> FState.Offset then ItemMgr.QueueWndOffset(FState.Offset);
+end;
+
+procedure Tfrmmain.RefreshFrameRate;
+begin
+  FFrameMonitor := MonitorFromWindow(Handle, MONITOR_DEFAULTTONEAREST);
+  if FFramePacer <> nil then
+  begin
+    FFramePacer.SetMonitorForWindow(Handle);
+    FFramePacer.SetRefreshRate(RefreshRateForWindow(Handle));
+  end;
 end;
 
 procedure Tfrmmain.RefreshScheduling;
@@ -929,7 +957,7 @@ begin
     begin
       if not FRollArmed or (FRollDue <> Reveal.Deadline.DueAt) then
       begin
-        Delay := Reveal.Deadline.Remaining(GetTickCount64);
+        Delay := Reveal.Deadline.Remaining(Trunc(AnimationTimeMs));
         if Delay < 10 then Delay := 10;
         if Delay > High(Integer) then Delay := High(Integer);
         FRollArmed := SetTimer(Handle, ID_TIMER_ROLL, Cardinal(Delay), nil) <> 0;
@@ -945,14 +973,12 @@ begin
       (Assigned(Tray) and Tray.NeedsPolling) or
       (Assigned(ShellTrayWndController) and ShellTrayWndController.NeedsPolling) or
       (Assigned(FHotkeys) and FHotkeys.NeedsFallback);
-    if NeedFrame and not FFrameArmed then
+    if FFramePacer <> nil then
     begin
-      FFrameArmed := SetTimer(Handle, ID_TIMER, 10, nil) <> 0;
-    end
-    else if not NeedFrame and FFrameArmed then
-    begin
-      KillTimer(Handle, ID_TIMER);
-      FFrameArmed := False;
+      if (NeedFrame and not FFramePacer.Active) or
+        (FFrameMonitor <> MonitorFromWindow(Handle, MONITOR_DEFAULTTONEAREST)) then
+        RefreshFrameRate;
+      FFramePacer.SetActive(NeedFrame);
     end;
   finally FScheduling := False; end;
 end;
@@ -1064,7 +1090,7 @@ begin
   else Thickness := ItemMgr.LayoutSnapshot.BaseWindowRect.Height;
   FState.RequestHide(Thickness, sets.container.AutoHidePixels,
     ItemMgr.InteractionSnapshot.DraggingItem or ItemMgr.InteractionSnapshot.DraggingFile,
-    GetTickCount64);
+    AnimationTimeMs);
 end;
 //------------------------------------------------------------------------------
 procedure Tfrmmain.DoRollUp;
@@ -1072,8 +1098,8 @@ begin if FState <> nil then FState.RequestShow; end;
 //------------------------------------------------------------------------------
 procedure Tfrmmain.OnTimerDoRollUpDown;
 begin
-  if (FState <> nil) and FState.Advance(GetTickCount64) and Assigned(ItemMgr) then
-    ItemMgr.WndOffset := FState.Offset;
+  if (FState <> nil) and FState.Advance(AnimationTimeMs) and Assigned(ItemMgr) then
+    ItemMgr.QueueWndOffset(FState.Offset);
 end;
 //------------------------------------------------------------------------------
 function Tfrmmain.IsHotkeyPressed(hotkey: integer): boolean;
@@ -1640,6 +1666,7 @@ end;
 procedure Tfrmmain.WMDisplayChange(var Message: TMessage);
 begin
   screen.UpdateMonitors;
+  RefreshFrameRate;
   BaseCmd(tcThemeChanged, 0);
   message.Result := 0;
 end;
@@ -1870,9 +1897,11 @@ begin if Assigned(sets) then Result := sets.GetParam(gpMonitor) else Result := 0
 
 destructor Tfrmmain.Destroy;
 begin
+  FreeAndNil(FFramePacer);
   FreeAndNil(FHotkeys);
   Application.OnDeactivate := nil;
   Application.OnException := nil;
+  ShutdownWindowIconService;
   FreeAndNil(FApp);
   FState := nil;
   FCommands := nil;

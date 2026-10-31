@@ -5,7 +5,8 @@ unit aeropeeku;
 interface
 
 uses Windows, Messages, Classes, SysUtils, Forms, lazutf8, Syncobjs,
-  declu, dwm_unit, GDIPAPI, gfx, iconserviceu, toolu, processhlp, loggeru, docktimingu;
+  declu, dwm_unit, GDIPAPI, gfx, iconserviceu, toolu, processhlp, loggeru, docktimingu,
+  animationclocku, framepaceru, asyncwindowiconu, Math;
 
 const
   TITLE_PART = 63;
@@ -89,15 +90,20 @@ type
     FAeroPeekEnabled: boolean;
     FState: TAPWState;
     FFrameTimerActive: boolean;
-    FLastFrameAt: QWord;
+    FFramePacer: TFramePacer;
+    FSurfaceReady: Boolean;
+    FLastFrameAt: Double;
+    FXMotion, FYMotion, FWMotion, FHMotion, FAlphaMotion: Double;
     FCloseDeadline, FPeekDeadline, FTrackDeadline: TDeadline;
     FTitleDeadline: TDeadline;
+    FIconGeneration: WPARAM;
     crs: TCriticalSection;
     items: array of TAeroPeekWindowItem;
     procedure AddItems(AppList: TFPList);
     procedure ClearImages;
+    procedure IconReady(Window: HWND; Generation: WPARAM);
     procedure DeleteItem(index: integer);
-    procedure DoTransition;
+    procedure DoTransition(Elapsed: Double);
     procedure DrawCloseButton(hgdip: pointer; rect: GDIPAPI.TRect; Pressed: boolean);
     function InTransition: boolean;
     procedure InvokeAeroPeek(index: integer);
@@ -114,8 +120,9 @@ type
     procedure err(where: string; e: Exception);
   protected
     function AnimationNow: QWord; virtual;
+    function MotionNow: Double; virtual;
     procedure Paint; virtual;
-    procedure StartFrameTimer;
+    procedure StartFrameTimer(PreserveMotion: Boolean = False);
     procedure StopFrameTimer;
     procedure SchedulePeek(Delay: QWord);
     procedure CancelPeek;
@@ -123,6 +130,11 @@ type
     procedure CancelClose;
     function PointerInside: boolean; virtual;
     procedure ApplyWindowPosition; virtual;
+    function PresentNativePixels(const Bitmap: _SimpleBitmap): Boolean; virtual;
+    function PresentNativePosition: Boolean; virtual;
+    procedure PresentPixels(const Bitmap: _SimpleBitmap);
+    function CreateSurfaceGraphics(DC: HDC): Pointer; virtual;
+    function CompositionAvailable: Boolean; virtual;
     procedure UpdateTitles; virtual;
   public
     property Handle: THandle read FHWnd;
@@ -158,16 +170,29 @@ implementation
 function TAeroPeekWindow.AnimationNow: QWord;
 begin Result := GetTickCount64; end;
 
-procedure TAeroPeekWindow.StartFrameTimer;
+function TAeroPeekWindow.MotionNow: Double;
+begin Result := AnimationTimeMs; end;
+
+procedure TAeroPeekWindow.StartFrameTimer(PreserveMotion: Boolean);
 begin
   if FFrameTimerActive then exit;
-  FLastFrameAt := AnimationNow;
-  FFrameTimerActive := SetTimer(FHWnd, ID_TIMER, 10, nil) <> 0;
+  FLastFrameAt := MotionNow;
+  if not PreserveMotion then
+  begin
+    FXMotion := Fx; FYMotion := Fy;
+    FWMotion := FWidth; FHMotion := FHeight;
+    FAlphaMotion := FAlpha;
+  end;
+  if not Assigned(FFramePacer) then FFramePacer := TFramePacer.Create(FHWnd, DOCK_FRAME_MESSAGE);
+  FFramePacer.SetMonitorForWindow(FHWnd);
+  FFramePacer.SetRefreshRate(RefreshRateForWindow(FHWnd));
+  FFramePacer.SetActive(True);
+  FFrameTimerActive := FFramePacer.Active;
 end;
 
 procedure TAeroPeekWindow.StopFrameTimer;
 begin
-  KillTimer(FHWnd, ID_TIMER);
+  if Assigned(FFramePacer) then FFramePacer.SetActive(False);
   FFrameTimerActive := false;
 end;
 
@@ -204,9 +229,30 @@ end;
 
 procedure TAeroPeekWindow.ApplyWindowPosition;
 begin
-  if FCompositionEnabled then UpdateLWindowPosAlpha(FHWnd, Fx, Fy, 255)
-  else SetWindowPos(FHWnd, $ffffffff, Fx, Fy, 0, 0, swp_nosize + swp_noactivate + swp_showwindow);
+  if not PresentNativePosition then FSurfaceReady := False;
+  if not FSurfaceReady and FActive and not FActivating then StartFrameTimer;
 end;
+
+function TAeroPeekWindow.PresentNativePixels(const Bitmap: _SimpleBitmap): Boolean;
+begin Result := TryUpdateLWindow(FHWnd, Bitmap, FAlpha); end;
+
+function TAeroPeekWindow.PresentNativePosition: Boolean;
+begin
+  if FCompositionEnabled then Result := TryUpdateLWindowPosAlpha(FHWnd, Fx, Fy, FAlpha)
+  else Result := SetWindowPos(FHWnd, $ffffffff, Fx, Fy, 0, 0, swp_nosize + swp_noactivate + swp_showwindow);
+end;
+
+procedure TAeroPeekWindow.PresentPixels(const Bitmap: _SimpleBitmap);
+begin
+  FSurfaceReady := PresentNativePixels(Bitmap);
+  if not FSurfaceReady and FActive and not FActivating then StartFrameTimer;
+end;
+
+function TAeroPeekWindow.CreateSurfaceGraphics(DC: HDC): Pointer;
+begin Result := CreateGraphics(DC, 0); end;
+
+function TAeroPeekWindow.CompositionAvailable: Boolean;
+begin Result := dwm.IsCompositionEnabled; end;
 //------------------------------------------------------------------------------
 // open (show) AeroPeekWindow
 class function TAeroPeekWindow.Open(HostWnd: THandle; AppList: TFPList; FlashWnd: THandle; AX, AY, Site, TaskThumbSize: integer; LivePreviews, AeroPeekEnabled: boolean): boolean;
@@ -270,6 +316,8 @@ end;
 constructor TAeroPeekWindow.Create;
 begin
   inherited;
+  FIconGeneration := NextWindowIconGeneration;
+  FIconSize := 16;
   FState := apwsOpen;
   FActive := false;
   FAnimate := true;
@@ -299,6 +347,9 @@ end;
 //------------------------------------------------------------------------------
 destructor TAeroPeekWindow.Destroy;
 begin
+  ClearImages;
+  StopFrameTimer;
+  FreeAndNil(FFramePacer);
   SetWindowLongPtr(FHWnd, GWL_USERDATA, PtrUInt(0));
   DestroyWindow(FHWnd);
   FHWnd := 0;
@@ -382,6 +433,8 @@ procedure TAeroPeekWindow.ClearImages;
 var
   index: integer;
 begin
+  UnsubscribeWindowIcons(FHWnd);
+  FIconGeneration := NextWindowIconGeneration;
   if FItemCount > 0 then
     for index := 0 to FItemCount - 1 do
       if assigned(items[index].image) then
@@ -396,6 +449,7 @@ end;
 procedure TAeroPeekWindow.UpdateTitles;
 var
   index: integer;
+  OldWidth, OldHeight: UINT;
   title: array [0..TITLE_PART] of WideChar;
   needRepaint, needRearrange: boolean;
 begin
@@ -405,12 +459,12 @@ begin
     for index := 0 to FItemCount - 1 do
       if items[index].hwnd <> 0 then
       begin
-        // if there is no icon for the window - update the icon
-        if not assigned(items[index].image) then
-        begin
-          LoadImageFromHWnd(items[index].hwnd, FIconSize, true, false, items[index].image, items[index].iw, items[index].ih, 500);
-          if assigned(items[index].image) then needRearrange := true;
-        end;
+        OldWidth := items[index].iw;
+        OldHeight := items[index].ih;
+        if LoadImageFromHWndAsync(items[index].hwnd, FHWnd, FIconGeneration,
+          FIconSize, true, true, items[index].image, items[index].iw, items[index].ih) = 2 then
+          needRepaint := true;
+        if (OldWidth <> items[index].iw) or (OldHeight <> items[index].ih) then needRearrange := true;
         // update window title
         GetWindowTextW(items[index].hwnd, title, TITLE_PART);
         if UTF8CompareStr(UTF16ToUTF8(items[index].title), UTF16ToUTF8(title)) <> 0 then needRepaint := true;
@@ -418,19 +472,46 @@ begin
   if needRearrange then SetItems;
   if needRepaint or needRearrange then Paint;
 end;
+procedure TAeroPeekWindow.IconReady(Window: HWND; Generation: WPARAM);
+var Index: Integer; OldWidth, OldHeight: UINT; Service: TWindowIconService;
+begin
+  if not FActive or (Generation <> FIconGeneration) then Exit;
+  Service := WindowIconService;
+  if (Service = nil) or not Service.AcceptNotification(Window, FHWnd, Generation) then Exit;
+  for Index := 0 to FItemCount - 1 do
+    if items[Index].hwnd = Window then
+    begin
+      OldWidth := items[Index].iw;
+      OldHeight := items[Index].ih;
+      LoadImageFromHWndAsync(Window, FHWnd, Generation, FIconSize, true, true,
+        items[Index].image, items[Index].iw, items[Index].ih);
+      if (OldWidth <> items[Index].iw) or (OldHeight <> items[Index].ih) then SetItems;
+      Paint;
+      Exit;
+    end;
+end;
 //------------------------------------------------------------------------------
 function TAeroPeekWindow.OpenAPWindow(HostWnd: THandle; AppList: TFPList; FlashWnd: THandle; AX, AY, Site, TaskThumbSize: integer; LivePreviews, AeroPeekEnabled: boolean): boolean;
 var
   opaque: bool;
   mon: THandle;
   mi: MONITORINFO;
+  ResumeMotion: Boolean;
+  FrameTime: Double;
 begin
   result := false;
-  if FActive then MouseLeave;
   if not FActivating then
   try
     try
       crs.Acquire;
+      ResumeMotion := FActive and FFrameTimerActive;
+      if ResumeMotion then
+      begin
+        FrameTime := MotionNow;
+        if FrameTime >= FLastFrameAt then DoTransition(FrameTime - FLastFrameAt);
+        FLastFrameAt := FrameTime;
+      end;
+      if FActive then MouseLeave;
       FActivating := true;
       FHostWnd := HostWnd;
       FSite := Site;
@@ -463,7 +544,7 @@ begin
       FWorkArea := mi.rcWork;
 
       //
-      FCompositionEnabled := dwm.IsCompositionEnabled and LivePreviews and (AppList.Count <= 14);
+      FCompositionEnabled := CompositionAvailable and LivePreviews and (AppList.Count <= 14);
       FAnimate := FCompositionEnabled;
       FLayout := apwlHorizontal;
       if not FCompositionEnabled or (FSite = 0) or (FSite = 2) then FLayout := apwlVertical;
@@ -495,7 +576,7 @@ begin
       // set items' positions, calulate window size, update workarea
       SetItems;
       FAlphaTarget := 255;
-      FAlpha := 255;
+      if not FAnimate then FAlpha := 255;
       FHover := false;
       FHoverIndex := -1;
       FAeroPeekIndex := -1;
@@ -535,7 +616,7 @@ begin
       // set it as foreground
       SetWindowPos(FHWnd, HWND_TOPMOST, 0, 0, 0, 0, swp_nomove + swp_nosize + swp_noactivate);
       ShowWindow(FHWnd, SW_SHOW);
-      if FAnimate then StartFrameTimer;
+      if FAnimate or not FSurfaceReady then StartFrameTimer(ResumeMotion and FAnimate);
       FTitleDeadline.Schedule(AnimationNow, 1000);
       SetTimer(FHWnd, ID_TIMER_SLOW, 1000, nil);
       FActive := true;
@@ -554,6 +635,7 @@ end;
 procedure TAeroPeekWindow.CloseAPWindow(Timeout: cardinal = 0);
 begin
   try
+    if FActive and not FActivating and (FState = apwsOpen) then Timer;
     CancelPeek;
     KillTimer(FHWnd, ID_TIMER_TRACKMOUSE);
     FTrackDeadline.Cancel;
@@ -614,6 +696,7 @@ procedure TAeroPeekWindow.SetAPWindowPosition(AX, AY: integer);
 begin
   if FActive and not (FState = apwsClose) then
   begin
+    Timer;
     FXTarget := AX - FWTarget div 2;
     FYTarget := AY - FHTarget;
     if FSite = 1 then // top
@@ -635,11 +718,14 @@ begin
     if FXTarget < FWorkArea.Left then FXTarget := FWorkArea.Left;
     if FYTarget < FWorkArea.Top then FYTarget := FWorkArea.Top;
 
-    Fx := FXTarget;
-    Fy := FYTarget;
-
-    ApplyWindowPosition;
-    if FAnimate and InTransition then StartFrameTimer;
+    if FAnimate then
+    begin
+      if (FXTarget <> Fx) or (FYTarget <> Fy) then StartFrameTimer;
+    end else begin
+      Fx := FXTarget;
+      Fy := FYTarget;
+      ApplyWindowPosition;
+    end;
   end;
 end;
 //------------------------------------------------------------------------------
@@ -697,11 +783,32 @@ var
 begin
   Result := 0;
   try
+    if message = WINDOW_ICON_READY_MESSAGE then
+    begin
+      IconReady(HWND(lParam), wParam);
+      Exit;
+    end;
     pt.x := TSmallPoint(DWORD(lParam)).x;
     pt.y := TSmallPoint(DWORD(lParam)).y;
     if message = WM_LBUTTONDOWN then LButtonDown(pt)
     else if message = WM_LBUTTONUP then LButtonUp(pt)
     else if message = WM_MOUSEMOVE then MouseMove
+    else if message = DOCK_FRAME_MESSAGE then
+    begin
+      if Assigned(FFramePacer) and FFramePacer.ConsumeMessage(wParam) then
+      begin
+        BeginAnimationFrame;
+        try Timer; finally EndAnimationFrame; end;
+      end;
+    end
+    else if message = WM_DISPLAYCHANGE then
+    begin
+      if Assigned(FFramePacer) then
+      begin
+        FFramePacer.SetMonitorForWindow(FHWnd);
+        FFramePacer.SetRefreshRate(RefreshRateForWindow(FHWnd));
+      end;
+    end
     else if message = WM_TIMER then WMTimer(wParam)
     else Result := DefWindowProc(wnd, message, wParam, lParam);
   except
@@ -834,27 +941,24 @@ begin
 end;
 //------------------------------------------------------------------------------
 procedure TAeroPeekWindow.Timer;
-var now, elapsedFrames: QWord; frame, frames: integer;
+var Now, Elapsed: Double; OldX, OldY, OldW, OldH, OldAlpha: Integer;
 begin
   if FActive and not FActivating and FFrameTimerActive then
   try
-    now := AnimationNow;
-    if now < FLastFrameAt then exit;
-    elapsedFrames := (now - FLastFrameAt) div 10;
-    if elapsedFrames > 1000 then frames := 1000 else frames := elapsedFrames;
-    FLastFrameAt := now - ((now - FLastFrameAt) mod 10);
-    for frame := 1 to frames do
-    begin
-      if not InTransition then break;
-      DoTransition;
-    end;
-    if frames > 0 then Paint;
+    Now := MotionNow;
+    if Now < FLastFrameAt then exit;
+    Elapsed := Now - FLastFrameAt;
+    FLastFrameAt := Now;
+    OldX := Fx; OldY := Fy; OldW := FWidth; OldH := FHeight; OldAlpha := FAlpha;
+    DoTransition(Elapsed);
+    if not FSurfaceReady or (OldW <> FWidth) or (OldH <> FHeight) then Paint
+    else if (OldX <> Fx) or (OldY <> Fy) or (OldAlpha <> FAlpha) then ApplyWindowPosition;
     if (FState = apwsClose) and not InTransition then
     begin
       CloseAPWindowInt;
       exit;
     end;
-    if not InTransition then StopFrameTimer;
+    if FSurfaceReady and not InTransition then StopFrameTimer;
   except
     on e: Exception do err('AeroPeekWindow.Timer', e);
   end;
@@ -862,63 +966,40 @@ end;
 //------------------------------------------------------------------------------
 function TAeroPeekWindow.InTransition: boolean;
 begin
-  result := (FXTarget <> Fx) or (FYTarget <> Fy)
+  if FFrameTimerActive then
+    Result := (FXTarget <> FXMotion) or (FYTarget <> FYMotion)
+      or (FWTarget <> FWMotion) or (FHTarget <> FHMotion) or (FAlphaMotion <> FAlphaTarget)
+  else Result := (FXTarget <> Fx) or (FYTarget <> Fy)
     or (FWTarget <> FWidth) or (FHTarget <> FHeight) or (FAlpha <> FAlphaTarget);
 end;
 //------------------------------------------------------------------------------
-procedure TAeroPeekWindow.DoTransition;
-var
-  delta: integer;
-begin
-  try
-    if FXTarget <> Fx then
+procedure TAeroPeekWindow.DoTransition(Elapsed: Double);
+  procedure Decay(var Value: Double; Target, MinimumStep: Double);
+  var Distance, Rate, Speed, TailDistance, DecayTime: Double;
+  begin
+    Distance := Abs(Value - Target);
+    Rate := -Ln(0.75) / 15.625;
+    Speed := MinimumStep / 15.625;
+    TailDistance := Speed / Rate;
+    if Distance > TailDistance then
     begin
-      delta := abs(FXTarget - Fx) div 4;
-      if delta < 2 then delta := 2;
-      if abs(Fx - FXTarget) <= delta then Fx := FXTarget;
-      if Fx > FXTarget then Dec(Fx, delta);
-      if Fx < FXTarget then Inc(Fx, delta);
-    end;
-
-    if FYTarget <> Fy then
-    begin
-      delta := abs(FYTarget - Fy) div 4;
-      if delta < 2 then delta := 2;
-      if abs(Fy - FYTarget) <= delta then Fy := FYTarget;
-      if Fy > FYTarget then Dec(Fy, delta);
-      if Fy < FYTarget then Inc(Fy, delta);
-    end;
-
-    if FWTarget <> FWidth then
-    begin
-      delta := abs(FWTarget - FWidth) div 4;
-      if delta < 2 then delta := 2;
-      if abs(FWidth - FWTarget) <= delta then FWidth := FWTarget;
-      if FWidth > FWTarget then Dec(FWidth, delta);
-      if FWidth < FWTarget then Inc(FWidth, delta);
-    end;
-
-    if FHTarget <> FHeight then
-    begin
-      delta := abs(FHTarget - FHeight) div 4;
-      if delta < 2 then delta := 2;
-      if abs(FHeight - FHTarget) <= delta then FHeight := FHTarget;
-      if FHeight > FHTarget then Dec(FHeight, delta);
-      if FHeight < FHTarget then Inc(FHeight, delta);
-    end;
-
-    if FAlphaTarget <> FAlpha then
-    begin
-      delta := abs(FAlphaTarget - FAlpha) div 4;
-      if abs(FAlpha - FAlphaTarget) <= delta then FAlpha := FAlphaTarget;
-      if delta < 1 then delta := 1;
-      if FAlpha > FAlphaTarget then Dec(FAlpha, delta);
-      if FAlpha < FAlphaTarget then Inc(FAlpha, delta);
-    end;
-
-  except
-    on e: Exception do err('AeroPeekWindow.DoTransition', e);
+      DecayTime := Ln(Distance / TailDistance) / Rate;
+      if Elapsed < DecayTime then Distance := Distance * Exp(-Rate * Elapsed)
+      else Distance := TailDistance - Speed * (Elapsed - DecayTime);
+    end else Distance := Distance - Speed * Elapsed;
+    if Distance < 0.000001 then Value := Target
+    else if Value < Target then Value := Target - Distance
+    else Value := Target + Distance;
   end;
+begin
+  Decay(FXMotion, FXTarget, 2);
+  Decay(FYMotion, FYTarget, 2);
+  Decay(FWMotion, FWTarget, 2);
+  Decay(FHMotion, FHTarget, 2);
+  Decay(FAlphaMotion, FAlphaTarget, 1);
+  Fx := Round(FXMotion); Fy := Round(FYMotion);
+  FWidth := Round(FWMotion); FHeight := Round(FHMotion);
+  FAlpha := Round(FAlphaMotion);
 end;
 //------------------------------------------------------------------------------
 // -1 to disable aero peek
@@ -1022,7 +1103,8 @@ begin
   if FItemCount > 0 then
     for index := 0 to FItemCount - 1 do
       if items[index].hwnd <> 0 then
-        LoadImageFromHWnd(items[index].hwnd, FIconSize, true, false, items[index].image, items[index].iw, items[index].ih, 500);
+        LoadImageFromHWndAsync(items[index].hwnd, FHWnd, FIconGeneration,
+          FIconSize, true, true, items[index].image, items[index].iw, items[index].ih);
 end;
 //------------------------------------------------------------------------------
 procedure TAeroPeekWindow.DeleteItem(index: integer);
@@ -1032,6 +1114,7 @@ begin
   if (index >= 0) and (index < FItemCount) then
   begin
     // unregister appropriate thumbnail
+    if items[index].image <> nil then GdipDisposeImage(items[index].image);
     if items[index].hwnd <> 0 then dwm.UnregisterThumbnail(items[index].ThumbnailId)
     else dec(FSeparatorCount);
 
@@ -1052,7 +1135,7 @@ begin
 
     // check for 2 separators next to each other
     index := tmp;
-    if items[index].hwnd = 0 then
+    if (index < FItemCount) and (items[index].hwnd = 0) then
     begin
       if index = 0 then
       begin
@@ -1090,6 +1173,7 @@ var
   rect: GDIPAPI.TRectF;
 begin
   try
+    if FActive and not FActivating and (FState = apwsOpen) then Timer;
     // set primary params
     if FCompositionEnabled then
     begin
@@ -1315,6 +1399,7 @@ begin
     if FYTarget + FHTarget > FWorkArea.Bottom then FYTarget := FWorkArea.Bottom - FHTarget;
     if FXTarget < FWorkArea.Left then FXTarget := FWorkArea.Left;
     if FYTarget < FWorkArea.Top then FYTarget := FWorkArea.Top;
+    if FActive and FAnimate and not FActivating and InTransition then StartFrameTimer;
   except
     on e: Exception do err('AeroPeekWindow.SetItems', e);
   end;
@@ -1339,8 +1424,14 @@ var
   rgn: HRGN;
   index, tmp, flashedIndex: integer;
   title: array [0..255] of WideChar;
+  BitmapCreated: Boolean;
 begin
+  FSurfaceReady := False;
+  bmp := Default(_SimpleBitmap);
+  hgdip := nil;
+  BitmapCreated := False;
   try
+    try
     if FWidth < 1 then FWidth := 1;
     if FHeight < 1 then FHeight := 1;
 
@@ -1349,9 +1440,10 @@ begin
     bmp.topleft.y := Fy;
     bmp.Width := FWidth;
     bmp.Height := FHeight;
-    if not gfx.CreateBitmap(bmp, FHWnd) then raise Exception.Create('CreateBitmap failed');
-    hgdip := CreateGraphics(bmp.dc, 0);
-    if not assigned(hgdip) then raise Exception.Create('CreateGraphics failed');
+    BitmapCreated := gfx.CreateBitmap(bmp, FHWnd);
+    if not BitmapCreated then Exit;
+    hgdip := CreateSurfaceGraphics(bmp.dc);
+    if not assigned(hgdip) then Exit;
     GdipSetSmoothingMode(hgdip, SmoothingModeAntiAlias);
     GdipCreatePath(FillModeWinding, path);
     GdipAddPathRectangle(path, 0, 0, FWidth, FHeight);
@@ -1470,9 +1562,7 @@ begin
     GdipDeleteFontFamily(family);
 
     // update window //
-    UpdateLWindow(FHWnd, bmp, FAlpha);
-    GdipDeleteGraphics(hgdip);
-    gfx.DeleteBitmap(bmp);
+    PresentPixels(bmp);
     if not FCompositionEnabled then SetWindowPos(FHWnd, HWND_TOPMOST, Fx, Fy, FWidth, FHeight, swp_noactivate + swp_showwindow);
 
     // enable blur behind
@@ -1483,6 +1573,11 @@ begin
       DeleteObject(rgn);
     end else begin
       dwm.DisableBlurBehindWindow(FHWnd);
+    end;
+    finally
+      if Assigned(hgdip) then GdipDeleteGraphics(hgdip);
+      if BitmapCreated then gfx.DeleteBitmap(bmp);
+      if not FSurfaceReady and FActive and not FActivating then StartFrameTimer;
     end;
   except
     on e: Exception do err('AeroPeekWindow.Paint', e);

@@ -182,6 +182,11 @@ begin
     Require(frmmain.ItemMgr.LayoutSnapshot.HeightZoomed > HeightBeforeZoom,
       'Native dock timer did not advance zoom geometry');
     frmmain.ItemMgr.Dock(Stack.Handle);
+    // Dock uses the real cursor. Restore the fixture after an outside drop.
+    if frmmain.ItemMgr.ItemIndex(Stack.Handle) = NOT_AN_ITEM then
+      frmmain.ItemMgr.UnDelete;
+    Require(frmmain.ItemMgr.IsItem(Stack.Handle) = Stack.Handle,
+      'Zoom cleanup did not restore the drop-target stack');
     Writeln('PASS timer-driven zoom');
     frmmain.SetParam(gpGlobalHotkeyValue_Hide, VK_F24);
     frmmain.SetParam(gpGlobalHotkeyFlag_Hide, 1);
