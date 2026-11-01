@@ -223,12 +223,30 @@ resourcestring
   XErrorIn = 'Error in';
   XStartButtonText = 'Start';
   // frmterryu //
-  XEmptyIcon = 'Empty icon';
-  XSeparator = 'Separator (space)';
-  XDock = 'New dock';
+  XEmptyIcon = 'Blank shortcut';
+  XSeparator = 'Spacer';
+  XDock = 'Create dock';
   XInstalledApplication = 'Installed application';
   XAddIcon = 'Add ...';
-  XSpecificIcons = 'Specific icons';
+  XImportTaskbar = 'Import taskbar shortcuts';
+  XTaskbarImportSummary = 'Taskbar import: %d added, %d updated, %d already present, %d failed.';
+  XTaskbarCommandUsage = 'Use /importtaskbar to copy shortcuts. Use /importtaskbarlinks to reference Windows shortcuts.';
+  XTaskbarImportBusy = 'The dock cannot import launchers during dragging, loading, or rebuilding.';
+  XTaskbarReadShortcutsFailed = 'Cannot read taskbar shortcuts: %s';
+  XTaskbarShortcutListTooLarge = 'The taskbar shortcut list exceeds its supported size';
+  XTaskbarReadShortcutsIncomplete = 'Cannot finish reading taskbar shortcuts: %s';
+  XTaskbarReadPinsFailed = 'Cannot read taskbar pins: %s';
+  XTaskbarIncompleteSource = 'Windows could not provide the complete taskbar list (%s). Only shortcut-folder entries are available. Store apps and taskbar order may be missing.';
+  XTaskbarEnumerationIncomplete = 'Windows stopped reading the taskbar list (%s). Some pinned apps may be missing.';
+  XTaskbarListTooLarge = 'The taskbar list exceeds its supported size. Some pinned apps may be missing.';
+  XTaskbarItemFailure = 'Taskbar item %d: %s';
+  XTaskbarShortcutSizeUnsupported = 'The shortcut file size is unsupported';
+  XTaskbarCopyFailed = 'Cannot finish copying the shortcut';
+  XTaskbarInsertUnavailable = 'Launcher insertion is unavailable';
+  XTaskbarEmptyTarget = 'The launcher target is empty';
+  XTaskbarShortcutMissing = 'The Windows shortcut is missing or inaccessible';
+  XTaskbarLauncherRejected = 'The dock rejected the launcher';
+  XSpecificIcons = 'Standard items';
   XLockIcons = 'Lock icons';
   XIconCollection = 'Open icon collection';
   XTaskManager = 'Task manager';
@@ -239,10 +257,10 @@ resourcestring
   XMinimizeRestoreAllWindows = 'Minimize/restore all windows (Alt+Click)';
   XEmptyBin = 'Empty bin';
   XOpenThemesFolder = 'Open themes folder';
-  XUndeleteIcon = 'Undelete icon  (Ctrl+Z)';
+  XUndeleteIcon = 'Restore icon (Ctrl+Z)';
   XMsgPlaceTargetFileInsteadOfShortcut = 'Put target file onto the dock instead of a shortcut?';
   XShortcut = 'Shortcut';
-  XFile = 'File';
+  XFile = 'Program or file';
   XErrorInvalidProgramDataStructureSize = 'Invalid program data structure size.';
   // items //
   XRun = 'Run  (Ctrl + Click)';

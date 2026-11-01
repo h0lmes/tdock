@@ -4,7 +4,7 @@ unit itemregistrytests;
 
 interface
 
-uses Windows, fpcunit, testregistry, itemregistryu;
+uses Windows, fpcunit, testregistry, itemregistryu, itemmodelu;
 
 type
   TItemRegistryTests = class(TTestCase)
@@ -13,7 +13,7 @@ type
     RemovedToken: QWord;
     procedure OwnerRemoved(const Identity: TItemIdentity);
   published
-    procedure RegistersObjectWithoutTakingOwnership;
+    procedure RegistersModelWithoutTakingOwnership;
     procedure RejectsUnknownAndForeignHandles;
     procedure UnregisterInvalidatesPreviousIdentity;
     procedure DispatchPinDefersOwnedDestruction;
@@ -23,7 +23,7 @@ type
 implementation
 
 type
-  TTrackedObject = class
+  TTrackedModel = class(TItemModel)
   public
     destructor Destroy; override;
   end;
@@ -36,25 +36,25 @@ begin
   RemovedToken := Identity.Token;
 end;
 
-destructor TTrackedObject.Destroy;
+destructor TTrackedModel.Destroy;
 begin
   Destroyed := true;
   inherited;
 end;
 
-procedure TItemRegistryTests.RegistersObjectWithoutTakingOwnership;
-var registry: TItemRegistry; item, found: TObject;
+procedure TItemRegistryTests.RegistersModelWithoutTakingOwnership;
+var registry: TItemRegistry; item: TItemModel; found: TObject;
 begin
   Destroyed := false;
   registry := TItemRegistry.Create;
-  item := TTrackedObject.Create;
+  item := TTrackedModel.Create;
   try
-    AssertTrue('Registration must accept a live object', registry.RegisterItem(101, 7, item));
+    AssertTrue('Registration must accept a live model', registry.RegisterItem(101, 7, item));
     AssertTrue(registry.TryGet(101, 7, found));
     AssertTrue(found = item);
     registry.Free;
     registry := nil;
-    AssertFalse('Registry must not destroy caller-owned objects', Destroyed);
+    AssertFalse('Registry must not destroy caller-owned models', Destroyed);
   finally
     registry.Free;
     item.Free;
@@ -62,10 +62,10 @@ begin
 end;
 
 procedure TItemRegistryTests.RejectsUnknownAndForeignHandles;
-var registry: TItemRegistry; item, found: TObject;
+var registry: TItemRegistry; item: TItemModel; found: TObject;
 begin
   registry := TItemRegistry.Create;
-  item := TObject.Create;
+  item := TItemModel.Create;
   try
     AssertFalse(registry.RegisterItem(0, 7, item));
     AssertFalse(registry.RegisterItem(101, 7, nil));
@@ -84,12 +84,12 @@ begin
 end;
 
 procedure TItemRegistryTests.UnregisterInvalidatesPreviousIdentity;
-var registry: TItemRegistry; item, replacement, found: TObject;
+var registry: TItemRegistry; item, replacement: TItemModel; found: TObject;
   identity: TItemIdentity;
 begin
   registry := TItemRegistry.Create;
-  item := TObject.Create;
-  replacement := TObject.Create;
+  item := TItemModel.Create;
+  replacement := TItemModel.Create;
   try
     AssertTrue(registry.RegisterItem(101, 7, item));
     identity := registry.IdentityOf(101);
@@ -109,17 +109,17 @@ begin
 end;
 
 procedure TItemRegistryTests.DispatchPinDefersOwnedDestruction;
-var registry: TItemRegistry; item, found: TObject; identity: TItemIdentity;
+var registry: TItemRegistry; item: TItemModel; found: TObject; identity: TItemIdentity;
 begin
   Destroyed := false;
   registry := TItemRegistry.Create;
-  item := TTrackedObject.Create;
+  item := TTrackedModel.Create;
   try
     registry.RegisterItem(101, 7, item);
     identity := registry.IdentityOf(101);
     AssertTrue('Live dispatch must pin the registered identity', registry.Pin(identity));
     AssertTrue(registry.Pin(identity));
-    AssertTrue('Owned destruction must wait for active dispatch', registry.DeferDestruction(item));
+    AssertTrue('Owned destruction must wait for active dispatch', item.DeferDestruction);
     AssertFalse(Destroyed);
     AssertTrue(registry.TryGet(101, 7, found));
     AssertFalse('Pending destruction must reject new dispatch', registry.Pin(identity));
@@ -136,10 +136,10 @@ begin
 end;
 
 procedure TItemRegistryTests.UnregisterNotifiesTheCurrentOwner;
-var registry: TItemRegistry; item: TObject; identity: TItemIdentity;
+var registry: TItemRegistry; item: TItemModel; identity: TItemIdentity;
 begin
   registry := TItemRegistry.Create;
-  item := TObject.Create;
+  item := TItemModel.Create;
   try
     registry.RegisterItem(101, 7, item);
     identity := registry.IdentityOf(101);

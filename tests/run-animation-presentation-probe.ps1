@@ -7,12 +7,13 @@ param(
     [switch]$FlushControl,
     [switch]$GdiFlushControl,
     [switch]$NativeControl,
-    [string]$Compiler = 'C:\lazarus\fpc\3.2.2\bin\x86_64-win64\fpc.exe',
-    [string]$CppCompiler = 'C:\Code\mingw64\bin\g++.exe'
+    [string]$Compiler,
+    [string]$CppCompiler = 'C:\Code\mingw64\bin\g++.exe',
+    [string]$LazarusRoot = 'C:\lazarus'
 )
 
 $ErrorActionPreference = 'Stop'
-$projectRoot = Split-Path $PSScriptRoot -Parent
+. (Join-Path $PSScriptRoot 'test-runner.ps1')
 $buildPath = Join-Path $PSScriptRoot '.build\animation-present'
 New-Item -ItemType Directory -Path $buildPath -Force | Out-Null
 $captureExe = Join-Path $buildPath 'animation_present_capture.exe'
@@ -22,16 +23,8 @@ if (-not $SkipBuild) {
         (Join-Path $PSScriptRoot 'animation_present_capture.cpp') '-o' $captureExe `
         '-ld3d11' '-ldxgi' '-lgdi32' '-luser32' '-luuid' *> (Join-Path $buildPath 'capture-build.log')
     if ($LASTEXITCODE -ne 0) { throw 'Desktop capture compilation failed.' }
-    $flags = @('-B', '-Mdelphi', '-Cr-', '-Co-', '-O3', "-Fu$projectRoot", "-FU$buildPath", "-FE$buildPath",
-        '-FuC:\lazarus\lcl\units\x86_64-win64',
-        '-FuC:\lazarus\lcl\units\x86_64-win64\win32',
-        '-FuC:\lazarus\components\lazutils\lib\x86_64-win64',
-        '-FuC:\lazarus\components\lazcontrols\lib\x86_64-win64\win32')
-    & $Compiler @flags (Join-Path $PSScriptRoot 'animation_present_probe.lpr') *> (Join-Path $buildPath 'probe-build.log')
-    if ($LASTEXITCODE -ne 0) {
-        Get-Content -LiteralPath (Join-Path $buildPath 'probe-build.log') -Tail 25
-        throw 'Presentation probe compilation failed.'
-    }
+    Build-PascalProgram -Source 'animation_present_probe.lpr' -BuildPath $buildPath `
+        -Compiler $Compiler -LazarusRoot $LazarusRoot -Mode release -LogName 'probe-build.log'
 }
 if ($BuildOnly) { Write-Host "Presentation tools: $buildPath"; return }
 

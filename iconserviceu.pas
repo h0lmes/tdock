@@ -27,12 +27,6 @@ procedure LoadImageFromPIDL(pidl: PItemIDList; MaxSize: Integer;
   exact, default: Boolean; var image: Pointer; var srcwidth, srcheight: UINT);
 procedure LoadImageFromShellItem(Name: WideString; MaxSize: Integer;
   Exact, AllowDefault: Boolean; var Image: Pointer; var Width, Height: UINT);
-function LoadAppImage(AppFile: string; AppWindow: THandle; MaxSize: Integer;
-  Exact, AllowDefault: Boolean; var Image: Pointer; var Width, Height: UINT;
-  Timeout: UINT): Integer;
-function LoadImageFromHWnd(AppWindow: THandle; MaxSize: Integer;
-  Exact, AllowDefault: Boolean; var Image: Pointer; var Width, Height: UINT;
-  Timeout: UINT): Integer;
 // These UI loaders never send foreign window messages.
 function LoadImageFromHWndAsync(AppWindow, Owner: THandle; Generation: WPARAM;
   MaxSize: Integer; Exact, AllowDefault: Boolean; var Image: Pointer;
@@ -447,52 +441,6 @@ begin
   else LoadTargetImage(Target, MaxSize, Exact, AllowDefault, Image, Width, Height);
 end;
 
-function LoadImageFromHWnd(AppWindow: THandle; MaxSize: Integer;
-  Exact, AllowDefault: Boolean; var Image: Pointer; var Width, Height: UINT;
-  Timeout: UINT): Integer;
-const ICON_SMALL2 = 2;
-var Icon: HICON;
-begin
-  ResetImage(image, Width, Height);
-  Result := 0;
-  if not IsWindow(appWindow) then Exit;
-  if Timeout = 0 then Timeout := 1;
-  if Timeout > 100 then Timeout := 100;
-  Icon := 0;
-  if MaxSize > 16 then
-  begin
-    SendMessageTimeout(appWindow, WM_GETICON, ICON_BIG, 0,
-      SMTO_ABORTIFHUNG or SMTO_BLOCK, timeout, Icon);
-    Result := 2;
-  end;
-  if Icon = 0 then
-  begin
-    SendMessageTimeout(appWindow, WM_GETICON, ICON_SMALL2, 0,
-      SMTO_ABORTIFHUNG or SMTO_BLOCK, timeout, Icon);
-    Result := 3;
-  end;
-  if Icon = 0 then
-  begin
-    SendMessageTimeout(appWindow, WM_GETICON, ICON_SMALL, 0,
-      SMTO_ABORTIFHUNG or SMTO_BLOCK, timeout, Icon);
-    Result := 4;
-  end;
-  if Icon = 0 then
-  begin
-    Icon := GetClassLongPtr(appWindow, GCL_HICON);
-    Result := 5;
-  end;
-  if (Icon = 0) and AllowDefault then
-  begin
-    Icon := LoadIcon(0, IDI_APPLICATION);
-    Result := 6;
-  end;
-  if Icon <> 0 then image := IconToGDIPBitmap(Icon);
-  // Window and class icons are borrowed. Never destroy them here.
-  FitImage(image, MaxSize, exact, Width, Height);
-  if image = nil then Result := 0;
-end;
-
 function LoadImageFromHWndAsync(AppWindow, Owner: THandle; Generation: WPARAM;
   MaxSize: Integer; Exact, AllowDefault: Boolean; var Image: Pointer;
   var Width, Height: UINT): Integer;
@@ -551,50 +499,6 @@ begin
       Result := 6;
     end;
     FitImage(Image, MaxSize, Exact, Width, Height);
-  finally
-    if FileImage <> nil then GdipDisposeImage(FileImage);
-    if WindowImage <> nil then GdipDisposeImage(WindowImage);
-  end;
-end;
-
-function LoadAppImage(AppFile: string; AppWindow: THandle; MaxSize: Integer;
-  Exact, AllowDefault: Boolean; var Image: Pointer; var Width, Height: UINT;
-  Timeout: UINT): Integer;
-var FileImage, WindowImage: Pointer;
-  FW, FH, WW, WH: UINT; Method: Integer;
-begin
-  ResetImage(image, Width, Height);
-  FileImage := nil;
-  WindowImage := nil;
-  FW := 0;
-  FH := 0;
-  WW := 0;
-  WH := 0;
-  Result := 0;
-  try
-    LoadImage(UnicodeString(appFile), MaxSize, False, False, FileImage, FW, FH);
-    Method := 0;
-    if FW <= 32 then
-      Method := LoadImageFromHWnd(appWindow, MaxSize, False, False,
-        WindowImage, WW, WH, timeout);
-    if (WindowImage <> nil) and (WW > FW) then
-    begin
-      image := WindowImage;
-      WindowImage := nil;
-      Result := Method;
-    end
-    else if FileImage <> nil then
-    begin
-      image := FileImage;
-      FileImage := nil;
-      Result := 1;
-    end;
-    if (image = nil) and AllowDefault then
-    begin
-      image := IconToGDIPBitmap(LoadIcon(0, IDI_APPLICATION));
-      Result := 6;
-    end;
-    FitImage(image, MaxSize, exact, Width, Height);
   finally
     if FileImage <> nil then GdipDisposeImage(FileImage);
     if WindowImage <> nil then GdipDisposeImage(WindowImage);

@@ -4,7 +4,7 @@ unit coremigrationtests;
 
 interface
 
-uses Windows, fpcunit, testregistry, dockstateu, applifecycleu, dockcommandu, declu, setsu, settingscoordinatoru, SysUtils, hintu, dockapplicationu, dockrendereru, docklayoutu, themeu, itemhostu, win32docku, DropTgtU;
+uses Windows, fpcunit, testregistry, dockstateu, dockpolicyu, applifecycleu, dockcommandu, declu, setsu, settingscoordinatoru, SysUtils, hintu, dockapplicationu, dockrendereru, docklayoutu, themeu, itemhostu, win32docku, DropTgtU;
 
 type
   EConstructionFailure = class(Exception);
@@ -207,16 +207,23 @@ begin
 end;
 
 procedure TCoreMigrationTests.DisabledAutoHideFinishesMovement;
-var State: TDockState;
+var State: TDockState; Input: TDockRevealInput;
 begin
   State := TDockState.Create;
   try
     State.AutoHide := True;
-    State.RequestHide(100, 2, False);
-    AssertTrue(State.Step(10));
-    AssertEquals(10, State.Offset);
+    State.RequestHide(100, 2, False, 1000);
+    AssertTrue(State.Advance(1050));
+    AssertTrue('Hide movement must start before auto-hide changes', State.Offset > 0);
+    AssertTrue('Hide movement must still be active', State.NeedsFrames);
     State.AutoHide := False;
-    AssertTrue('Show movement must finish after disabling auto-hide', State.Step(10));
+    Input := Default(TDockRevealInput);
+    Input.Shown := True;
+    Input.AutoHide := State.AutoHide;
+    Input.Thickness := 100;
+    Input.VisiblePixels := 2;
+    State.Reconcile(Input, 1050);
+    AssertTrue('Show movement must finish after disabling auto-hide', State.Advance(1500));
     AssertEquals(0, State.Offset);
     AssertEquals(0, State.Target);
   finally State.Free; end;

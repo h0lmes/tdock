@@ -20,7 +20,6 @@ type
   end;
   TAsyncWindowIconTests = class(TTestCase)
   published
-    procedure StrictTimeoutBoundsResponsiveSlowWindow;
     procedure RequestReturnsBeforeForeignWindowResponds;
     procedure ReadyMessageArrivesWhileUITimersContinue;
     procedure PostedCompletionDoesNotHideDueNativeTimer;
@@ -89,22 +88,6 @@ begin
   CloseHandle(Thread);
   CloseHandle(FixtureReady);
   DestroyIcon(FixtureIcon);
-end;
-procedure TAsyncWindowIconTests.StrictTimeoutBoundsResponsiveSlowWindow;
-var Thread: THandle; ThreadId: DWORD; Started, Elapsed: QWord;
-  Image: Pointer; W, H: UINT;
-begin
-  StartFixture(180, Thread, ThreadId);
-  Image := nil;
-  try
-    Started := GetTickCount64;
-    LoadImageFromHWnd(FixtureWindow, 64, True, False, Image, W, H, 20);
-    Elapsed := GetTickCount64 - Started;
-    AssertTrue('A responsive slow window must respect the query timeout', Elapsed < 130);
-  finally
-    if Image <> nil then GdipDisposeImage(Image);
-    StopFixture(Thread, ThreadId);
-  end;
 end;
 procedure TAsyncWindowIconTests.RequestReturnsBeforeForeignWindowResponds;
 var Thread: THandle; ThreadId: DWORD; Started, Elapsed: QWord;

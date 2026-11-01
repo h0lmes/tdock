@@ -203,7 +203,7 @@ begin
   end;
   if deleteScopedCreate and callbackHost.TryGetItem(id, item) then
   begin
-    callbackDestructionDeferred := ItemRegistry.DeferDestruction(item);
+    callbackDestructionDeferred := item.DeferDestruction;
     callbackItemAlive := IsWindow(id);
   end;
   if adoptAndClearOnCreate then

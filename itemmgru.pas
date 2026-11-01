@@ -8,7 +8,7 @@ uses
   declu, DockH, toolu, gfx, GDIPAPI, processhlp, iniproc,
   customitemu, scitemu, sepitemu, plgitemu, stackitemu, taskitemu, loggeru, itemcollectionu,
   itemsettingsu, itemregistryu, docklayoutu, tasksyncu, itemhostu, itemmodelu, itemviewu, itemfactoryu,
-  docktimingu, dropimportu;
+  docktimingu, dropimportu, taskbarimportu, itemserializationu;
 
 type
   PItem = itemcollectionu.PItem;
@@ -20,6 +20,8 @@ type
   private
     FItems: TItemCollection;
     FModels: TItemStore;
+    FTaskbarImporting: Boolean;
+    FTaskbarImportStorage: UnicodeString;
     FOnItemRemoved: TItemRemovedEvent;
     FItemSize: integer;
     FBigItemSize: integer;
@@ -105,6 +107,8 @@ type
     procedure DisposeOwnedItem(Item: TObject; const Context: string);
     procedure ForgetOwnedItem(Id: TItemId);
     function PinManagedItem(const Identity: TItemIdentity; out Item: TCustomItem): boolean;
+    function InsertTaskbarLauncher(const Data: TShortcutDtoV1): Boolean;
+    function RepointTaskbarLauncher(const Data: TShortcutDtoV1): Boolean;
     function PinActiveItem(const Identity: TItemIdentity; out Item: TCustomItem): boolean;
     procedure ApplyCurrentSettings(wnd: HWND);
     function CaptureItems(ForSaving: boolean): TItemIdentities;
@@ -221,6 +225,9 @@ type
     function  ItemIndex(HWnd: THandle): integer;
     procedure InsertFiles(list: TStrings);
     procedure ImportDropFiles(Batch: TDropImportBatch; wndItem: HWND; pt: windows.TPoint);
+    function ImportTaskbar(const StorageRoot: UnicodeString;
+      Source: TTaskbarSource = nil;
+      Mode: TTaskbarImportMode = DEFAULT_TASKBAR_IMPORT_MODE): TTaskbarImportResult;
     function InsertFile(Filename: string): THandle;
     function InsertItem(AData: string): THandle;
     function  CreateItemFromIni(IniFile, IniSection: string): THandle;
@@ -268,7 +275,7 @@ end;
 
 implementation
 
-uses itemserializationu, animationclocku, customdrawitemu;
+uses animationclocku, customdrawitemu, shelltextu;
 
 function TItemManager.TryGetManagedItem(wnd: HWND; out Item: TCustomItem): boolean;
 begin
@@ -1295,6 +1302,99 @@ begin
     end;
   finally
     if not FDraggingItem then SetDropPlace(NOT_AN_ITEM);
+  end;
+end;
+//------------------------------------------------------------------------------
+function TItemManager.InsertTaskbarLauncher(const Data: TShortcutDtoV1): Boolean;
+begin
+  Result := InsertItem(WriteShortcutText(Data)) <> 0;
+end;
+
+function IsImportedShortcut(const Command: string; const StorageRoot: UnicodeString): Boolean;
+var Path, Root, Relative, Stage: UnicodeString; Slash: Integer; Id: TGUID;
+begin
+  Result := False;
+  if StorageRoot = '' then Exit;
+  Path := ShellUTF16(UnzipPath(Command));
+  Root := ExcludeTrailingPathDelimiter(StorageRoot) + '\';
+  if UnicodeLowerCase(Copy(Path, 1, Length(Root))) <> UnicodeLowerCase(Root) then Exit;
+  if not SameText(ExtractFileExt(Command), '.lnk') then Exit;
+  Relative := Copy(Path, Length(Root) + 1, MaxInt);
+  Slash := Pos(UnicodeString('\'), Relative);
+  if Slash = 0 then Exit;
+  Stage := Copy(Relative, 1, Slash - 1);
+  if Copy(Stage, 1, 7) <> 'import-' then Exit;
+  try Id := StringToGUID(ShellUTF8(Copy(Stage, 8, MaxInt)));
+  except Exit; end;
+  Result := True;
+end;
+
+function TItemManager.RepointTaskbarLauncher(const Data: TShortcutDtoV1): Boolean;
+var Identities: TItemIdentities; Identity: TItemIdentity; Item: TCustomItem;
+  Shortcut: TShortcutItem; Draft: TShortcutDtoV1; Key, Previous: string;
+begin
+  Result := False;
+  Key := TaskbarLauncherKey(Data);
+  Identities := CaptureItems(True);
+  for Identity in Identities do
+    if PinManagedItem(Identity, Item) then
+    try
+      if not (Item is TShortcutItem) then Continue;
+      Shortcut := TShortcutItem(Item);
+      if not IsImportedShortcut(Shortcut.Command, FTaskbarImportStorage) then Continue;
+      Draft := ReadShortcutText(Shortcut.ToString);
+      if TaskbarLauncherKey(Draft) <> Key then Continue;
+      Previous := Shortcut.Command;
+      Draft.Command := Data.Command;
+      WriteShortcutText(Draft);
+      try
+        Shortcut.Command := Draft.Command;
+        Shortcut.Update;
+      except
+        Shortcut.Command := Previous;
+        try Shortcut.Update; except end;
+        raise;
+      end;
+      Result := True;
+    finally ItemRegistry.Unpin(Identity); end;
+end;
+
+function TItemManager.ImportTaskbar(const StorageRoot: UnicodeString;
+  Source: TTaskbarSource; Mode: TTaskbarImportMode): TTaskbarImportResult;
+var Scope: TItemHostScope; Identities: TItemIdentities; Identity: TItemIdentity;
+  Item: TCustomItem; Keys: TStringList; OwnSource: Boolean;
+begin
+  Result := Default(TTaskbarImportResult);
+  if not FEnabled or FDraggingItem or FDraggingFile or FTaskbarImporting or
+    (FLoadDepth <> 0) or (FRebuildDepth <> 0) then
+  begin
+    Result.Warning := XTaskbarImportBusy;
+    Exit;
+  end;
+  Scope := BeginItemHostOperation(FParentHWnd);
+  Keys := TStringList.Create;
+  OwnSource := Source = nil;
+  FTaskbarImporting := True;
+  FTaskbarImportStorage := StorageRoot;
+  try
+    if OwnSource then Source := TTaskbarSource.Create;
+    Identities := CaptureItems(True);
+    for Identity in Identities do
+      if PinManagedItem(Identity, Item) then
+      try
+        if Item is TShortcutItem then
+          Keys.Add(TaskbarLauncherKey(ReadShortcutText(Item.ToString)));
+      finally ItemRegistry.Unpin(Identity); end;
+    SetDropPlace(NOT_AN_ITEM);
+    Result := ImportTaskbarPins(Source.ReadPins, StorageRoot, Keys, InsertTaskbarLauncher,
+      Mode, RepointTaskbarLauncher);
+  finally
+    FTaskbarImporting := False;
+    FTaskbarImportStorage := '';
+    SetDropPlace(NOT_AN_ITEM);
+    if OwnSource then Source.Free;
+    Keys.Free;
+    EndItemHostOperation(Scope);
   end;
 end;
 //------------------------------------------------------------------------------

@@ -108,6 +108,8 @@ var Fixture: string; Lines: TStringList; Params: TDItemCreateParams;
   CopyBytes: RawByteString; Written, Effect: DWORD; CountBefore: Integer;
   FailingBatch: TFailingDropBatch; FailureReturned: Boolean;
   NativeData: IDataObject;
+  DockMenu, AddMenu: HMENU; ImportLabel: array[0..127] of WideChar;
+  MenuIndex: Integer;
 begin
   ScalingFactor := 100;
   Application.Initialize;
@@ -140,6 +142,19 @@ begin
     Require(TObservedMain(frmmain).FullscreenObservations > 0,
       'Startup did not seed fullscreen observation');
     Writeln('PASS initial fullscreen observation');
+    DockMenu := frmmain.GetHMenu(0);
+    AddMenu := 0;
+    for MenuIndex := 0 to GetMenuItemCount(DockMenu) - 1 do
+    begin
+      AddMenu := GetSubMenu(DockMenu, MenuIndex);
+      if AddMenu <> 0 then Break;
+    end;
+    Require(AddMenu <> 0, 'The dock Add menu is missing');
+    Require(GetMenuStringW(AddMenu, $f027, @ImportLabel[0], Length(ImportLabel), MF_BYCOMMAND) > 0,
+      'The taskbar import menu command is missing');
+    Require(UnicodeString(PWideChar(@ImportLabel[0])) = UTF8Decode(XImportTaskbar),
+      'The taskbar import menu label is incorrect');
+    Writeln('PASS taskbar import entry in the dock Add menu');
     Params := Default(TDItemCreateParams);
     Params.ItemSize := 48; Params.BigItemSize := 96;
     Params.ShowHint := True; Params.StackAnimationEnabled := True;

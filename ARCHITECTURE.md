@@ -24,6 +24,7 @@ The main form connects dock services to Windows events.
 | Task reconciliation decisions | `tasksyncu.pas` |
 | Shared application window discovery | `appwindowsu.pas` |
 | Application window layout snapshots | `windowlayoutu.pas` |
+| Pinned taskbar launcher discovery and copying | `taskbarimportu.pas` |
 | Dock background and blur rendering | `dockrendereru.pas` |
 | Icon selection, extraction, sizing, and native cleanup | `iconserviceu.pas` |
 | Bounded foreign-window icon worker and owner notifications | `asyncwindowiconu.pas` |
@@ -128,6 +129,25 @@ The form handles application actions.
 Native adapters handle Windows commands and launch requests.
 The public command names and settings sections remain compatible.
 Empty command lines return without indexing an empty string.
+
+`/importtaskbar` copies pinned launchers into the current dock.
+The Add menu exposes this command directly.
+The importer reads Windows Shell pin enumeration in taskbar order.
+It uses only the common enumeration method from version-specific, undocumented pinned-list interfaces.
+Unavailable interfaces trigger an explicit partial-result warning and a shortcut-folder fallback.
+Store targets retain their application IDs or Shell identities.
+Shortcut copies retain their original bytes under the existing `ImportedFiles` storage.
+`/importtaskbar` always selects copying.
+`/importtaskbarlinks` stores original Windows shortcut paths without creating files.
+Both commands run in the same executable and accept no mode arguments.
+Reference reimports can replace matching generated-copy paths while retaining item identity and settings.
+The manager limits those replacements to GUID import folders inside its import storage.
+Missing source shortcuts cannot replace existing copies.
+The drop import batch owns copy creation, publication, rejection cleanup, and uncertain callback results.
+The importer compares launch targets, arguments, and working directories before insertion.
+Opaque shortcuts use content hashes when Shell metadata cannot identify their targets.
+Existing items retain their positions; new items append in taskbar order.
+Imports report added, updated, skipped, and failed counts, plus discovery warnings and failure details.
 
 `/savewindows` and `/restorewindows` use one in-memory snapshot per application instance.
 `TDockApplication` owns the window layout service and releases its window properties during shutdown.

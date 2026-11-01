@@ -93,7 +93,7 @@ msgid "Spacing/Distortion: %d"
 msgstr ""
 
 #: declu.xdock
-msgid "New dock"
+msgid "Create dock"
 msgstr ""
 
 #: declu.xemptybin
@@ -101,7 +101,7 @@ msgid "Empty bin"
 msgstr ""
 
 #: declu.xemptyicon
-msgid "Empty icon"
+msgid "Blank shortcut"
 msgstr ""
 
 #: declu.xerrorcommandlistnotfound
@@ -153,11 +153,15 @@ msgid "Exit"
 msgstr ""
 
 #: declu.xfile
-msgid "File"
+msgid "Program or file"
 msgstr ""
 
 #: declu.xiconcollection
 msgid "Open icon collection"
+msgstr ""
+
+#: declu.ximporttaskbar
+msgid "Import taskbar shortcuts"
 msgstr ""
 
 #: declu.xinstalledapplication
@@ -326,7 +330,7 @@ msgid "Select working directory"
 msgstr ""
 
 #: declu.xseparator
-msgid "Separator (space)"
+msgid "Spacer"
 msgstr ""
 
 #: declu.xshortcut
@@ -365,8 +369,83 @@ msgctxt "declu.xsitetop"
 msgid "Top"
 msgstr ""
 
+#: declu.xtaskbarimportsummary
+#, object-pascal-format
+msgid "Taskbar import: %d added, %d updated, %d already present, %d failed."
+msgstr ""
+
+#: declu.xtaskbarcommandusage
+msgid "Use /importtaskbar to copy shortcuts. Use /importtaskbarlinks to reference Windows shortcuts."
+msgstr ""
+
+#: declu.xtaskbarimportbusy
+msgid "The dock cannot import launchers during dragging, loading, or rebuilding."
+msgstr ""
+
+#: declu.xtaskbarreadshortcutsfailed
+#, object-pascal-format
+msgid "Cannot read taskbar shortcuts: %s"
+msgstr ""
+
+#: declu.xtaskbarshortcutlisttoolarge
+msgid "The taskbar shortcut list exceeds its supported size"
+msgstr ""
+
+#: declu.xtaskbarreadshortcutsincomplete
+#, object-pascal-format
+msgid "Cannot finish reading taskbar shortcuts: %s"
+msgstr ""
+
+#: declu.xtaskbarreadpinsfailed
+#, object-pascal-format
+msgid "Cannot read taskbar pins: %s"
+msgstr ""
+
+#: declu.xtaskbarincompletesource
+#, object-pascal-format
+msgid "Windows could not provide the complete taskbar list (%s). Only shortcut-folder entries are available. Store apps and taskbar order may be missing."
+msgstr ""
+
+#: declu.xtaskbarenumerationincomplete
+#, object-pascal-format
+msgid "Windows stopped reading the taskbar list (%s). Some pinned apps may be missing."
+msgstr ""
+
+#: declu.xtaskbarlisttoolarge
+msgid "The taskbar list exceeds its supported size. Some pinned apps may be missing."
+msgstr ""
+
+#: declu.xtaskbaritemfailure
+#, object-pascal-format
+msgid "Taskbar item %d: %s"
+msgstr ""
+
+#: declu.xtaskbarshortcutsizeunsupported
+msgid "The shortcut file size is unsupported"
+msgstr ""
+
+#: declu.xtaskbarcopyfailed
+msgid "Cannot finish copying the shortcut"
+msgstr ""
+
+#: declu.xtaskbarinsertunavailable
+msgid "Launcher insertion is unavailable"
+msgstr ""
+
+#: declu.xtaskbaremptytarget
+msgid "The launcher target is empty"
+msgstr ""
+
+#: declu.xtaskbarshortcutmissing
+msgid "The Windows shortcut is missing or inaccessible"
+msgstr ""
+
+#: declu.xtaskbarlauncherrejected
+msgid "The dock rejected the launcher"
+msgstr ""
+
 #: declu.xspecificicons
-msgid "Specific icons"
+msgid "Standard items"
 msgstr ""
 
 #: declu.xstackpreviewfour
@@ -390,7 +469,7 @@ msgid "Task manager"
 msgstr ""
 
 #: declu.xundeleteicon
-msgid "Undelete icon  (Ctrl+Z)"
+msgid "Restore icon (Ctrl+Z)"
 msgstr ""
 
 #: tfrmaddcommand.btnadd.caption

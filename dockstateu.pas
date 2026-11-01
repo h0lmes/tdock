@@ -31,7 +31,6 @@ type
     procedure BindSettings(Settings: PDockSettings);
     procedure RequestHide(Thickness, VisiblePixels: Integer; Dragging: Boolean; Now: Double = 0);
     procedure RequestShow;
-    function Step(StepSize: Integer): Boolean;
     procedure ObserveFullscreen(Active, Enabled: Boolean);
     procedure Reconcile(const Input: TDockRevealInput; Now: Double);
     function Advance(Now: Double): Boolean;
@@ -113,16 +112,6 @@ procedure TDockState.RequestShow;
 begin
   FReveal.ManualReveal := True;
   FReveal.Target := 0;
-end;
-
-function TDockState.Step(StepSize: Integer): Boolean;
-begin
-  Result := False;
-  if (StepSize <= 0) or (FReveal.Offset = FReveal.Target) then Exit;
-  if Abs(FReveal.Target - FReveal.Offset) <= StepSize then FReveal.Offset := FReveal.Target
-  else if FReveal.Target > FReveal.Offset then Inc(FReveal.Offset, StepSize)
-  else Dec(FReveal.Offset, StepSize);
-  Result := True;
 end;
 
 function TDockState.GetOffset: Integer;

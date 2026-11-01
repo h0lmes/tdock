@@ -99,8 +99,8 @@ msgid "Spacing/Distortion: %d"
 msgstr "Интервал/искажение: %d"
 
 #: declu.xdock
-msgid "New dock"
-msgstr "Новый док"
+msgid "Create dock"
+msgstr "Создать док"
 
 #: declu.xemptybin
 msgid "Empty bin"
@@ -108,8 +108,8 @@ msgstr "Очистить корзину"
 
 #: declu.xemptyicon
 msgctxt "declu.xemptyicon"
-msgid "Empty icon"
-msgstr "Пустой значок"
+msgid "Blank shortcut"
+msgstr "Пустой ярлык"
 
 #: declu.xerrorcommandlistnotfound
 msgid "Command list file not found. Try reinstalling the program."
@@ -161,13 +161,17 @@ msgid "Exit"
 msgstr "Выйти"
 
 #: declu.xfile
-msgid "File"
-msgstr "Файл"
+msgid "Program or file"
+msgstr "Программа или файл"
 
 #: declu.xiconcollection
 msgctxt "declu.xiconcollection"
 msgid "Open icon collection"
 msgstr "Коллекция иконок"
+
+#: declu.ximporttaskbar
+msgid "Import taskbar shortcuts"
+msgstr "Импорт ярлыков панели задач"
 
 #: declu.xinstalledapplication
 msgctxt "declu.xinstalledapplication"
@@ -353,8 +357,8 @@ msgstr "Выберите папку программы"
 
 #: declu.xseparator
 msgctxt "declu.xseparator"
-msgid "Separator (space)"
-msgstr "Разделитель"
+msgid "Spacer"
+msgstr "Промежуток"
 
 #: declu.xshortcut
 msgid "Shortcut"
@@ -394,8 +398,8 @@ msgid "Top"
 msgstr "Сверху"
 
 #: declu.xspecificicons
-msgid "Specific icons"
-msgstr "Настроенные значки"
+msgid "Standard items"
+msgstr "Стандартные элементы"
 
 #: declu.xstackpreviewfour
 msgid "four"
@@ -413,14 +417,89 @@ msgstr "нет"
 msgid "Start"
 msgstr "Пуск"
 
+#: declu.xtaskbarcommandusage
+msgid "Use /importtaskbar to copy shortcuts. Use /importtaskbarlinks to reference Windows shortcuts."
+msgstr "Команда /importtaskbar копирует ярлыки. Команда /importtaskbarlinks использует исходные ярлыки Windows."
+
+#: declu.xtaskbarcopyfailed
+msgid "Cannot finish copying the shortcut"
+msgstr "Не удалось завершить копирование ярлыка"
+
+#: declu.xtaskbaremptytarget
+msgid "The launcher target is empty"
+msgstr "Путь запуска ярлыка не указан"
+
+#: declu.xtaskbarenumerationincomplete
+#, object-pascal-format
+msgid "Windows stopped reading the taskbar list (%s). Some pinned apps may be missing."
+msgstr "Windows прервала чтение списка панели задач (%s). Некоторые закреплённые приложения могут отсутствовать."
+
+#: declu.xtaskbarimportbusy
+msgid "The dock cannot import launchers during dragging, loading, or rebuilding."
+msgstr "Импорт ярлыков недоступен во время перетаскивания, загрузки или перестроения панели."
+
+#: declu.xtaskbarimportsummary
+#, object-pascal-format
+msgid "Taskbar import: %d added, %d updated, %d already present, %d failed."
+msgstr "Импорт панели задач: добавлено %d, обновлено %d, уже есть %d, ошибок %d."
+
+#: declu.xtaskbarincompletesource
+#, object-pascal-format
+msgid "Windows could not provide the complete taskbar list (%s). Only shortcut-folder entries are available. Store apps and taskbar order may be missing."
+msgstr "Windows не предоставила полный список панели задач (%s). Доступны только элементы папки ярлыков. Приложения Microsoft Store и порядок значков могут отсутствовать."
+
+#: declu.xtaskbarinsertunavailable
+msgid "Launcher insertion is unavailable"
+msgstr "Добавление ярлыка недоступно"
+
+#: declu.xtaskbaritemfailure
+#, object-pascal-format
+msgid "Taskbar item %d: %s"
+msgstr "Элемент панели задач %d: %s"
+
+#: declu.xtaskbarlauncherrejected
+msgid "The dock rejected the launcher"
+msgstr "Панель отклонила добавление ярлыка"
+
+#: declu.xtaskbarlisttoolarge
+msgid "The taskbar list exceeds its supported size. Some pinned apps may be missing."
+msgstr "Список панели задач превышает допустимый размер. Некоторые закреплённые приложения могут отсутствовать."
+
+#: declu.xtaskbarreadpinsfailed
+#, object-pascal-format
+msgid "Cannot read taskbar pins: %s"
+msgstr "Не удалось прочитать закреплённые элементы панели задач: %s"
+
+#: declu.xtaskbarreadshortcutsfailed
+#, object-pascal-format
+msgid "Cannot read taskbar shortcuts: %s"
+msgstr "Не удалось прочитать ярлыки панели задач: %s"
+
+#: declu.xtaskbarreadshortcutsincomplete
+#, object-pascal-format
+msgid "Cannot finish reading taskbar shortcuts: %s"
+msgstr "Не удалось завершить чтение ярлыков панели задач: %s"
+
+#: declu.xtaskbarshortcutlisttoolarge
+msgid "The taskbar shortcut list exceeds its supported size"
+msgstr "Список ярлыков панели задач превышает допустимый размер"
+
+#: declu.xtaskbarshortcutmissing
+msgid "The Windows shortcut is missing or inaccessible"
+msgstr "Ярлык Windows отсутствует или недоступен"
+
+#: declu.xtaskbarshortcutsizeunsupported
+msgid "The shortcut file size is unsupported"
+msgstr "Размер файла ярлыка не поддерживается"
+
 #: declu.xtaskmanager
 msgctxt "declu.xtaskmanager"
 msgid "Task manager"
 msgstr "Диспетчер задач"
 
 #: declu.xundeleteicon
-msgid "Undelete icon  (Ctrl+Z)"
-msgstr "Отменить удаление значка  (Ctrl+Z)"
+msgid "Restore icon (Ctrl+Z)"
+msgstr "Восстановить значок (Ctrl+Z)"
 
 #: tfrmaddcommand.btnadd.caption
 msgctxt "TFRMADDCOMMAND.BTNADD.CAPTION"

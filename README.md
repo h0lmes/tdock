@@ -6,10 +6,48 @@ This project is a desktop dock panel written in Lazarus (Free Pascal).
 Operating systems: Win Vista and later.
 Can be compiled for x86/x64.
 
+Import taskbar shortcuts
+------------
+
+Right-click the dock.
+Select **Add ... > Import taskbar shortcuts**.
+TDock copies pinned Windows taskbar launchers into the current dock.
+Existing launchers stay in place.
+New launchers follow taskbar order.
+Repeated imports skip launchers already in this dock.
+TDock reports added, updated, skipped, and failed counts.
+Both commands run in `tdock.exe`.
+The command window and **Standard items** dialog provide these commands:
+
+| Command | Behavior |
+| --- | --- |
+| `/importtaskbar` | Copy shortcuts into `ImportedFiles` |
+| `/importtaskbarlinks` | Use original Windows shortcuts without copying them |
+
+TDock keeps copied shortcuts beside its settings under `ImportedFiles`.
+Copies retain shortcut arguments, working directories, icons, and launch settings.
+Unpinning the source shortcut does not remove the dock copy.
+Store apps use their Shell application targets.
+The import leaves Windows taskbar pins unchanged.
+
+`/importtaskbarlinks` creates no shortcut copies.
+Unpinning or deleting a source shortcut can break its dock launcher.
+Running `/importtaskbarlinks` updates matching launchers that use generated `ImportedFiles` copies.
+TDock keeps their positions, labels, icons, and launch settings.
+TDock reports these changes as updated launchers.
+Existing copied files remain available.
+
+Build TDock with `tests\build-application.ps1`.
+
+Windows uses an undocumented interface to list pinned apps.
+If that interface fails, TDock reads the taskbar shortcut folder.
+TDock warns that this fallback can miss Store apps and taskbar order.
+The import excludes unpinned running apps and taskbar controls.
+
 Window layout commands
 ------------
 
-Add these commands through the dock's "Add command" dialog:
+Add these commands through the dock's **Standard items** dialog:
 
 | Command | Icon label |
 | --- | --- |

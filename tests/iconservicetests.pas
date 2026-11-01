@@ -33,7 +33,6 @@ type
     procedure PIDLPropertiesUsesSharedLoader;
     procedure PackageArtworkReplacesPaddedTile;
     procedure PackagePIDLUsesUnplatedArtwork;
-    procedure TaskImageKeepsFilePreference;
     procedure TaskImageFallsBackToWindow;
     procedure AsyncTaskImageKeepsFilePreference;
     procedure AsyncTaskImageReplacesSmallFileIcon;
@@ -304,6 +303,19 @@ begin
   AssertEquals('Explicit resource indices must bypass the factory', 0, FactoryCalls);
 end;
 
+function WaitForWindowIcon(Owner: HWND): Boolean;
+var Started: QWord; Message: TMsg;
+begin
+  Started := GetTickCount64;
+  Result := False;
+  repeat
+    while PeekMessage(Message, 0, 0, 0, PM_REMOVE) do
+      if (Message.hwnd = Owner) and (Message.message = WINDOW_ICON_READY_MESSAGE) then Result := True
+      else DispatchMessage(Message);
+    if not Result then Sleep(1);
+  until Result or (GetTickCount64 - Started > 1000);
+end;
+
 procedure TIconServiceTests.BorrowedWindowIconSurvivesLoading;
 var Window: HWND; Icon: HICON; Info: ICONINFO;
 begin
@@ -312,13 +324,16 @@ begin
   Icon := CopyIcon(LoadIcon(0, IDI_APPLICATION));
   try
     SendMessage(Window, WM_SETICON, ICON_BIG, Icon);
+    LoadImageFromHWndAsync(Window, Window, 1, 64, True, False, FImage, FWidth, FHeight);
+    AssertTrue('The window icon must become ready', WaitForWindowIcon(Window));
     AssertEquals('The window icon path must retain its source code', 2,
-      LoadImageFromHWnd(Window, 64, True, False, FImage, FWidth, FHeight, 500));
+      LoadImageFromHWndAsync(Window, Window, 1, 64, True, False, FImage, FWidth, FHeight));
     AssertTrue('The result must contain an image', FImage <> nil);
     AssertTrue('The loader must preserve the borrowed icon', GetIconInfo(Icon, Info));
     DeleteObject(Info.hbmColor);
     DeleteObject(Info.hbmMask);
   finally
+    UnsubscribeWindowIcons(Window);
     DestroyWindow(Window);
     DestroyIcon(Icon);
   end;
@@ -435,15 +450,6 @@ begin CheckPackageArtwork(Self, False); end;
 procedure TIconServiceTests.PackagePIDLUsesUnplatedArtwork;
 begin CheckPackageArtwork(Self, True); end;
 
-procedure TIconServiceTests.TaskImageKeepsFilePreference;
-begin
-  AssertEquals('A large file icon must retain priority', 1,
-    LoadAppImage(GetEnvironmentVariable('SystemRoot') + '\System32\notepad.exe',
-      0, 64, False, False, FImage, FWidth, FHeight, 500));
-  AssertEquals('The file path must use the shared factory', 1, FactoryCalls);
-  AssertEquals('The task icon must fit', 64, FWidth);
-end;
-
 procedure TIconServiceTests.TaskImageFallsBackToWindow;
 var Window: HWND; Icon: HICON;
 begin
@@ -453,11 +459,15 @@ begin
   Icon := CopyIcon(LoadIcon(0, IDI_APPLICATION));
   try
     SendMessage(Window, WM_SETICON, ICON_BIG, Icon);
+    LoadAppImageAsync('TDOCK_MISSING_ICON_00000.exe', Window, Window, 1, 64,
+      False, False, FImage, FWidth, FHeight);
+    AssertTrue('The task window icon must become ready', WaitForWindowIcon(Window));
     AssertEquals('Missing file icons must fall back to the window', 2,
-      LoadAppImage('TDOCK_MISSING_ICON_00000.exe', Window, 64, False, False,
-        FImage, FWidth, FHeight, 500));
+      LoadAppImageAsync('TDOCK_MISSING_ICON_00000.exe', Window, Window, 1, 64,
+        False, False, FImage, FWidth, FHeight));
     AssertTrue('Window fallback must supply an image', FImage <> nil);
   finally
+    UnsubscribeWindowIcons(Window);
     DestroyWindow(Window);
     DestroyIcon(Icon);
   end;
@@ -472,7 +482,7 @@ begin
   AssertEquals('The UI file icon must retain its dimensions', 64, FWidth);
 end;
 procedure TIconServiceTests.AsyncTaskImageReplacesSmallFileIcon;
-var Window, Owner: HWND; Icon: HICON; Started: QWord; Message: TMsg; Ready: Boolean;
+var Window, Owner: HWND; Icon: HICON;
 begin
   Window := CreateWindowExW(0, 'STATIC', 'target', 0, 0, 0, 1, 1, 0, 0, HInstance, nil);
   Owner := CreateWindowExW(0, 'STATIC', 'owner', 0, 0, 0, 1, 1, 0, 0, HInstance, nil);
@@ -483,15 +493,7 @@ begin
     AssertEquals('The first request must retain the small file fallback', 1,
       LoadAppImageAsync(GetEnvironmentVariable('SystemRoot') + '\System32\notepad.exe',
         Window, Owner, 33, 64, False, False, FImage, FWidth, FHeight));
-    Started := GetTickCount64;
-    Ready := False;
-    repeat
-      while PeekMessage(Message, 0, 0, 0, PM_REMOVE) do
-        if (Message.hwnd = Owner) and (Message.message = WINDOW_ICON_READY_MESSAGE) then Ready := True
-        else DispatchMessage(Message);
-      if not Ready then Sleep(1);
-    until Ready or (GetTickCount64 - Started > 1000);
-    AssertTrue('The small file fallback must subscribe for a window icon', Ready);
+    AssertTrue('The small file fallback must subscribe for a window icon', WaitForWindowIcon(Owner));
     AssertEquals('The larger cached window icon must replace the small file icon', 2,
       LoadAppImageAsync(GetEnvironmentVariable('SystemRoot') + '\System32\notepad.exe',
         Window, Owner, 33, 64, False, False, FImage, FWidth, FHeight));

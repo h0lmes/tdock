@@ -73,7 +73,9 @@ type
     aaShowWindow,
     aaSendMessage,
     aaSaveWindows,
-    aaRestoreWindows);
+    aaRestoreWindows,
+    aaImportTaskbar,
+    aaImportTaskbarLinks);
   TCommandRequest = record
     Command, Parameters, Directory: string;
     ShowCommand: Integer;
@@ -134,6 +136,8 @@ begin
   if Name = 'restore' then Exit(aaRestore);
   if Name = 'savewindows' then Exit(aaSaveWindows);
   if Name = 'restorewindows' then Exit(aaRestoreWindows);
+  if Name = 'importtaskbar' then Exit(aaImportTaskbar);
+  if Name = 'importtaskbarlinks' then Exit(aaImportTaskbarLinks);
   if Name = 'paste' then Exit(aaPaste);
   if Name = 'setvolume' then Exit(aaSetVolume);
   if Name = 'autotray' then Exit(aaAutoTray);

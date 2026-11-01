@@ -25,9 +25,7 @@ type
       TEntry = record
         Identity: TItemIdentity;
         Parent: HWND;
-        Borrowed: TObject;
-        Pins: integer;
-        DestroyRequested, Auxiliary: boolean;
+        Auxiliary: boolean;
         Context: TContext;
         OnUnregister: TItemOwnershipEvent;
       end;
@@ -94,7 +92,7 @@ type
     function AcquireMouseLock(wnd: HWND): TItemId;
     function ReleaseMouseLock(wnd: HWND): TItemId;
     procedure ForgetMouseLocks(Id: TItemId);
-    function RegisterItem(wnd, parent: HWND; Item: TObject): boolean;
+    function RegisterItem(wnd, parent: HWND; Item: TItemModel): boolean;
     procedure UnregisterItem(wnd: HWND; Item: TObject);
     function TryGet(wnd, parent: HWND; out Item: TObject): boolean;
     function TryGetAny(wnd: HWND; out Item: TObject): boolean;
@@ -102,7 +100,6 @@ type
     function TryResolve(const Identity: TItemIdentity; parent: HWND; out Item: TObject): boolean;
     function Pin(const Identity: TItemIdentity): boolean;
     procedure Unpin(const Identity: TItemIdentity);
-    function DeferDestruction(Item: TObject): boolean;
     procedure SetOwner(const Identity: TItemIdentity; Callback: TItemOwnershipEvent);
     procedure ClearOwner(const Identity: TItemIdentity);
   end;
@@ -136,12 +133,10 @@ begin
   Result := nil;
   if (index < 0) or (index > High(FEntries)) or FEntries[index].Auxiliary then exit;
   if not ValidateNative(index) then exit;
-  if FEntries[index].Identity.ItemId <> NO_ITEM_ID then
-    Result := FindItemModel(FEntries[index].Identity.ItemId)
-  else Result := FEntries[index].Borrowed;
+  Result := FindItemModel(FEntries[index].Identity.ItemId);
 end;
 
-function TItemViewAdapter.RegisterItem(wnd, parent: HWND; Item: TObject): boolean;
+function TItemViewAdapter.RegisterItem(wnd, parent: HWND; Item: TItemModel): boolean;
 var index: integer;
 begin
   Result := false;
@@ -152,8 +147,7 @@ begin
   inc(FNextToken);
   FEntries[index].Identity.Handle := wnd;
   FEntries[index].Identity.Token := FNextToken;
-  if Item is TItemModel then FEntries[index].Identity.ItemId := TItemModel(Item).ItemId
-  else FEntries[index].Borrowed := Item;
+  FEntries[index].Identity.ItemId := Item.ItemId;
   FEntries[index].Parent := parent;
   Result := true;
 end;
@@ -248,39 +242,17 @@ begin
   index := IndexOf(Identity.Handle);
   if (index < 0) or (Identity.Token = 0) then exit;
   if (FEntries[index].Identity.Token <> Identity.Token) or
-    (FEntries[index].Identity.ItemId <> Identity.ItemId) or FEntries[index].DestroyRequested then exit;
+    (FEntries[index].Identity.ItemId <> Identity.ItemId) then exit;
   if not ValidateNative(index) then exit;
-  if Identity.ItemId <> NO_ITEM_ID then Result := AcquireItemModel(Identity.ItemId, model)
-  else begin inc(FEntries[index].Pins); Result := true; end;
+  Result := AcquireItemModel(Identity.ItemId, model);
 end;
 
 procedure TItemViewAdapter.Unpin(const Identity: TItemIdentity);
-var index: integer; item: TObject;
 begin
-  if Identity.ItemId <> NO_ITEM_ID then
-  begin
-    try ReleaseItemModel(Identity.ItemId);
-    except on E: Exception do
-      try AddLog('ItemView.DeferredDestroy' + LineEnding + E.Message); except end;
-    end;
-    exit;
+  try ReleaseItemModel(Identity.ItemId);
+  except on E: Exception do
+    try AddLog('ItemView.DeferredDestroy' + LineEnding + E.Message); except end;
   end;
-  index := IndexOf(Identity.Handle);
-  if (index < 0) or (FEntries[index].Identity.Token <> Identity.Token) then exit;
-  if FEntries[index].Pins <= 0 then exit;
-  dec(FEntries[index].Pins);
-  if (FEntries[index].Pins = 0) and FEntries[index].DestroyRequested then
-  begin item := ObjectAt(index); Remove(index); item.Free; end;
-end;
-
-function TItemViewAdapter.DeferDestruction(Item: TObject): boolean;
-var index: integer;
-begin
-  if Item is TItemModel then exit(TItemModel(Item).DeferDestruction);
-  Result := false;
-  for index := 0 to High(FEntries) do
-    if (ObjectAt(index) = Item) and (FEntries[index].Pins > 0) then
-    begin FEntries[index].DestroyRequested := true; exit(true); end;
 end;
 
 procedure TItemViewAdapter.SetOwner(const Identity: TItemIdentity; Callback: TItemOwnershipEvent);

@@ -11,7 +11,7 @@ uses
   dockapplicationu, dockstateu, applifecycleu, dockcommandu, settingscoordinatoru,
   dockrendereru, win32docku, win32inputu, docklayoutu, pluginhostu, itemhostu,
   docktimingu, dockpolicyu, win32hotkeyu, windowlayoutu, framepaceru, animationclocku,
-  asyncwindowiconu;
+  asyncwindowiconu, taskbarimportu;
 
 type
   { Tfrmmain }
@@ -1318,13 +1318,14 @@ begin
   // create submenu 'Add...' //
 
   FMenuCreate := CreatePopupMenu;
-  AppendMenuW(FMenuCreate, MF_STRING + ifthen(ItemMgr.DeletedCount > 0, 0, MF_DISABLED),
-    $f026, pwchar(UTF8Decode(XUndeleteIcon)));
-  AppendMenuW(FMenuCreate, MF_STRING, $f023, pwchar(UTF8Decode(XSpecificIcons)));
   AppendMenuW(FMenuCreate, MF_STRING, $f021, pwchar(UTF8Decode(XEmptyIcon)));
   AppendMenuW(FMenuCreate, MF_STRING, $f022, pwchar(UTF8Decode(XFile)));
   AppendMenuW(FMenuCreate, MF_STRING, $f024, pwchar(UTF8Decode(XSeparator)));
+  AppendMenuW(FMenuCreate, MF_STRING, $f027, pwchar(UTF8Decode(XImportTaskbar)));
+  AppendMenuW(FMenuCreate, MF_STRING, $f023, pwchar(UTF8Decode(XSpecificIcons)));
   AppendMenuW(FMenuCreate, MF_STRING, $f025, pwchar(UTF8Decode(XDock)));
+  AppendMenuW(FMenuCreate, MF_STRING + ifthen(ItemMgr.DeletedCount > 0, 0, MF_DISABLED),
+    $f026, pwchar(UTF8Decode(XUndeleteIcon)));
   if sets.GetPluginCount = -1 then sets.ScanPlugins;
   if sets.GetPluginCount > 0 then
   begin
@@ -1371,6 +1372,7 @@ begin
         $f024: cmd := '/itemmgr.separator';
         $f025: cmd := '/newdock';
         $f026: cmd := '/undelete';
+        $f027: cmd := '/importtaskbar';
 
         IDM_PASTE: cmd := '/paste';
         IDM_LOCKICONS: cmd := '/lockdragging';
@@ -1972,6 +1974,7 @@ procedure Tfrmmain.HandleApplicationCommand(Action: TApplicationAction; const Re
 var
   Params: string;
   hwndCaller: HWND;
+  TaskbarMode: TTaskbarImportMode;
 begin
   if FProgramIsClosing then Exit;
   Params := Request.Parameters;
@@ -2002,6 +2005,17 @@ begin
     aaRestore: TfrmRestore.Open;
     aaSaveWindows: notify(UTF8Decode(WindowLayoutMessage(FApp.WindowLayout.Save)));
     aaRestoreWindows: notify(UTF8Decode(WindowLayoutMessage(FApp.WindowLayout.Restore)));
+    aaImportTaskbar, aaImportTaskbarLinks:
+      begin
+        if Trim(Params) <> '' then
+        begin
+          notify(UTF8Decode(XTaskbarCommandUsage));
+          Exit;
+        end;
+        TaskbarMode := timCopyShortcuts;
+        if Action = aaImportTaskbarLinks then TaskbarMode := timReferenceShortcuts;
+        notify(UTF8Decode(TaskbarImportMessage(ItemMgr.ImportTaskbar(DropMgr.ImportStorage, nil, TaskbarMode))));
+      end;
     aaPaste: ItemMgr.InsertItem(GetClipboard);
     aaAutoTray: Tray.SwitchAutoTray;
     aaTray: Tray.ShowTrayOverflow(sets.container.Site, hwndCaller, ItemMgr.Rect, GetMonitorWorkareaRect);

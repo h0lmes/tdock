@@ -16,6 +16,16 @@ Frame tests cover native cancellation, monitor migration, rational rates, and mo
 Async icon tests cover slow windows, bounded caching, obsolete owners, shutdown, and denied window properties.
 The canonical runner includes these suites in both modes.
 
+Taskbar import tests cover shortcut copies, Unicode names, Store targets, duplicates, order, failures, and saved settings.
+They also cover original shortcut references, copy migration, retained settings, separate commands, and default copying.
+Run `.\tests\run-taskbar-import-tests.ps1` for this suite.
+
+All runners share compiler discovery, dependency paths, build modes, and suite defines through `test-runner.ps1`.
+Focused runners keep their existing commands and suite selections.
+Each unit suite saves `build.log` and `test.log` in its build folder.
+Use `-Compiler` to select a compiler explicitly.
+Without that option, runners check PATH before searching the supplied `-LazarusRoot`.
+
 Run the desktop presentation probe at the current 60 Hz mode:
 
 ```powershell
@@ -68,16 +78,15 @@ Run only these rendering and metadata checks with `.\tests\run-drop-followup-tes
 Icon service tests cover app IDs, Shell names, PIDLs, package artwork, alpha, sizing, overrides, and native cleanup.
 They also cover borrowed window icons, task fallback, resource indices, independent results, and property previews.
 Run only icon and metadata checks with `.\tests\run-icon-tests.ps1`.
-This focused runner executes 23 icon tests and 19 metadata tests in both modes.
+This focused runner executes 24 icon tests and 19 metadata tests in both modes.
 It saves each suite's output in its build folder's `test.log`.
 The icon and metadata suites enable `ICONSERVICE_TESTS` for controlled native seams.
 Native file extraction also runs without the factory seam.
 Native Calculator and Calendar artwork checks require the user's installed packages.
 Packaged application tests cover identity validation, AppsFolder normalization, and launch routing.
 Run these checks with `.\tests\run-app-target-tests.ps1`.
-This runner executes 61 related tests in checked and release modes.
+This runner executes the related suites in checked and release modes.
 It includes the metadata and icon checks above.
-It records 122 test executions across both modes.
 Logs stay in `tests/.build/app-target-{suite}-{mode}/`.
 
 `IsPackagedApp` replaces the old suffix predicate.
@@ -148,7 +157,7 @@ This script compiles `terry.lpr` into `tests\.build\application\tdock.exe`.
 It does not run the Lazarus post-build `copy.bat` command.
 See `ARCHITECTURE.md` for service ownership and compatibility rules.
 
-The canonical runner includes 28 suites.
+The canonical runner includes 35 suites.
 The migration baseline passed 377 tests in checked and release modes.
 The canonical runner also runs ten Windows interaction smoke checks.
 These checks create the real form and process Windows messages.
