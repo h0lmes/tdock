@@ -58,6 +58,7 @@ type
     procedure TypedSettingRejectsCommands;
     procedure DeletedDragClearsInteractionState;
     procedure CommandBroadcastSurvivesItemDeletion;
+    procedure AttentionBroadcastRetainsEarlierAcceptance;
     procedure TimerBroadcastSurvivesItemDeletion;
     procedure FontBroadcastSurvivesItemDeletion;
     procedure SavingSurvivesItemDeletion;
@@ -116,6 +117,7 @@ type
 
   TProbeItem = class(TCustomItem)
   public
+    AttentionResult: PtrInt;
     CommandCalls, TimerCalls, FontCalls, SaveCalls: integer;
     DeleteOnCommand, DeleteOnTimer, DeleteOnFont, DeleteOnSave: boolean;
     DeleteOnDestroy: TCustomItem;
@@ -222,6 +224,7 @@ end;
 function TProbeItem.cmd(id: TDParam; param: PtrInt): PtrInt;
 begin
   result := inherited cmd(id, param);
+  if id = icFlashTaskWindow then result := AttentionResult;
   if id = icIsItem then
   begin
     if DeleteOnQuery then Delete;
@@ -1284,6 +1287,20 @@ begin
     Manager.Save(FixtureFile);
     AssertEquals('', ReadIniStringW(FixtureFile, 'item2', 'command', ''));
   finally Batch.Free; end;
+end;
+
+procedure TItemManagerTests.AttentionBroadcastRetainsEarlierAcceptance;
+var First, Last: TProbeItem;
+begin
+  First := NewProbe(Manager);
+  Last := NewProbe(Manager);
+  First.AttentionResult := 1;
+  AssertEquals('A later unrelated item cannot erase a new attention event', 1,
+    Manager.AllItemCmd(icFlashTaskWindow, 0));
+  First.AttentionResult := 0;
+  AssertEquals(0, Manager.AllItemCmd(icFlashTaskWindow, 0));
+  Last.AttentionResult := 1;
+  AssertEquals(1, Manager.AllItemCmd(icFlashTaskWindow, 0));
 end;
 
 initialization

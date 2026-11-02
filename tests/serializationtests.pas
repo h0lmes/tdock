@@ -31,6 +31,8 @@ type
     procedure SecondaryOnlyImageSurvivesIni;
     procedure StackSortedSurvivesTextAndIni;
     procedure StackSourcesUseTheSameLimits;
+    procedure StackDistanceStepsRoundTripWithoutPixelLimits;
+    procedure LegacyStackDistanceMigratesUsingIconSize;
     procedure SparseStackKeysPreserveChildren;
     procedure ExcessStackChildrenFailBeforeCreation;
     procedure ChildTypeMustBeShortcut;
@@ -324,6 +326,43 @@ begin
   AssertEquals(WriteStackText(A), WriteStackText(B));
   AssertEquals(9, A.Mode); AssertEquals(1, A.AnimationSpeed);
   AssertEquals(100, A.Offset); AssertEquals(-10, A.Distort); AssertEquals(2, A.Preview);
+end;
+
+procedure TSerializationTests.StackDistanceStepsRoundTripWithoutPixelLimits;
+var A, B: TStackDtoV1; Step: integer;
+begin
+  for Step := 0 to 8 do
+  begin
+    A := DefaultStackDto;
+    A.DistanceSteps := Step;
+    B := ReadStackText(WriteStackText(A));
+    AssertEquals(Step, B.DistanceSteps);
+    WriteStackIni(Filename, 'item1', B);
+    B := ReadStackIni(Filename, 'item1');
+    AssertEquals(Step, B.DistanceSteps);
+    AssertEquals(Round(Step * 64 / 4), StackDistancePixels(B.DistanceSteps, 64));
+  end;
+  AssertEquals(256, StackDistancePixels(8, 128));
+  B := ReadStackText('class="stack";offset="80";distance_steps="3";');
+  AssertEquals('The new marker takes priority over a legacy pixel key', 3,
+    ResolveStackDistanceSteps(B, 64));
+end;
+
+procedure TSerializationTests.LegacyStackDistanceMigratesUsingIconSize;
+var Data: TStackDtoV1;
+begin
+  Data := ReadStackText('class="stack";offset="48";');
+  AssertEquals(-1, Data.DistanceSteps);
+  AssertEquals(3, ResolveStackDistanceSteps(Data, 64));
+  AssertEquals(6, ResolveStackDistanceSteps(Data, 32));
+  Data.Offset := -12;
+  AssertEquals(0, ResolveStackDistanceSteps(Data, 64));
+  Data.Offset := 100;
+  AssertEquals(8, ResolveStackDistanceSteps(Data, 32));
+  Data.DistanceSteps := 4;
+  AssertEquals(4, ResolveStackDistanceSteps(Data, 32));
+  AssertEquals('Stored steps must not change when the icon size changes', 4,
+    ResolveStackDistanceSteps(Data, 128));
 end;
 
 procedure TSerializationTests.SparseStackKeysPreserveChildren;

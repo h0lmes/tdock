@@ -32,15 +32,6 @@ type
     H: uint;
   end;
 
-  TLayerButton = record
-    Image: Pointer;
-    AttentionImage: Pointer;
-    W: uint;
-    H: uint;
-    Margins: Windows.TRect;
-    Area: Windows.TRect;
-  end;
-
   { TDTheme }
 
   TDTheme = class
@@ -64,8 +55,6 @@ type
     is_default: boolean;
     Background: TLayerBackground;
     Separator: TLayerSeparator;
-    Indicator: TLayerSimpleImage;
-    Button: TLayerButton;
     Stack: TLayerSimpleImage;
     Path: string;
 
@@ -91,8 +80,6 @@ type
     function CorrectSize(size: Windows.TSize): Windows.TSize;
     function CorrectCoords(coord: Windows.TPoint; W, H: integer): Windows.TPoint;
     procedure DrawBackground(hGDIPGraphics: Pointer; r: GDIPAPI.TRect; alpha: integer);
-    procedure DrawIndicator(dst: Pointer; Left, Top, Size, Site: integer);
-    function DrawButton(dst: Pointer; Left, Top, Size: integer; Attention: boolean): boolean;
     function GetBlurRgn(r: GDIPAPI.TRect): HRGN;
 		function GetBlurRect(r: GDIPAPI.TRect): GDIPAPI.TRect;
     function BlurEnabled: boolean;
@@ -116,7 +103,6 @@ begin
   Clear;
   ClearGraphics;
   CheckExtractFileFromResource('DEFAULT_BACKGROUND', UnzipPath('%pp%\themes\background.png'));
-  CheckExtractFileFromResource('DEFAULT_INDICATOR', UnzipPath('%pp%\themes\indicator.png'));
 end;
 //------------------------------------------------------------------------------
 procedure TDTheme.Clear;
@@ -128,33 +114,10 @@ begin
   FMargin := 10;
   FMargin2 := 0;
   Separator.Margins := rect(0, 0, 0, 0);
-  Button.Margins := rect(2, 2, 2, 2);
-  Button.Area := rect(-2, -2, -2, -2);
 end;
 //------------------------------------------------------------------------------
 procedure TDTheme.ClearGraphics;
 begin
-  if Indicator.image <> nil then
-  begin
-    try GdipDisposeImage(Indicator.image);
-    except end;
-    Indicator.image := nil;
-  end;
-
-  if Button.Image <> nil then
-  begin
-    try GdipDisposeImage(Button.Image);
-    except end;
-    Button.Image := nil;
-  end;
-
-  if Button.AttentionImage <> nil then
-  begin
-    try GdipDisposeImage(Button.AttentionImage);
-    except end;
-    Button.AttentionImage := nil;
-  end;
-
   if Separator.image <> nil then
   begin
     try GdipDisposeImage(Separator.image);
@@ -267,25 +230,6 @@ begin
     end else begin
       Separator.ImageFile := 'separator.png';
       Separator.Margins := rect(0, 0, 0, 0);
-    end;
-
-    // button //
-    if FileExists(Path + 'button.ini') then
-    begin
-      ini := TIniFile.Create(Path + 'button.ini');
-      section := 'Button';
-      Button.Margins.Left :=   ini.ReadInteger(section, 'LeftWidth', 2);
-      Button.Margins.Right :=  ini.ReadInteger(section, 'RightWidth', 2);
-      Button.Margins.Top :=    ini.ReadInteger(section, 'TopHeight', 2);
-      Button.Margins.Bottom := ini.ReadInteger(section, 'BottomHeight', 2);
-      Button.Area.Left :=   ini.ReadInteger(section, 'OutsideBorderLeft', -5);
-      Button.Area.Top :=    ini.ReadInteger(section, 'OutsideBorderTop', -5);
-      Button.Area.Right :=  ini.ReadInteger(section, 'OutsideBorderRight', -5);
-      Button.Area.Bottom := ini.ReadInteger(section, 'OutsideBorderBottom', -5);
-      ini.Free;
-    end else begin
-      Button.Margins := rect(2, 2, 2, 2);
-      Button.Area := rect(-5, -5, -5, -5);
     end;
 
     ReloadGraphics;
@@ -447,57 +391,6 @@ begin
       on e: Exception do raise Exception.Create('Error loading stack icon: ' + Path + 'stack.png' + LineEnding + e.message);
     end;
 
-    // running indicator image //
-    try
-      if FileExists(Path + 'indicator.png') then
-        GdipLoadImageFromFile(PWideChar(WideString(Path + 'indicator.png')), Indicator.Image);
-      if Indicator.image = nil then
-        GdipLoadImageFromFile(PWideChar(WideString(FThemesFolder + 'indicator.png')), Indicator.Image);
-      if Indicator.Image <> nil then
-      begin
-        ImageAdjustRotate(Indicator.Image);
-        GdipGetImageWidth(Indicator.Image, Indicator.W);
-        GdipGetImageHeight(Indicator.Image, Indicator.H);
-        img := Indicator.Image;
-        GdipCloneBitmapAreaI(0, 0, Indicator.W, Indicator.H, PixelFormat32bppPARGB, img, Indicator.Image);
-        GdipDisposeImage(img);
-      end;
-    except
-      on e: Exception do raise Exception.Create('Error loading indicator: ' + Path + 'indicator.png' + LineEnding + e.message);
-    end;
-
-    // running button image //
-    try
-      if FileExists(Path + 'button.png') then
-        GdipLoadImageFromFile(PWideChar(WideString(Path + 'button.png')), Button.Image);
-      if assigned(Button.Image) then
-      begin
-        ImageAdjustRotate(Button.Image);
-        GdipGetImageWidth(Button.Image, Button.W);
-        GdipGetImageHeight(Button.Image, Button.H);
-        img := Button.Image;
-        GdipCloneBitmapAreaI(0, 0, Button.W, Button.H, PixelFormat32bppPARGB, img, Button.Image);
-        GdipDisposeImage(img);
-      end;
-    except
-      on e: Exception do raise Exception.Create('Error loading button: ' + Path + 'button.png' + LineEnding + e.message);
-    end;
-
-    // attention button image //
-    try
-      if FileExists(Path + 'attentionbutton.png') then
-        GdipLoadImageFromFile(PWideChar(WideString(Path + 'attentionbutton.png')), Button.AttentionImage);
-      if assigned(Button.AttentionImage) then
-      begin
-        ImageAdjustRotate(Button.AttentionImage);
-        img := Button.AttentionImage;
-        GdipCloneBitmapAreaI(0, 0, Button.W, Button.H, PixelFormat32bppPARGB, img, Button.AttentionImage);
-        GdipDisposeImage(img);
-      end;
-    except
-      on e: Exception do raise Exception.Create('Error loading button: ' + Path + 'attentionbutton.png' + LineEnding + e.message);
-    end;
-
     img := nil;
   except
     on e: Exception do raise Exception.Create('Error loading theme files.' + LineEnding + e.message);
@@ -580,64 +473,6 @@ begin
   inc(marg.Bottom, area.Bottom);
   gfx.DrawEx(hGDIPGraphics, Background.Image, Background.W, Background.H,
     rect(r.x, r.y, r.Width, r.Height), marg, Background.StretchStyle, alpha);
-end;
-//------------------------------------------------------------------------------
-procedure TDTheme.DrawIndicator(dst: Pointer; Left, Top, Size, Site: integer);
-begin
-  if assigned(Indicator.Image) then
-  try
-    if Site = 0 then
-    begin
-      Left -= Indicator.W div 2;
-      if FItemsArea.Top < 0 then Left += FItemsArea.Top + FItemsArea2.Top;
-      Top += (Size - Indicator.H) div 2;
-    end
-    else
-    if Site = 1 then
-    begin
-      Left += (Size - Indicator.W) div 2;
-      Top -= Indicator.H div 2;
-      if FItemsArea.Top < 0 then Top += FItemsArea.Top + FItemsArea2.Top;
-    end
-    else
-    if Site = 2 then
-    begin
-      Left += Size - Indicator.W div 2;
-      if FItemsArea.Top < 0 then Left -= FItemsArea.Top + FItemsArea2.Top;
-      Top += (Size - Indicator.H) div 2;
-    end
-    else
-    if Site = 3 then
-    begin
-      Left += (Size - Indicator.W) div 2;
-      Top += Size - Indicator.H div 2;
-      if FItemsArea.Top < 0 then Top -= FItemsArea.Top + FItemsArea2.Top;
-    end;
-
-    GdipDrawImageRectRectI(dst, Indicator.Image, Left, Top, Indicator.W, Indicator.H,
-      0, 0, Indicator.W, Indicator.H, UnitPixel, nil, nil, nil);
-  except
-    on e: Exception do raise Exception.Create('DrawIndicator' + LineEnding + e.message);
-  end;
-end;
-//------------------------------------------------------------------------------
-function TDTheme.DrawButton(dst: Pointer; Left, Top, Size: integer; Attention: boolean): boolean;
-var
-  img: pointer;
-  marg, area: Windows.TRect;
-begin
-  result := false;
-  img := Button.Image;
-  marg := CorrectMargins(Button.Margins);
-  area := CorrectMargins(Button.Area);
-  if Attention and assigned(Button.AttentionImage) then img := Button.AttentionImage;
-  if assigned(img) then
-  begin
-    gfx.DrawEx(dst, img, Button.W, Button.H,
-      rect(Left + area.Left, Top + area.Top, Size - area.Left - area.Right, Size - area.Top - area.Bottom),
-      marg, ssStretch, 255);
-    result := true;
-  end;
 end;
 //------------------------------------------------------------------------------
 function TDTheme.BlurEnabled: boolean;

@@ -1329,7 +1329,7 @@ msgstr ""
 
 #: windowlayoutu.xwindowwithprocess
 #, object-pascal-format
-msgid ""%s" (PID %d)"
+msgid "\"%s\" (PID %d)"
 msgstr ""
 
 #: windowlayoutu.xwindowwithhandle
@@ -1402,4 +1402,270 @@ msgstr ""
 
 #: windowlayoutu.xwindowchanged
 msgid "The window closed or changed."
+msgstr ""
+
+#: tfrmstackprop.caption
+msgid "Stack properties"
+msgstr ""
+
+#: tfrmstackprop.lblpreviewtitle.caption
+msgid "Closed stack icon"
+msgstr ""
+
+#: tfrmstackprop.lblcaption.caption
+msgid "&Name"
+msgstr ""
+
+#: tfrmstackprop.lbllocation.caption
+msgid "Stack &location"
+msgstr ""
+
+#: tfrmstackprop.lbllocationhelp.caption
+msgid "Choose None (custom stack) to manage items manually."
+msgstr ""
+
+#: tfrmstackprop.tsitems.caption
+msgid "Items"
+msgstr ""
+
+#: tfrmstackprop.lblorder.caption
+msgid "&Order"
+msgstr ""
+
+#: tfrmstackprop.lblitemshelp.caption
+msgid "Add shortcuts or commands to this stack."
+msgstr ""
+
+#: tfrmstackprop.bbaddicon.caption
+msgid "&Add"
+msgstr ""
+
+#: tfrmstackprop.bbediticon.caption
+msgid "&Edit"
+msgstr ""
+
+#: tfrmstackprop.bbdelicon.caption
+msgid "&Remove"
+msgstr ""
+
+#: tfrmstackprop.bbiconup.caption
+msgid "Move &up"
+msgstr ""
+
+#: tfrmstackprop.bbicondown.caption
+msgid "Move &down"
+msgstr ""
+
+#: tfrmstackprop.tsappearance.caption
+msgid "Appearance"
+msgstr ""
+
+#: tfrmstackprop.lblimage.caption
+msgid "&Image"
+msgstr ""
+
+#: tfrmstackprop.btnbrowseimage1.caption
+msgid "&Browse image..."
+msgstr ""
+
+#: tfrmstackprop.btnclearimage.caption
+msgid "Use &default image"
+msgstr ""
+
+#: tfrmstackprop.lblpreview.caption
+msgid "Items in stack &preview"
+msgstr ""
+
+#: tfrmstackprop.chbbackground.caption
+msgid "Show item &background"
+msgstr ""
+
+#: tfrmstackprop.btndefaultcolor.caption
+msgid "&Reset colors"
+msgstr ""
+
+#: tfrmstackprop.lblstyle.caption
+msgid "&Layout"
+msgstr ""
+
+#: tfrmstackprop.lbloffset.caption
+msgid "&Distance from stack"
+msgstr ""
+
+#: tfrmstackprop.lbldistanceunit.caption
+msgid "x icon size. Zero adds no extra distance."
+msgstr ""
+
+#: tfrmstackprop.lbldistort.caption
+msgid "Item &spacing"
+msgstr ""
+
+#: tfrmstackprop.lblanimationspeed.caption
+msgid "Animation &speed"
+msgstr ""
+
+#: tfrmstackprop.lblslow.caption
+msgid "Slow"
+msgstr ""
+
+#: tfrmstackprop.lblfast.caption
+msgid "Fast"
+msgstr ""
+
+#: tfrmstackprop.btnapply.caption
+msgid "&Apply"
+msgstr ""
+
+#: frmstackpropu.xnolocation
+msgid "None (custom stack)"
+msgstr ""
+
+#: frmstackpropu.xcontrolpanel
+msgid "Control Panel"
+msgstr ""
+
+#: frmstackpropu.xthispc
+msgid "This PC"
+msgstr ""
+
+#: frmstackpropu.xrecyclebin
+msgid "Recycle Bin"
+msgstr ""
+
+#: frmstackpropu.xnetwork
+msgid "Network"
+msgstr ""
+
+#: frmstackpropu.xdesktop
+msgid "Desktop"
+msgstr ""
+
+#: frmstackpropu.xprinters
+msgid "Printers"
+msgstr ""
+
+#: frmstackpropu.xmusic
+msgid "Music"
+msgstr ""
+
+#: frmstackpropu.xvideos
+msgid "Videos"
+msgstr ""
+
+#: frmstackpropu.xmanualorder
+msgid "Manual"
+msgstr ""
+
+#: frmstackpropu.xnewstackitem
+msgid "New item"
+msgstr ""
+
+#: frmstackpropu.xselectlocation
+msgid "Select a supported Windows location."
+msgstr ""
+
+#: frmstackpropu.xlocationreaderror
+#, object-pascal-format
+msgid "Cannot read this Windows location: %s"
+msgstr ""
+
+#: frmstackpropu.xlocationitems
+msgid "Windows manages these items. Select None (custom stack) to edit items manually."
+msgstr ""
+
+#: frmstackpropu.xcolorneutral
+#, object-pascal-format
+msgid "%s (neutral: %d)"
+msgstr ""
+
+#: frmstackpropu.xfancurve
+msgid "Fan curve"
+msgstr ""
+
+#: frmstackpropu.xitemspacing
+msgid "Item spacing"
+msgstr ""
+
+#: frmstackpropu.xarcsize
+msgid "Arc size"
+msgstr ""
+
+#: stackmodeu.xlayoutauto
+msgid "Auto"
+msgstr ""
+
+#: stackmodeu.xlayoutfan
+msgid "Fan"
+msgstr ""
+
+#: stackmodeu.xlayoutfanalt
+msgid "Fan Alt"
+msgstr ""
+
+#: stackmodeu.xlayouttable
+msgid "Table"
+msgstr ""
+
+#: stackmodeu.xlayoutcards
+msgid "Cards"
+msgstr ""
+
+#: stackmodeu.xlayoutline
+msgid "Line"
+msgstr ""
+
+#: stackmodeu.xlayoutdoubleline
+msgid "Double Line"
+msgstr ""
+
+#: stackmodeu.xlayoutsun
+msgid "Sun"
+msgstr ""
+
+#: stackmodeu.xlayoutparallelwave
+msgid "Parallel Wave"
+msgstr ""
+
+#: stackmodeu.xlayoutparallel
+msgid "Parallel"
+msgstr ""
+
+#: declu.xstackpreviewnone
+msgid "None"
+msgstr ""
+
+#: declu.xstackpreviewfour
+msgid "Four"
+msgstr ""
+
+#: declu.xstackpreviewnine
+msgid "Nine"
+msgstr ""
+
+#: frmstackpropu.xhuename
+msgid "&Hue"
+msgstr ""
+
+#: frmstackpropu.xsaturationname
+msgid "&Saturation"
+msgstr ""
+
+#: frmstackpropu.xbrightnessname
+msgid "Bri&ghtness"
+msgstr ""
+
+#: frmstackpropu.xcontrastname
+msgid "&Contrast"
+msgstr ""
+
+#: frmstackpropu.xfancurve
+msgid "&Fan curve"
+msgstr ""
+
+#: frmstackpropu.xitemspacing
+msgid "&Item spacing"
+msgstr ""
+
+#: frmstackpropu.xarcsize
+msgid "&Arc size"
 msgstr ""

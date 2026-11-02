@@ -4,7 +4,7 @@ unit customsubitemu;
 
 interface
 uses Windows, Messages, SysUtils, Controls, Classes, Math, ComObj,
-  GDIPAPI, gfx, PIDL, declu, dockh, customitemu, loggeru, itemmodelu;
+  GDIPAPI, gfx, PIDL, declu, dockh, customitemu, loggeru, itemmodelu, attentionu;
 
 const
   MIN_BORDER = 8;
@@ -42,6 +42,8 @@ type
     FUpdating: boolean;
     FSelected: boolean; // when mouse button is down - icon becomes darken //
     FRunning: boolean;
+    FAttention: boolean;
+    FAttentionWindows: TAttentionWindows;
     FProcessWindowsCount: integer;
     FShowHint: boolean;
     FSite: integer;
@@ -62,6 +64,7 @@ type
     procedure BeforeDestruction; override;
     procedure Init; virtual;
     procedure Redraw;
+    function RequestAttention(Window: HWND): boolean;
     function GetNCRect: windows.TRect;
     function GetClientRect: windows.TRect;
     function GetScreenRect: windows.TRect;
@@ -78,6 +81,7 @@ type
     property Rect: windows.TRect read GetClientRect;
     property ScreenRect: windows.TRect read GetScreenRect;
     property Running: boolean read FRunning;
+    property AttentionPending: boolean read FAttention;
     property WindowCount: integer read FProcessWindowsCount;
     property QueryDelete: boolean read FQueryDelete;
     property Image: pointer read FImage;
@@ -102,6 +106,8 @@ type
     procedure WMCommand(wParam: WPARAM; lParam: LPARAM; var result: LRESULT); virtual; abstract;
     procedure Configure; virtual; abstract;
     function cmd(id: TDParam; param: PtrInt): PtrInt; virtual;
+    procedure ForegroundChanged(Window: HWND); virtual;
+    procedure ClearAttention;
     function CanOpenFolder: boolean; virtual; abstract;
     procedure OpenFolder; virtual; abstract;
     function DropFile(pt: windows.TPoint; filename: string): boolean; virtual; abstract;
@@ -284,6 +290,33 @@ begin
   end;
 end;
 //------------------------------------------------------------------------------
+function TCustomSubitem.RequestAttention(Window: HWND): boolean;
+var Previous: boolean;
+begin
+  Previous := FAttention;
+  Result := FAttentionWindows.Request(Window, GetForegroundWindow);
+  FAttention := FAttentionWindows.Active;
+  if Previous <> FAttention then Redraw;
+end;
+
+procedure TCustomSubitem.ForegroundChanged(Window: HWND);
+var Previous: boolean;
+begin
+  if FFreed then Exit;
+  Previous := FAttention;
+  FAttentionWindows.Observe(Window);
+  FAttention := FAttentionWindows.Active;
+  if Previous <> FAttention then Redraw;
+end;
+
+procedure TCustomSubitem.ClearAttention;
+begin
+  FAttentionWindows.Clear;
+  if not FAttention then Exit;
+  FAttention := false;
+  Redraw;
+end;
+//------------------------------------------------------------------------------
 function TCustomSubitem.ToString: string;
 begin
   result := '';
@@ -397,6 +430,7 @@ begin
     if not deleted then exit;
   end;
   FQueryDelete := true;
+  ClearAttention;
   ItemViews.CancelInternalTimers(ItemId);
   ShowWindow(FHWnd, SW_HIDE);
 end;

@@ -23,7 +23,7 @@ type
     Version: integer;
     Caption: WideString;
     Image, SpecialFolder: string;
-    ColorData, Mode, Offset, AnimationSpeed, Distort, Preview: integer;
+    ColorData, Mode, Offset, DistanceSteps, AnimationSpeed, Distort, Preview: integer;
     Background, Sorted: boolean;
   end;
 
@@ -35,6 +35,8 @@ function DefaultShortcutDto: TShortcutDtoV1;
 function DefaultStackDto: TStackDtoV1;
 procedure NormalizeShortcutDto(var Data: TShortcutDtoV1);
 procedure NormalizeStackDto(var Data: TStackDtoV1);
+function StackDistancePixels(Steps, IconSize: integer): integer;
+function ResolveStackDistanceSteps(const Data: TStackDtoV1; IconSize: integer): integer;
 function ReadShortcutText(const Text: string): TShortcutDtoV1;
 function ReadShortcutIni(const Filename, Section: string): TShortcutDtoV1;
 function WriteShortcutText(const Data: TShortcutDtoV1): string;
@@ -250,6 +252,8 @@ begin
   Result.AnimationSpeed := 8;
   Result.Distort := 1;
   Result.Preview := 1;
+  // Missing distance_steps identifies the old pixel-based offset format.
+  Result.DistanceSteps := -1;
 end;
 
 procedure NormalizeShortcutDto(var Data: TShortcutDtoV1);
@@ -263,9 +267,23 @@ begin
   if Data.Version <> ITEM_DTO_VERSION then raise EConvertError.Create('Unsupported item DTO version');
   Data.Mode := Clamp(Data.Mode, 0, STACK_MODE_MAX);
   Data.Offset := Clamp(Data.Offset, -100, 100);
+  Data.DistanceSteps := Clamp(Data.DistanceSteps, -1, 8);
   Data.AnimationSpeed := Clamp(Data.AnimationSpeed, 1, 20);
   Data.Distort := Clamp(Data.Distort, -10, 10);
   Data.Preview := Clamp(Data.Preview, 0, 2);
+end;
+
+function StackDistancePixels(Steps, IconSize: integer): integer;
+begin
+  if IconSize < 1 then IconSize := 1;
+  Result := Round(Int64(Clamp(Steps, 0, 8)) * IconSize / 4);
+end;
+
+function ResolveStackDistanceSteps(const Data: TStackDtoV1; IconSize: integer): integer;
+begin
+  if Data.DistanceSteps >= 0 then Exit(Clamp(Data.DistanceSteps, 0, 8));
+  if IconSize < 1 then IconSize := 1;
+  Result := Clamp(Round(Int64(Data.Offset) * 4 / IconSize), 0, 8);
 end;
 
 function TextInteger(Fields: TStrings; const Name: string; DefaultValue: integer): integer;
@@ -367,6 +385,7 @@ begin
     Result.ColorData := TextInteger(Fields, 'color_data', Result.ColorData);
     Result.Mode := TextInteger(Fields, 'mode', 0);
     Result.Offset := TextInteger(Fields, 'offset', 0);
+    Result.DistanceSteps := TextInteger(Fields, 'distance_steps', -1);
     Result.AnimationSpeed := TextInteger(Fields, 'animation_speed', Result.AnimationSpeed);
     Result.Distort := TextInteger(Fields, 'distort', Result.Distort);
     Result.Preview := TextInteger(Fields, 'preview', Result.Preview);
@@ -385,6 +404,7 @@ begin
   Result.ColorData := ReadIniIntW(ShellUTF16(Filename), ShellUTF16(Section), 'color_data', Result.ColorData);
   Result.Mode := ReadIniIntW(ShellUTF16(Filename), ShellUTF16(Section), 'mode', 0);
   Result.Offset := ReadIniIntW(ShellUTF16(Filename), ShellUTF16(Section), 'offset', 0);
+  Result.DistanceSteps := ReadIniIntW(ShellUTF16(Filename), ShellUTF16(Section), 'distance_steps', -1);
   Result.AnimationSpeed := ReadIniIntW(ShellUTF16(Filename), ShellUTF16(Section), 'animation_speed', Result.AnimationSpeed);
   Result.Distort := ReadIniIntW(ShellUTF16(Filename), ShellUTF16(Section), 'distort', Result.Distort);
   Result.Preview := ReadIniIntW(ShellUTF16(Filename), ShellUTF16(Section), 'preview', Result.Preview);
@@ -432,7 +452,9 @@ begin
   if Value.SpecialFolder <> '' then Result := Result + LegacyItemField('special_folder', Value.SpecialFolder);
   if Value.ColorData <> DEF_COLOR_DATA then Result := Result + LegacyItemField('color_data', '$' + IntToHex(Value.ColorData, 8));
   if Value.Mode <> 0 then Result := Result + LegacyItemField('mode', IntToStr(Value.Mode));
-  if Value.Offset <> 0 then Result := Result + LegacyItemField('offset', IntToStr(Value.Offset));
+  if Value.DistanceSteps >= 0 then
+    Result := Result + LegacyItemField('distance_steps', IntToStr(Value.DistanceSteps))
+  else if Value.Offset <> 0 then Result := Result + LegacyItemField('offset', IntToStr(Value.Offset));
   Result := Result + LegacyItemField('animation_speed', IntToStr(Value.AnimationSpeed));
   Result := Result + LegacyItemField('distort', IntToStr(Value.Distort));
   if Value.Preview <> 1 then Result := Result + LegacyItemField('preview', IntToStr(Value.Preview));
@@ -456,7 +478,9 @@ begin
   if Value.Image <> '' then WriteIniStringW(ShellUTF16(Filename), ShellUTF16(Section), 'image', ShellUTF16(Value.Image));
   if Value.ColorData <> DEF_COLOR_DATA then WriteIniStringW(ShellUTF16(Filename), ShellUTF16(Section), 'color_data', '$' + IntToHex(Value.ColorData, 8));
   if Value.Mode <> 0 then WriteIniStringW(ShellUTF16(Filename), ShellUTF16(Section), 'mode', IntToStr(Value.Mode));
-  if Value.Offset <> 0 then WriteIniStringW(ShellUTF16(Filename), ShellUTF16(Section), 'offset', IntToStr(Value.Offset));
+  if Value.DistanceSteps >= 0 then
+    WriteIniStringW(ShellUTF16(Filename), ShellUTF16(Section), 'distance_steps', IntToStr(Value.DistanceSteps))
+  else if Value.Offset <> 0 then WriteIniStringW(ShellUTF16(Filename), ShellUTF16(Section), 'offset', IntToStr(Value.Offset));
   if Value.AnimationSpeed <> 8 then WriteIniStringW(ShellUTF16(Filename), ShellUTF16(Section), 'animation_speed', IntToStr(Value.AnimationSpeed));
   if Value.Distort <> 1 then WriteIniStringW(ShellUTF16(Filename), ShellUTF16(Section), 'distort', IntToStr(Value.Distort));
   if Value.SpecialFolder <> '' then WriteIniStringW(ShellUTF16(Filename), ShellUTF16(Section), 'special_folder', ShellUTF16(Value.SpecialFolder));

@@ -11,8 +11,9 @@ type
   { TTaskItem }
 
   TTaskItem = class(TCustomDrawItem)
-  {$ifdef WINDOW_ICON_TESTS}protected{$else}private{$endif}
+  {$if defined(WINDOW_ICON_TESTS) or defined(RUNNING_BADGE_TESTS)}protected{$else}private{$endif}
     FIsExecutable: boolean;
+    FShowRunningIndicator: boolean;
     FExecutable: string;
     FAppList: TFPList;
     FFlashedWindow: THandle;
@@ -28,7 +29,6 @@ type
     FIconRequestSize: Integer;
     procedure CancelIconRequests;
     procedure BeforeUndock;
-    procedure CheckWindowActivated;
     procedure UpdateImage;
     procedure UpdateItemInternal;
     procedure AfterDraw;
@@ -83,6 +83,7 @@ begin
   FAeroPeekWindowActive := false;
   FIsNew                := true;
   FRunning              := true;
+  FShowRunningIndicator := true;
   OnBeforeMouseHover    := BeforeMouseHover;
   OnMouseHover          := MouseHover;
   OnBeforeUndock        := BeforeUndock;
@@ -304,6 +305,12 @@ begin
       gpTaskThumbSize:    FTaskThumbSize := param;
       gpTaskGrouping:     FTaskGrouping := boolean(param);
       gpTaskSystemMenus:  FTaskSystemMenus := boolean(param);
+      gpShowRunningIndicator:
+        if FShowRunningIndicator <> (param <> 0) then
+        begin
+          FShowRunningIndicator := param <> 0;
+          Redraw;
+        end;
       tcDebugInfo:
         if FAppList.Count > 0 then // log every window info
         begin
@@ -318,10 +325,11 @@ begin
       icFlashTaskWindow:
         if FAppList.IndexOf(pointer(param)) >= 0 then
         begin
-          FFlashedWindow := param;
-          Animate;
-          Attention(true);
-          ItemViews.SetItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED, 1000);
+          if RequestAttention(HWND(param)) then
+          begin
+            FFlashedWindow := param;
+            Result := 1;
+          end;
         end;
 
       icIsItem: result := 0;
@@ -340,8 +348,8 @@ end;
 //------------------------------------------------------------------------------
 procedure TTaskItem.DrawOverlay(dst: pointer; x, y, size: integer);
 begin
-  if assigned(FAppList) then
-    if FAppList.Count > 1 then DrawNumberOverlay(dst, x, y, size, FAppList.Count);
+  if FShowRunningIndicator and assigned(FAppList) then
+    if FAppList.Count > 0 then DrawNumberOverlay(dst, x, y, size, FAppList.Count);
 end;
 // Draw routines ---------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -525,9 +533,6 @@ begin
           // open AeroPeekWindow
           if (wParam = ID_TIMER_OPEN) and
             ItemViews.ConsumeItemTimer(ItemId, ID_TIMER_OPEN, ClockNow) then ShowPeekWindow;
-          // check if should cancel attention
-          if (wParam = ID_TIMER_WINDOWACTIVATED) and
-            ItemViews.ConsumeItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED, ClockNow) then CheckWindowActivated;
         end;
     end;
 end;
@@ -617,24 +622,10 @@ begin
   TAeroPeekWindow.SetPosition(pt.x, pt.y);
 end;
 //------------------------------------------------------------------------------
-procedure TTaskItem.CheckWindowActivated;
-begin
-  ForegroundChanged(GetForegroundWindow);
-end;
-
 procedure TTaskItem.ForegroundChanged(wnd: HWND);
 begin
-  if FFreed then exit;
-  if FAttention then
-  begin
-    if FAppList.IndexOf(pointer(wnd)) >= 0 then
-    begin
-      FFlashedWindow := 0;
-      Attention(false);
-      ItemViews.KillItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED);
-    end;
-  end
-  else ItemViews.KillItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED);
+  inherited;
+  FFlashedWindow := FAttentionWindows.LastWindow;
 end;
 //------------------------------------------------------------------------------
 //

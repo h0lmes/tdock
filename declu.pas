@@ -317,9 +317,9 @@ resourcestring
   XAnimationSpeed = 'Animation speed: %d';
   XAlphaChannel = 'Alpha channel: %d';
   // frmstackpropu //
-  XStackPreviewNone = 'none';
-  XStackPreviewFour = 'four';
-  XStackPreviewNine = 'nine';
+  XStackPreviewNone = 'None';
+  XStackPreviewFour = 'Four';
+  XStackPreviewNine = 'Nine';
   // frmAddCommand //
   XErrorCommandListNotFound = 'Command list file not found. Try reinstalling the program.';
   // frmTip //

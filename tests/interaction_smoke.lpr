@@ -2,15 +2,29 @@ program interaction_smoke;
 
 {$mode delphi}
 
-uses Interfaces, Windows, Messages, SysUtils, Classes, Controls, Forms, ActiveX, ShlObj, ComObj,
+uses Interfaces, jwaWindows, Windows, Messages, SysUtils, Classes, Controls, Forms, ActiveX, ShlObj, ComObj,
   declu, setsu, frmmainu, itemmgru, customitemu, stackitemu, scitemu,
   pluginhostu, shelltraywndu, notifieru, toolu, loggeru, win32hotkeyu, dropimportu;
 
 type
   TObservedMain = class(Tfrmmain)
+  protected
+    procedure RaiseForAttention; override;
   public
     FullscreenObservations: Integer;
+    AttentionRaises: Integer;
+    FullscreenActive, AttentionChangedActivation: Boolean;
     function FullScreenAppActive: Boolean; override;
+  end;
+  TAttentionProbe = class(TCustomItem)
+  public
+    WindowA, WindowB: HWND;
+    function cmd(Id: TDParam; Param: PtrInt): PtrInt; override;
+    procedure Draw(X, Y, Size: Integer; Force: Boolean; Batch: HDWP; ShowItem: UINT); override;
+    function ToString: string; override;
+    procedure WndMessage(var Msg: TMessage); override;
+    procedure WMCommand(W: WPARAM; L: LPARAM; var Result: LRESULT); override;
+    procedure Save(Ini, Section: string); override;
   end;
   TObservedStack = class(TStackItem)
   public
@@ -36,8 +50,35 @@ begin Inc(Ticks); inherited; end;
 function TObservedMain.FullScreenAppActive: Boolean;
 begin
   Inc(FullscreenObservations);
-  Result := False;
+  Result := FullscreenActive;
 end;
+
+procedure TObservedMain.RaiseForAttention;
+var Previous: HWND;
+begin
+  Inc(AttentionRaises);
+  Previous := GetForegroundWindow;
+  inherited;
+  if GetForegroundWindow <> Previous then AttentionChangedActivation := True;
+end;
+
+function TAttentionProbe.cmd(Id: TDParam; Param: PtrInt): PtrInt;
+begin
+  Result := inherited cmd(Id, Param);
+  if (Id = icFlashTaskWindow) and
+    ((HWND(Param) = WindowA) or (HWND(Param) = WindowB)) then
+    Result := Ord(RequestAttention(HWND(Param)));
+end;
+procedure TAttentionProbe.Draw(X, Y, Size: Integer; Force: Boolean; Batch: HDWP; ShowItem: UINT);
+begin FX := X; FY := Y; FSize := Size; FShowItem := ShowItem; end;
+function TAttentionProbe.ToString: string;
+begin Result := 'class="separator";'; end;
+procedure TAttentionProbe.WndMessage(var Msg: TMessage);
+begin Msg.Result := 0; end;
+procedure TAttentionProbe.WMCommand(W: WPARAM; L: LPARAM; var Result: LRESULT);
+begin Result := 0; end;
+procedure TAttentionProbe.Save(Ini, Section: string);
+begin end;
 
 procedure ActivateHint(Id: THandle; Caption: PWideChar; X, Y: Integer); stdcall;
 begin
@@ -100,6 +141,80 @@ begin
   finally CoTaskMemFree(Absolute); end;
 end;
 
+procedure CheckAttentionRaises(Main: TObservedMain);
+var Probe: TAttentionProbe; Params: TDItemCreateParams; WindowA, WindowB, Tail: HWND;
+  ShellMessage: UINT; RaisesBefore, RepeatIndex: Integer;
+  procedure Flash(Window: HWND);
+  begin Windows.SendMessage(Main.Handle, ShellMessage, HSHELL_FLASH, LPARAM(Window)); end;
+  procedure Acknowledge;
+  begin
+    Main.ItemMgr.ForegroundChanged(WindowA);
+    Main.ItemMgr.ForegroundChanged(WindowB);
+  end;
+begin
+  Probe := nil;
+  Tail := 0;
+  ShellMessage := RegisterWindowMessage('SHELLHOOK');
+  WindowA := CreateWindowExW(WS_EX_TOOLWINDOW, 'STATIC', 'attention smoke A', WS_POPUP,
+    -20000, -20000, 10, 10, 0, 0, HInstance, nil);
+  WindowB := CreateWindowExW(WS_EX_TOOLWINDOW, 'STATIC', 'attention smoke B', WS_POPUP,
+    -20000, -20000, 10, 10, 0, 0, HInstance, nil);
+  try
+    Require((WindowA <> 0) and (WindowB <> 0), 'Attention fixture windows failed');
+    Params := Default(TDItemCreateParams);
+    Params.ItemSize := 48; Params.BigItemSize := 96;
+    Params.Font := sets.container.Font;
+    Probe := TAttentionProbe.Create(Main.Handle, Params);
+    Probe.WindowA := WindowA; Probe.WindowB := WindowB;
+    Main.ItemMgr.AdoptItem(Probe, True);
+    Tail := Main.ItemMgr.InsertItem('class="separator";');
+    Require(Tail <> 0, 'Attention fixture tail failed');
+    RaisesBefore := Main.AttentionRaises;
+    Flash(WindowA);
+    Require(Probe.AttentionPending, 'Initial attention was not recorded');
+    Require(Main.AttentionRaises = RaisesBefore + 1, 'Visible dock did not rise for new attention');
+    for RepeatIndex := 1 to 4 do Flash(WindowA);
+    Require(Main.AttentionRaises = RaisesBefore + 1, 'Duplicate flash raised the dock again');
+    Flash(WindowB);
+    Require(Main.AttentionRaises = RaisesBefore + 2, 'Another request did not raise the dock');
+    Flash(Main.Handle);
+    Require(Main.AttentionRaises = RaisesBefore + 2, 'An unrelated flash raised the dock');
+    Require(not Main.AttentionChangedActivation, 'Attention raising changed the active window');
+    Writeln('PASS attention raises once per new request without activating the dock');
+
+    Acknowledge;
+    Main.BaseCmd(tcSetVisible, 0);
+    RaisesBefore := Main.AttentionRaises;
+    Flash(WindowA);
+    Require(not IsWindowVisible(Main.Handle), 'Attention showed a manually hidden dock');
+    Require(Main.AttentionRaises = RaisesBefore, 'Attention raised a manually hidden dock');
+    Main.BaseCmd(tcSetVisible, 1);
+    Flash(WindowA);
+    Require(Main.AttentionRaises = RaisesBefore, 'Showing the dock replayed old attention');
+    Writeln('PASS manual hiding and later showing preserve attention deduplication');
+
+    Acknowledge;
+    Main.SetParam(gpAutoHideOnFullScreenApp, 1);
+    Main.FullscreenActive := True;
+    Flash(WindowA);
+    Require(not IsWindowVisible(Main.Handle), 'Attention bypassed fresh fullscreen detection');
+    Require(Main.AttentionRaises = RaisesBefore, 'Attention raised the dock over a fullscreen application');
+    Flash(WindowB);
+    Require(not IsWindowVisible(Main.Handle), 'Another request showed the fullscreen-hidden dock');
+    Require(Main.AttentionRaises = RaisesBefore, 'Another request raised the fullscreen-hidden dock');
+    Writeln('PASS fullscreen hiding remains effective for new attention');
+  finally
+    Main.FullscreenActive := False;
+    Main.SetParam(gpAutoHideOnFullScreenApp, 0);
+    Main.BaseCmd(tcSetVisible, 1);
+    if Tail <> 0 then Main.ItemMgr.DeleteItem(Tail);
+    if Assigned(Probe) then
+      if Probe.Owner = nil then Probe.Free else Main.ItemMgr.DeleteItem(Probe.Handle);
+    if WindowA <> 0 then DestroyWindow(WindowA);
+    if WindowB <> 0 then DestroyWindow(WindowB);
+  end;
+end;
+
 procedure RunSmoke;
 var Fixture: string; Lines: TStringList; Params: TDItemCreateParams;
   Stack: TObservedStack; HintWindow: HWND; DockRect: Windows.TRect;
@@ -139,6 +254,11 @@ begin
   finally Lines.Free; end;
   try
     frmmain.Init(Fixture);
+    if FindCmdLineSwitch('attention-only') or FindCmdLineSwitch('-attention-only') then
+    begin
+      CheckAttentionRaises(TObservedMain(frmmain));
+      Exit;
+    end;
     Require(TObservedMain(frmmain).FullscreenObservations > 0,
       'Startup did not seed fullscreen observation');
     Writeln('PASS initial fullscreen observation');
@@ -215,6 +335,7 @@ begin
     Require(IsWindowVisible(frmmain.Handle), 'Global hotkey did not restore the hidden dock');
     frmmain.SetParam(gpGlobalHotkeyFlag_Hide, 0);
     Writeln('PASS registered hotkey delivery while dock is hidden');
+    CheckAttentionRaises(TObservedMain(frmmain));
     frmmain.OnDragEnter(nil, 0);
     Require(frmmain.ItemMgr.InteractionSnapshot.DraggingFile, 'Drag feedback did not start');
     Effect := DROPEFFECT_COPY or DROPEFFECT_LINK;

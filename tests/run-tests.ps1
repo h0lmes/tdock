@@ -7,7 +7,8 @@ $suites = @('itemmodel', 'itemcollection', 'itemidentity', 'itemmanager', 'prope
     'docklayout', 'tasksync', 'windowlayout', 'nativeinput', 'pluginhost', 'serialization',
     'docktiming', 'framepacing', 'animationcurve', 'hotkey', 'animationtiming', 'itemtiming',
     'shelltiming', 'dropownership', 'appmetadata', 'iconservice', 'asyncwindowicon', 'apptarget',
-    'launchservice', 'dropimport', 'targetpreservation', 'launchfailure', 'variableexpansion', 'activation', 'taskbarimport')
+    'launchservice', 'dropimport', 'targetpreservation', 'launchfailure', 'variableexpansion', 'activation', 'taskbarimport',
+    'stackrunning', 'shortcutactivation')
 Invoke-TestSuites -Suites $suites -Compiler $Compiler -LazarusRoot $LazarusRoot
 
 Write-Host 'Running Windows interaction smoke tests with application build flags.'

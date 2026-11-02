@@ -4,7 +4,7 @@ unit customitemu;
 
 interface
 uses Windows, Messages, SysUtils, Controls, Classes, ShellAPI, Math, FileUtil,
-  declu, dockh, gfx, toolu, loggeru, itemmodelu, docktimingu;
+  declu, dockh, gfx, toolu, loggeru, itemmodelu, docktimingu, attentionu;
 
 const
   anim_bounce: array [0..15] of single = (0, 0.1670, 0.3290, 0.4680, 0.5956, 0.6937, 0.7790, 0.8453, 0.8984, 0.9360, 0.9630, 0.9810, 0.9920, 0.9976, 0.9997, 1);
@@ -66,6 +66,7 @@ type
     FMouseDownButton: TMouseButton;
     FNeedMouseWheel: boolean;
     FAttention: boolean;
+    FAttentionWindows: TAttentionWindows;
 
     FFont: TDFontData;
     FImage: Pointer;
@@ -90,6 +91,7 @@ type
     procedure BeforeDestruction; override;
     procedure Redraw(Force: boolean = true); // updates item appearance
     procedure Attention(value: boolean);
+    function RequestAttention(Window: HWND): boolean;
     procedure SetCaption(value: WideString);
     procedure MouseHover(AHover: boolean);
     procedure UpdateHint(Ax: integer = -32000; Ay: integer = -32000);
@@ -101,6 +103,7 @@ type
     procedure err(where: string; e: Exception);
   public
     property Freed: boolean read FFreed write FFreed;
+    property AttentionPending: boolean read FAttention;
     property Undocked: boolean read FUndocked;
     property Handle: HWND read FHWnd;
     property ParentWindow: HWND read FHWndParent;
@@ -510,7 +513,11 @@ begin
 end;
 
 procedure TCustomItem.ForegroundChanged(wnd: HWND);
-begin end;
+begin
+  if FFreed then Exit;
+  FAttentionWindows.Observe(wnd);
+  Attention(FAttentionWindows.Active);
+end;
 
 function TCustomItem.NeedsFrame: boolean;
 begin
@@ -555,8 +562,20 @@ end;
 //------------------------------------------------------------------------------
 procedure TCustomItem.Attention(value: boolean);
 begin
-  FAttention := value;
-  if not FAttention then Redraw;
+  if FAttention <> value then
+  begin
+    FAttention := value;
+    Redraw;
+  end;
+  if FAttention then ItemViews.SetItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED, 1000)
+  else ItemViews.KillItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED);
+end;
+
+function TCustomItem.RequestAttention(Window: HWND): boolean;
+begin
+  Result := FAttentionWindows.Request(Window, GetForegroundWindow);
+  Attention(FAttentionWindows.Active);
+  if Result then Animate;
 end;
 //------------------------------------------------------------------------------
 procedure TCustomItem.Configure;
@@ -807,6 +826,7 @@ begin
     FHover := false;
     FSelected := false;
     FAttention := false;
+    FAttentionWindows.Clear;
     FAnimationProgress := 0;
     FIconAnimationActive := false;
     FIconAnimation := Default(TScalarAnimation);
@@ -962,6 +982,9 @@ begin
         end
         else if message = WM_TIMER then
         begin
+              if (wParam = ID_TIMER_WINDOWACTIVATED) and
+                ItemViews.ConsumeItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED, ClockNow) then
+                ForegroundChanged(GetForegroundWindow);
               // mouse held //
               if (wParam = ID_TIMER_MOUSEHELD) and
                 ItemViews.ConsumeItemTimer(ItemId, ID_TIMER_MOUSEHELD, ClockNow) then

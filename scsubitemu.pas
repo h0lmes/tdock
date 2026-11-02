@@ -24,6 +24,7 @@ type
     FColorData: integer;
     //
     FUseShellContextMenus: boolean;
+    FShowRunningIndicator: boolean;
     FIsPIDL: boolean;
     FPIDL: PITEMIDLIST;
     FLastMouseUp: PtrUInt;
@@ -34,6 +35,7 @@ type
     function ContextMenu(pt: Windows.TPoint): boolean;
     procedure DrawNumberOverlay(dst: pointer; x, y, size, number: integer);
   protected
+    function ContainsWindow(Window: HWND): boolean; virtual;
     function ParseAppShellItem(const ParsingName: UnicodeString): PItemIDList; virtual;
     procedure DisposeShortcutImage; virtual;
     procedure DisposeShortcutPIDL; virtual;
@@ -71,12 +73,13 @@ type
   end;
 
 implementation
-uses frmitemoptu, itemhostu;
+uses frmitemoptu, itemhostu, attentionu;
 //------------------------------------------------------------------------------
 constructor TShortcutSubitem.Create(wndParent: HWND; AParams: TDItemCreateParams);
 begin
   inherited;
   FUseShellContextMenus := AParams.UseShellContextMenus;
+  FShowRunningIndicator := true;
   FCommand     := '';
   FParams      := '';
   FDir         := '';
@@ -122,9 +125,10 @@ begin
       // parameters //
       gpShowRunningIndicator:
         begin
-          if FRunning and not boolean(param) then
+          if FShowRunningIndicator <> (param <> 0) then
           begin
-            FRunning := false;
+            FShowRunningIndicator := param <> 0;
+            FRunning := FShowRunningIndicator and (FProcessWindowsCount > 0);
             Redraw;
           end;
         end;
@@ -135,6 +139,9 @@ begin
 
       // commands //
       icUpdateRunning: UpdateRunning;
+      icFlashTaskWindow:
+        if not FQueryDelete and ContainsWindow(HWND(param)) then
+          Result := Ord(RequestAttention(HWND(param)));
     end;
 
   except
@@ -270,13 +277,28 @@ begin
 end;
 //------------------------------------------------------------------------------
 procedure TShortcutSubitem.UpdateRunning;
+var PreviousCount: integer; IsRunning: boolean;
 begin
+  PreviousCount := FProcessWindowsCount;
   if FExecutable <> '' then FProcessWindowsCount := ProcessHelper.GetProcessWindowsCount(FExecutable);
-  if (FProcessWindowsCount > 0) <> FRunning then
+  IsRunning := FShowRunningIndicator and (FProcessWindowsCount > 0);
+  if (PreviousCount <> FProcessWindowsCount) or (IsRunning <> FRunning) then
   begin
-    FRunning := FProcessWindowsCount > 0;
+    FRunning := IsRunning;
     Redraw;
   end;
+end;
+//------------------------------------------------------------------------------
+function TShortcutSubitem.ContainsWindow(Window: HWND): boolean;
+var AppWindows: TFPList;
+begin
+  Result := false;
+  if (FExecutable = '') or not Assigned(ProcessHelper) then Exit;
+  AppWindows := TFPList.Create;
+  try
+    ProcessHelper.GetProcessWindows(FExecutable, AppWindows);
+    Result := AppWindows.IndexOf(Pointer(Window)) >= 0;
+  finally AppWindows.Free; end;
 end;
 //------------------------------------------------------------------------------
 // set position, size, repaint window //
@@ -407,7 +429,9 @@ begin
       if attr <> nil then GdipDisposeImageAttributes(attr);
     end;
     GdipSetCompositingMode(dst, CompositingModeSourceOver);
-    if FProcessWindowsCount > 0 then DrawNumberOverlay(dst, IconX, IconY, FSize, FProcessWindowsCount);
+    if FShowRunningIndicator and (FProcessWindowsCount > 0) then
+      DrawNumberOverlay(dst, IconX, IconY, FSize, FProcessWindowsCount);
+    if FAttention then DrawAttentionBadge(dst, IconX, IconY, FItemSize);
 
     // caption //
     if FShowHint and (length(FCaption) > 0) and ((AHintAlign >= 0) and (AHintAlign <= 7)) and (AHintAlpha > 25) then
@@ -696,7 +720,7 @@ end;
 //------------------------------------------------------------------------------
 function TShortcutSubitem.ActivateProcessMainWindow: boolean;
 begin
-  result := ProcessHelper.ActivateProcessMainWindow(UnzipPath(FCommand), FHWnd, ScreenRect, FSite);
+  result := ProcessHelper.ActivateProcessMainWindow(FExecutable, FHWnd, ScreenRect, FSite);
 end;
 //------------------------------------------------------------------------------
 function TShortcutSubitem.CanOpenFolder: boolean;

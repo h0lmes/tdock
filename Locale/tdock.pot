@@ -377,15 +377,15 @@ msgid "Standard items"
 msgstr ""
 
 #: declu.xstackpreviewfour
-msgid "four"
+msgid "Four"
 msgstr ""
 
 #: declu.xstackpreviewnine
-msgid "nine"
+msgid "Nine"
 msgstr ""
 
 #: declu.xstackpreviewnone
-msgid "none"
+msgid "None"
 msgstr ""
 
 #: declu.xstartbuttontext
@@ -473,6 +473,146 @@ msgstr ""
 
 #: declu.xundeleteicon
 msgid "Restore icon (Ctrl+Z)"
+msgstr ""
+
+#: frmstackpropu.xarcsize
+msgid "&Arc size"
+msgstr ""
+
+#: frmstackpropu.xbrightnessname
+msgid "Bri&ghtness"
+msgstr ""
+
+#: frmstackpropu.xcolorneutral
+#, object-pascal-format
+msgid "%s (neutral: %d)"
+msgstr ""
+
+#: frmstackpropu.xcontrastname
+msgid "&Contrast"
+msgstr ""
+
+#: frmstackpropu.xcontrolpanel
+msgid "Control Panel"
+msgstr ""
+
+#: frmstackpropu.xcustomitems
+msgctxt "frmstackpropu.xcustomitems"
+msgid "Add shortcuts or commands to this stack."
+msgstr ""
+
+#: frmstackpropu.xdesktop
+msgid "Desktop"
+msgstr ""
+
+#: frmstackpropu.xfancurve
+msgid "&Fan curve"
+msgstr ""
+
+#: frmstackpropu.xhuename
+msgid "&Hue"
+msgstr ""
+
+#: frmstackpropu.xitemspacing
+msgid "&Item spacing"
+msgstr ""
+
+#: frmstackpropu.xlocationitems
+msgid "Windows manages these items. Select None (custom stack) to edit items manually."
+msgstr ""
+
+#: frmstackpropu.xlocationreaderror
+#, object-pascal-format
+msgid "Cannot read this Windows location: %s"
+msgstr ""
+
+#: frmstackpropu.xmanualorder
+msgid "Manual"
+msgstr ""
+
+#: frmstackpropu.xmusic
+msgid "Music"
+msgstr ""
+
+#: frmstackpropu.xnameorder
+msgctxt "frmstackpropu.xnameorder"
+msgid "Name"
+msgstr ""
+
+#: frmstackpropu.xnetwork
+msgid "Network"
+msgstr ""
+
+#: frmstackpropu.xnewstackitem
+msgid "New item"
+msgstr ""
+
+#: frmstackpropu.xnolocation
+msgid "None (custom stack)"
+msgstr ""
+
+#: frmstackpropu.xprinters
+msgid "Printers"
+msgstr ""
+
+#: frmstackpropu.xrecyclebin
+msgid "Recycle Bin"
+msgstr ""
+
+#: frmstackpropu.xsaturationname
+msgid "&Saturation"
+msgstr ""
+
+#: frmstackpropu.xselectlocation
+msgid "Select a supported Windows location."
+msgstr ""
+
+#: frmstackpropu.xthispc
+msgid "This PC"
+msgstr ""
+
+#: frmstackpropu.xvideos
+msgid "Videos"
+msgstr ""
+
+#: stackmodeu.xlayoutauto
+msgid "Auto"
+msgstr ""
+
+#: stackmodeu.xlayoutcards
+msgid "Cards"
+msgstr ""
+
+#: stackmodeu.xlayoutdoubleline
+msgid "Double Line"
+msgstr ""
+
+#: stackmodeu.xlayoutfan
+msgid "Fan"
+msgstr ""
+
+#: stackmodeu.xlayoutfanalt
+msgid "Fan Alt"
+msgstr ""
+
+#: stackmodeu.xlayoutline
+msgid "Line"
+msgstr ""
+
+#: stackmodeu.xlayoutparallel
+msgid "Parallel"
+msgstr ""
+
+#: stackmodeu.xlayoutparallelwave
+msgid "Parallel Wave"
+msgstr ""
+
+#: stackmodeu.xlayoutsun
+msgid "Sun"
+msgstr ""
+
+#: stackmodeu.xlayouttable
+msgid "Table"
 msgstr ""
 
 #: tfrmaddcommand.btnadd.caption
@@ -1103,36 +1243,32 @@ msgctxt "tfrmsets.tstaskbar.caption"
 msgid "Taskbar"
 msgstr ""
 
-#: tfrmstackprop.bbaddicon.hint
-msgid "Add shortcut/command"
+#: tfrmstackprop.bbaddicon.caption
+msgid "&Add"
 msgstr ""
 
-#: tfrmstackprop.bbdelicon.hint
-msgctxt "tfrmstackprop.bbdelicon.hint"
-msgid "Delete icon"
+#: tfrmstackprop.bbdelicon.caption
+msgid "&Remove"
 msgstr ""
 
-#: tfrmstackprop.bbediticon.hint
-msgctxt "tfrmstackprop.bbediticon.hint"
-msgid "Configure icon"
+#: tfrmstackprop.bbediticon.caption
+msgid "&Edit"
 msgstr ""
 
-#: tfrmstackprop.bbicondown.hint
-msgid "Move down"
+#: tfrmstackprop.bbicondown.caption
+msgid "Move &down"
 msgstr ""
 
-#: tfrmstackprop.bbiconup.hint
-msgid "Move up"
+#: tfrmstackprop.bbiconup.caption
+msgid "Move &up"
 msgstr ""
 
 #: tfrmstackprop.btnapply.caption
-msgctxt "tfrmstackprop.btnapply.caption"
-msgid "Apply"
+msgid "&Apply"
 msgstr ""
 
 #: tfrmstackprop.btnbrowseimage1.caption
-msgctxt "tfrmstackprop.btnbrowseimage1.caption"
-msgid "Browse image"
+msgid "&Browse image..."
 msgstr ""
 
 #: tfrmstackprop.btncancel.caption
@@ -1141,13 +1277,11 @@ msgid "Cancel"
 msgstr ""
 
 #: tfrmstackprop.btnclearimage.caption
-msgctxt "tfrmstackprop.btnclearimage.caption"
-msgid "Clear image"
+msgid "Use &default image"
 msgstr ""
 
 #: tfrmstackprop.btndefaultcolor.caption
-msgctxt "tfrmstackprop.btndefaultcolor.caption"
-msgid "Reset color"
+msgid "&Reset colors"
 msgstr ""
 
 #: tfrmstackprop.btnok.caption
@@ -1155,91 +1289,111 @@ msgctxt "tfrmstackprop.btnok.caption"
 msgid "OK"
 msgstr ""
 
-#: tfrmstackprop.btnproperties.caption
-msgctxt "tfrmstackprop.btnproperties.caption"
-msgid "Back to properties"
-msgstr ""
-
-#: tfrmstackprop.btnselectcolor.caption
-msgctxt "tfrmstackprop.btnselectcolor.caption"
-msgid "Select color"
-msgstr ""
-
 #: tfrmstackprop.caption
-msgctxt "tfrmstackprop.caption"
-msgid "Properties"
+msgid "Stack properties"
 msgstr ""
 
 #: tfrmstackprop.chbbackground.caption
-msgid "Show background for items"
-msgstr ""
-
-#: tfrmstackprop.chbsorted.caption
-msgid "Sorted"
-msgstr ""
-
-#: tfrmstackprop.label1.caption
-msgid "Items in stack preview"
-msgstr ""
-
-#: tfrmstackprop.label2.caption
-msgctxt "tfrmstackprop.label2.caption"
-msgid "Hue"
-msgstr ""
-
-#: tfrmstackprop.label3.caption
-msgctxt "tfrmstackprop.label3.caption"
-msgid "Saturation"
-msgstr ""
-
-#: tfrmstackprop.label4.caption
-msgctxt "tfrmstackprop.label4.caption"
-msgid "Brightness"
-msgstr ""
-
-#: tfrmstackprop.label5.caption
-msgctxt "tfrmstackprop.label5.caption"
-msgid "Contrast"
+msgid "Show item &background"
 msgstr ""
 
 #: tfrmstackprop.lblanimationspeed.caption
-msgid "Animation speed"
+msgid "Animation &speed"
+msgstr ""
+
+#: tfrmstackprop.lblbr.caption
+msgctxt "tfrmstackprop.lblbr.caption"
+msgid "Brightness"
 msgstr ""
 
 #: tfrmstackprop.lblcaption.caption
-msgctxt "tfrmstackprop.lblcaption.caption"
-msgid "Name"
+msgid "&Name"
+msgstr ""
+
+#: tfrmstackprop.lblcont.caption
+msgctxt "tfrmstackprop.lblcont.caption"
+msgid "Contrast"
+msgstr ""
+
+#: tfrmstackprop.lbldistanceunit.caption
+msgid "x icon size. Zero adds no extra distance."
 msgstr ""
 
 #: tfrmstackprop.lbldistort.caption
-msgid "Spacing/Distortion"
+msgid "Item &spacing"
+msgstr ""
+
+#: tfrmstackprop.lblfast.caption
+msgid "Fast"
+msgstr ""
+
+#: tfrmstackprop.lblhue.caption
+msgctxt "tfrmstackprop.lblhue.caption"
+msgid "Hue"
 msgstr ""
 
 #: tfrmstackprop.lblimage.caption
-msgctxt "tfrmstackprop.lblimage.caption"
-msgid "Image"
+msgid "&Image"
+msgstr ""
+
+#: tfrmstackprop.lblitemshelp.caption
+msgctxt "tfrmstackprop.lblitemshelp.caption"
+msgid "Add shortcuts or commands to this stack."
+msgstr ""
+
+#: tfrmstackprop.lbllocation.caption
+msgid "Stack &location"
+msgstr ""
+
+#: tfrmstackprop.lbllocationhelp.caption
+msgid "Choose None (custom stack) to manage items manually."
 msgstr ""
 
 #: tfrmstackprop.lbloffset.caption
-msgid "Offset of icons"
+msgid "&Distance from stack"
 msgstr ""
 
-#: tfrmstackprop.lblspecialfolder.caption
-msgid "Special folder"
+#: tfrmstackprop.lblorder.caption
+msgid "&Order"
+msgstr ""
+
+#: tfrmstackprop.lblpreview.caption
+msgid "Items in stack &preview"
+msgstr ""
+
+#: tfrmstackprop.lblpreviewtitle.caption
+msgid "Closed stack icon"
+msgstr ""
+
+#: tfrmstackprop.lblsat.caption
+msgctxt "tfrmstackprop.lblsat.caption"
+msgid "Saturation"
+msgstr ""
+
+#: tfrmstackprop.lblslow.caption
+msgid "Slow"
 msgstr ""
 
 #: tfrmstackprop.lblstyle.caption
+msgid "&Layout"
+msgstr ""
+
+#: tfrmstackprop.tsanimation.caption
+msgctxt "tfrmstackprop.tsanimation.caption"
 msgid "Animation"
 msgstr ""
 
-#: tfrmstackprop.tscolor.caption
-msgctxt "tfrmstackprop.tscolor.caption"
-msgid "Color"
+#: tfrmstackprop.tsappearance.caption
+msgid "Appearance"
 msgstr ""
 
-#: tfrmstackprop.tsproperties.caption
-msgctxt "tfrmstackprop.tsproperties.caption"
-msgid "Properties"
+#: tfrmstackprop.tsgeneral.caption
+msgctxt "tfrmstackprop.tsgeneral.caption"
+msgid "General"
+msgstr ""
+
+#: tfrmstackprop.tsitems.caption
+msgid "Items"
 msgstr ""
 
 #: tfrmthemeeditor.btnclose.caption

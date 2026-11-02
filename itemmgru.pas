@@ -2596,6 +2596,7 @@ end;
 //------------------------------------------------------------------------------
 function TItemManager.AllItemCmd(id: TDParam; param: PtrInt): PtrInt;
 var scope: TItemHostScope; identities: TItemIdentities; index: integer; item: TCustomItem;
+  ItemResult: PtrInt;
 begin
   scope := BeginItemHostOperation(FParentHWnd);
   try
@@ -2605,7 +2606,12 @@ begin
     for index := 0 to High(identities) do
       if PinActiveItem(identities[index], item) then
       try
-        result := item.cmd(id, param);
+        ItemResult := item.cmd(id, param);
+        if id = icFlashTaskWindow then
+        begin
+          if ItemResult <> 0 then Result := 1;
+        end
+        else Result := ItemResult;
       finally
         ItemRegistry.Unpin(identities[index]);
       end;

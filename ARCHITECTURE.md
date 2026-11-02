@@ -74,6 +74,13 @@ Geometry and membership snapshots precede native validation and callback dispatc
 Property forms retain an ID and acquire a short lease for each handler.
 Forms reject missing, deleted, or retiring models.
 
+Stack properties keep settings and serialized children in a private draft.
+The nested shortcut editor changes only that draft.
+Apply commits the draft and establishes the new cancellation baseline.
+Cancel, Escape, and window close discard pending changes.
+Replacement children retain their own store until construction succeeds.
+Failed commits preserve the original store, model identities, and settings.
+
 Internal item callbacks use a bound host service record.
 Plugin exports retain their names, calling conventions, and handle widths.
 Plugin operations run on the bound UI thread.
@@ -102,6 +109,13 @@ Mouse effect locks bypass persistent settings.
 
 `itemserializationu` owns shortcut and stack DTOs, validation, and legacy codecs.
 Both INI and clipboard readers use the same numeric and boolean rules.
+
+Stack distance uses the optional `distance_steps` key with integer values from zero through eight.
+Each step represents one quarter of the configured icon size.
+Rendering calculates pixels from the current icon size without caching them.
+Legacy `offset` values remain readable as pixels.
+Stack loading converts them to the nearest quarter step within the new range.
+Saving writes the explicit `distance_steps` key, including zero.
 Unsupported delimiters and line breaks produce conversion errors before lossy text export.
 Property forms validate drafts before changing live fields.
 Profile reads grow their buffers instead of truncating item values.
@@ -263,6 +277,16 @@ Registration conflicts retain the sampling fallback.
 
 Window observation hooks publish coalesced events through the dock message queue.
 Foreground changes update task attention immediately.
+`attentionu` tracks requesting window handles with their process and thread identities.
+Shortcuts and task groups clear each request when its own window becomes foreground or disappears.
+Stacks aggregate their children's attention and animate their dock icon.
+The renderer draws a top-left amber badge with a bold black exclamation mark.
+Attention stays independent of the running window count setting and animation duration.
+Owned fallback timers continue until attention clears, including after native view replacement.
+Attention commands report new pending windows, not repeated flashes from existing requests.
+Command broadcasts retain any new attention result across all active items.
+New requests animate their items and raise the visible dock without activation.
+The main form refreshes fullscreen policy before raising and preserves hidden or rolled-away states.
 Window changes trigger bounded task refresh and fullscreen observation.
 Creation bursts preserve the earliest refresh deadline.
 Task changes during dragging remain pending until dragging ends.

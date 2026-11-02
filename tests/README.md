@@ -16,6 +16,21 @@ Frame tests cover native cancellation, monitor migration, rational rates, and mo
 Async icon tests cover slow windows, bounded caching, obsolete owners, shutdown, and denied window properties.
 The canonical runner includes these suites in both modes.
 
+Running badge tests check stacks, shortcuts, and task items with zero, one, and multiple windows.
+They check badge pixels, setting toggles, unchanged counts, and newly added stack children.
+They also verify that legacy theme running images no longer affect rendered items.
+Attention checks cover mirrored badge placement, black text, selected animation, and disabled window counts.
+They check individual grouped windows, external activation, closed windows, fallback timers, and native view replacement.
+Native process matching also runs with number badges disabled.
+Repeat-event tests replay five flashes and require only one animation for the same pending window.
+They also check another stack child, activation followed by a new request, and broadcast result aggregation.
+Desktop checks verify deduplicated raising without activation and respect manual and fullscreen hiding.
+Run `interaction_smoke.exe --attention-only` to select these desktop checks.
+
+Shortcut activation tests use real links and native windows to check stack activation without another launch.
+They also check direct executables, disabled badges, missing windows, forced launches, and preserved shortcut launch settings.
+The focused executable is `shortcutactivation_tests.exe`.
+
 Taskbar import tests cover shortcut copies, Unicode names, Store targets, duplicates, order, failures, and saved settings.
 They also cover original shortcut references, copy migration, retained settings, separate commands, and default copying.
 Run `.\tests\run-taskbar-import-tests.ps1` for this suite.
@@ -53,6 +68,12 @@ Results remain in `tests/.build/animation-present/`.
 Actual desktop capture can show compositor or capture stalls despite regular frame submission.
 
 Manager tests create hidden Windows item windows.
+
+Property tests cover pending stack edits, Apply baselines, Cancel, Escape, window close, and nested shortcut editing.
+They also check Control Panel selection, custom draft restoration, preview pixels, numeric controls, and larger layouts.
+Layout checks use 125%, 150%, and 200% scaling.
+Serialization tests cover quarter-icon distance persistence and migration from legacy pixel offsets.
+Subitem lifetime tests check rollback after replacement-child construction fails.
 The tests cover creation, insertion, previews, dragging, deletion, undo, and settings restoration.
 Allocation failure tests verify that insertion, dropping, and undo preserve ownership.
 Detached launch tests verify parameter ownership, creation failure, immediate completion, and worker exceptions.
@@ -157,7 +178,7 @@ This script compiles `terry.lpr` into `tests\.build\application\tdock.exe`.
 It does not run the Lazarus post-build `copy.bat` command.
 See `ARCHITECTURE.md` for service ownership and compatibility rules.
 
-The canonical runner includes 35 suites.
+The canonical runner includes 37 suites.
 The migration baseline passed 377 tests in checked and release modes.
 The canonical runner also runs ten Windows interaction smoke checks.
 These checks create the real form and process Windows messages.

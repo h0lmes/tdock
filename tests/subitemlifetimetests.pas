@@ -6,7 +6,7 @@ interface
 
 uses Windows, Messages, Classes, Controls, SysUtils, fpcunit, testregistry,
   declu, itemmgru, itemsettingsu, customitemu, customsubitemu, scsubitemu,
-  stackitemu, itemhostu, applifecycleu, themeu, itemmodelu, itemviewu;
+  stackitemu, itemhostu, applifecycleu, themeu, itemmodelu, itemviewu, itemserializationu;
 
 type
   TSubitemFailure = (sfNone, sfAllocation, sfNative, sfParse, sfFreed,
@@ -88,6 +88,7 @@ type
     procedure ReentrantAdditionRechecksCapacityBeforePublication;
     procedure BatchFailureRollsBackPublishedChildren;
     procedure FullStackReportsRejectedAddition;
+    procedure PropertyCommitFailurePreservesOriginalModels;
   end;
 
 procedure DockExecute(id: HWND; exename, params, dir: PChar; showcmd: Integer); stdcall;
@@ -794,6 +795,35 @@ begin
     AssertEquals(1, Stack.ItemCount);
     AssertEquals(1, Stack.ChildStore.Count);
     AssertEquals('Existing child', UTF8Encode(Stack.GetSubitemCaption(0)));
+  finally SubitemFailure := sfNone; Data.Free; end;
+end;
+
+procedure TSubitemLifetimeTests.PropertyCommitFailurePreservesOriginalModels;
+var Data: TStringList; Draft: TStackDtoV1; BeforeStore: TItemStore;
+  BeforeIds: TItemIds; Rejected: boolean; BeforeCaption: WideString;
+begin
+  CreateFailingStack;
+  BeforeStore := Stack.ChildStore;
+  BeforeIds := BeforeStore.Snapshot;
+  BeforeCaption := Stack.Caption;
+  Draft := ReadStackText(Stack.ToString);
+  Draft.Caption := 'Pending replacement';
+  Data := TStringList.Create;
+  try
+    Data.Add(TShortcutSubitem.Make('First replacement'));
+    Data.Add(TShortcutSubitem.Make('Second replacement'));
+    SubitemFailure := sfSecondParse;
+    Rejected := false;
+    try Stack.ApplyProperties(Draft, Data);
+    except on Exception do Rejected := true; end;
+    SubitemFailure := sfNone;
+    AssertTrue('An invalid replacement must fail', Rejected);
+    AssertTrue('Rollback must retain the original owning store', Stack.ChildStore = BeforeStore);
+    AssertTrue('Rollback must retain the original child identity', BeforeStore.Find(BeforeIds[0]) <> nil);
+    AssertEquals(UTF8Encode(BeforeCaption), UTF8Encode(Stack.Caption));
+    AssertEquals(1, Stack.ItemCount);
+    AssertEquals('Existing child', UTF8Encode(Stack.GetSubitemCaption(0)));
+    AssertEquals('Commit must release its model lease', 0, Stack.PinCount);
   finally SubitemFailure := sfNone; Data.Free; end;
 end;
 

@@ -402,16 +402,16 @@ msgid "Standard items"
 msgstr "Стандартные элементы"
 
 #: declu.xstackpreviewfour
-msgid "four"
-msgstr "четыре"
+msgid "Four"
+msgstr "Четыре"
 
 #: declu.xstackpreviewnine
-msgid "nine"
-msgstr "девять"
+msgid "Nine"
+msgstr "Девять"
 
 #: declu.xstackpreviewnone
-msgid "none"
-msgstr "нет"
+msgid "None"
+msgstr "Нет"
 
 #: declu.xstartbuttontext
 msgid "Start"
@@ -500,6 +500,146 @@ msgstr "Диспетчер задач"
 #: declu.xundeleteicon
 msgid "Restore icon (Ctrl+Z)"
 msgstr "Восстановить значок (Ctrl+Z)"
+
+#: frmstackpropu.xarcsize
+msgid "&Arc size"
+msgstr "&Размер дуги"
+
+#: frmstackpropu.xbrightnessname
+msgid "Bri&ghtness"
+msgstr "&Яркость"
+
+#: frmstackpropu.xcolorneutral
+#, object-pascal-format
+msgid "%s (neutral: %d)"
+msgstr "%s (нейтральное: %d)"
+
+#: frmstackpropu.xcontrastname
+msgid "&Contrast"
+msgstr "&Контраст"
+
+#: frmstackpropu.xcontrolpanel
+msgid "Control Panel"
+msgstr "Панель управления"
+
+#: frmstackpropu.xcustomitems
+msgctxt "frmstackpropu.xcustomitems"
+msgid "Add shortcuts or commands to this stack."
+msgstr "Добавьте ярлыки или команды в этот стек."
+
+#: frmstackpropu.xdesktop
+msgid "Desktop"
+msgstr "Рабочий стол"
+
+#: frmstackpropu.xfancurve
+msgid "&Fan curve"
+msgstr "&Изгиб веера"
+
+#: frmstackpropu.xhuename
+msgid "&Hue"
+msgstr "&Тон"
+
+#: frmstackpropu.xitemspacing
+msgid "&Item spacing"
+msgstr "&Интервал элементов"
+
+#: frmstackpropu.xlocationitems
+msgid "Windows manages these items. Select None (custom stack) to edit items manually."
+msgstr "Windows управляет этими элементами. Выберите «Нет (обычный стек)» для ручного редактирования."
+
+#: frmstackpropu.xlocationreaderror
+#, object-pascal-format
+msgid "Cannot read this Windows location: %s"
+msgstr "Не удалось прочитать расположение Windows: %s"
+
+#: frmstackpropu.xmanualorder
+msgid "Manual"
+msgstr "Вручную"
+
+#: frmstackpropu.xmusic
+msgid "Music"
+msgstr "Музыка"
+
+#: frmstackpropu.xnameorder
+msgctxt "frmstackpropu.xnameorder"
+msgid "Name"
+msgstr "По имени"
+
+#: frmstackpropu.xnetwork
+msgid "Network"
+msgstr "Сеть"
+
+#: frmstackpropu.xnewstackitem
+msgid "New item"
+msgstr "Новый элемент"
+
+#: frmstackpropu.xnolocation
+msgid "None (custom stack)"
+msgstr "Нет (обычный стек)"
+
+#: frmstackpropu.xprinters
+msgid "Printers"
+msgstr "Принтеры"
+
+#: frmstackpropu.xrecyclebin
+msgid "Recycle Bin"
+msgstr "Корзина"
+
+#: frmstackpropu.xsaturationname
+msgid "&Saturation"
+msgstr "На&сыщенность"
+
+#: frmstackpropu.xselectlocation
+msgid "Select a supported Windows location."
+msgstr "Выберите доступное расположение Windows."
+
+#: frmstackpropu.xthispc
+msgid "This PC"
+msgstr "Этот компьютер"
+
+#: frmstackpropu.xvideos
+msgid "Videos"
+msgstr "Видео"
+
+#: stackmodeu.xlayoutauto
+msgid "Auto"
+msgstr "Авто"
+
+#: stackmodeu.xlayoutcards
+msgid "Cards"
+msgstr "Карточки"
+
+#: stackmodeu.xlayoutdoubleline
+msgid "Double Line"
+msgstr "Две линии"
+
+#: stackmodeu.xlayoutfan
+msgid "Fan"
+msgstr "Веер"
+
+#: stackmodeu.xlayoutfanalt
+msgid "Fan Alt"
+msgstr "Обратный веер"
+
+#: stackmodeu.xlayoutline
+msgid "Line"
+msgstr "Линия"
+
+#: stackmodeu.xlayoutparallel
+msgid "Parallel"
+msgstr "Параллельно"
+
+#: stackmodeu.xlayoutparallelwave
+msgid "Parallel Wave"
+msgstr "Параллельная волна"
+
+#: stackmodeu.xlayoutsun
+msgid "Sun"
+msgstr "Солнце"
+
+#: stackmodeu.xlayouttable
+msgid "Table"
+msgstr "Таблица"
 
 #: tfrmaddcommand.btnadd.caption
 msgctxt "TFRMADDCOMMAND.BTNADD.CAPTION"
@@ -1160,40 +1300,33 @@ msgctxt "tfrmsets.tstaskbar.caption"
 msgid "Taskbar"
 msgstr "Панель задач"
 
-#: tfrmstackprop.bbaddicon.hint
-msgctxt "tfrmstackprop.bbaddicon.hint"
-msgid "Add shortcut/command"
-msgstr "Добавить пустой значок"
+#: tfrmstackprop.bbaddicon.caption
+msgid "&Add"
+msgstr "&Добавить"
 
-#: tfrmstackprop.bbdelicon.hint
-msgctxt "tfrmstackprop.bbdelicon.hint"
-msgid "Delete icon"
-msgstr "Удалить значок"
+#: tfrmstackprop.bbdelicon.caption
+msgid "&Remove"
+msgstr "&Убрать"
 
-#: tfrmstackprop.bbediticon.hint
-msgctxt "tfrmstackprop.bbediticon.hint"
-msgid "Configure icon"
-msgstr "Настроить значок"
+#: tfrmstackprop.bbediticon.caption
+msgid "&Edit"
+msgstr "&Изменить"
 
-#: tfrmstackprop.bbicondown.hint
-msgctxt "tfrmstackprop.bbicondown.hint"
-msgid "Move down"
-msgstr "Ниже"
+#: tfrmstackprop.bbicondown.caption
+msgid "Move &down"
+msgstr "Переместить в&низ"
 
-#: tfrmstackprop.bbiconup.hint
-msgctxt "tfrmstackprop.bbiconup.hint"
-msgid "Move up"
-msgstr "Выше"
+#: tfrmstackprop.bbiconup.caption
+msgid "Move &up"
+msgstr "Переместить &вверх"
 
 #: tfrmstackprop.btnapply.caption
-msgctxt "TFRMSTACKPROP.BTNAPPLY.CAPTION"
-msgid "Apply"
-msgstr "Применить"
+msgid "&Apply"
+msgstr "&Применить"
 
 #: tfrmstackprop.btnbrowseimage1.caption
-msgctxt "TFRMSTACKPROP.BTNBROWSEIMAGE1.CAPTION"
-msgid "Browse image"
-msgstr "Выбрать иконку"
+msgid "&Browse image..."
+msgstr "&Выбрать изображение..."
 
 #: tfrmstackprop.btncancel.caption
 msgctxt "TFRMSTACKPROP.BTNCANCEL.CAPTION"
@@ -1201,107 +1334,124 @@ msgid "Cancel"
 msgstr "Отмена"
 
 #: tfrmstackprop.btnclearimage.caption
-msgctxt "TFRMSTACKPROP.BTNCLEARIMAGE.CAPTION"
-msgid "Clear image"
-msgstr "Очистить иконку"
+msgid "Use &default image"
+msgstr "&Стандартное изображение"
 
 #: tfrmstackprop.btndefaultcolor.caption
-msgctxt "TFRMSTACKPROP.BTNDEFAULTCOLOR.CAPTION"
-msgid "Reset color"
-msgstr "Сбросить цвет"
+msgid "&Reset colors"
+msgstr "&Сбросить цвета"
 
 #: tfrmstackprop.btnok.caption
 msgctxt "TFRMSTACKPROP.BTNOK.CAPTION"
 msgid "OK"
 msgstr "OK"
 
-#: tfrmstackprop.btnproperties.caption
-msgctxt "tfrmstackprop.btnproperties.caption"
-msgid "Back to properties"
-msgstr "Вернуться к свойствам"
-
-#: tfrmstackprop.btnselectcolor.caption
-msgctxt "tfrmstackprop.btnselectcolor.caption"
-msgid "Select color"
-msgstr "Выбрать цвет"
-
 #: tfrmstackprop.caption
-msgctxt "tfrmstackprop.caption"
-msgid "Properties"
-msgstr "Свойства"
+msgid "Stack properties"
+msgstr "Свойства стека"
 
 #: tfrmstackprop.chbbackground.caption
-msgid "Show background for items"
-msgstr "Показывать фон для элементов"
+msgid "Show item &background"
+msgstr "Показать &фон элементов"
 
-#: tfrmstackprop.chbsorted.caption
-msgid "Sorted"
-msgstr "Сортировка"
+#: tfrmstackprop.lblanimationspeed.caption
+msgid "Animation &speed"
+msgstr "&Скорость анимации"
 
-#: tfrmstackprop.label1.caption
-msgid "Items in stack preview"
-msgstr "Предпросмотр элементов в стеке"
-
-#: tfrmstackprop.label2.caption
-msgctxt "TFRMSTACKPROP.LABEL2.CAPTION"
-msgid "Hue"
-msgstr "Тон"
-
-#: tfrmstackprop.label3.caption
-msgctxt "TFRMSTACKPROP.LABEL3.CAPTION"
-msgid "Saturation"
-msgstr "Насыщенность"
-
-#: tfrmstackprop.label4.caption
-msgctxt "TFRMSTACKPROP.LABEL4.CAPTION"
+#: tfrmstackprop.lblbr.caption
+msgctxt "tfrmstackprop.lblbr.caption"
 msgid "Brightness"
 msgstr "Яркость"
 
-#: tfrmstackprop.label5.caption
-msgctxt "TFRMSTACKPROP.LABEL5.CAPTION"
+#: tfrmstackprop.lblcaption.caption
+msgid "&Name"
+msgstr "&Имя"
+
+#: tfrmstackprop.lblcont.caption
+msgctxt "tfrmstackprop.lblcont.caption"
 msgid "Contrast"
 msgstr "Контраст"
 
-#: tfrmstackprop.lblanimationspeed.caption
-msgid "Animation speed"
-msgstr "Скорость анимации"
-
-#: tfrmstackprop.lblcaption.caption
-msgctxt "TFRMSTACKPROP.LBLCAPTION.CAPTION"
-msgid "Name"
-msgstr "Имя"
+#: tfrmstackprop.lbldistanceunit.caption
+msgid "x icon size. Zero adds no extra distance."
+msgstr "× размер значка. Ноль сохраняет исходное расстояние."
 
 #: tfrmstackprop.lbldistort.caption
-msgid "Spacing/Distortion"
-msgstr "Интервал/искажение"
+msgid "Item &spacing"
+msgstr "Интервал &элементов"
+
+#: tfrmstackprop.lblfast.caption
+msgid "Fast"
+msgstr "Быстро"
+
+#: tfrmstackprop.lblhue.caption
+msgctxt "tfrmstackprop.lblhue.caption"
+msgid "Hue"
+msgstr "Тон"
 
 #: tfrmstackprop.lblimage.caption
-msgctxt "tfrmstackprop.lblimage.caption"
-msgid "Image"
-msgstr "Иконка"
+msgid "&Image"
+msgstr "&Изображение"
+
+#: tfrmstackprop.lblitemshelp.caption
+msgctxt "tfrmstackprop.lblitemshelp.caption"
+msgid "Add shortcuts or commands to this stack."
+msgstr "Добавьте ярлыки или команды в этот стек."
+
+#: tfrmstackprop.lbllocation.caption
+msgid "Stack &location"
+msgstr "&Расположение стека"
+
+#: tfrmstackprop.lbllocationhelp.caption
+msgid "Choose None (custom stack) to manage items manually."
+msgstr "Выберите «Нет (обычный стек)» для ручного управления элементами."
 
 #: tfrmstackprop.lbloffset.caption
-msgid "Offset of icons"
-msgstr "Смещение иконок"
+msgid "&Distance from stack"
+msgstr "&Расстояние от стека"
 
-#: tfrmstackprop.lblspecialfolder.caption
-msgid "Special folder"
-msgstr "Специальная папка"
+#: tfrmstackprop.lblorder.caption
+msgid "&Order"
+msgstr "&Порядок"
+
+#: tfrmstackprop.lblpreview.caption
+msgid "Items in stack &preview"
+msgstr "Элементы на &значке стека"
+
+#: tfrmstackprop.lblpreviewtitle.caption
+msgid "Closed stack icon"
+msgstr "Значок закрытого стека"
+
+#: tfrmstackprop.lblsat.caption
+msgctxt "tfrmstackprop.lblsat.caption"
+msgid "Saturation"
+msgstr "Насыщенность"
+
+#: tfrmstackprop.lblslow.caption
+msgid "Slow"
+msgstr "Медленно"
 
 #: tfrmstackprop.lblstyle.caption
-msgctxt "tfrmstackprop.lblstyle.caption"
+msgid "&Layout"
+msgstr "&Схема расположения"
+
+#: tfrmstackprop.tsanimation.caption
+msgctxt "tfrmstackprop.tsanimation.caption"
 msgid "Animation"
 msgstr "Анимация"
 
-#: tfrmstackprop.tscolor.caption
-msgctxt "TFRMSTACKPROP.TSCOLOR.CAPTION"
-msgid "Color"
-msgstr "Цвет"
+#: tfrmstackprop.tsappearance.caption
+msgid "Appearance"
+msgstr "Внешний вид"
 
-#: tfrmstackprop.tsproperties.caption
-msgctxt "TFRMSTACKPROP.TSPROPERTIES.CAPTION"
-msgid "Properties"
-msgstr "Свойства"
+#: tfrmstackprop.tsgeneral.caption
+msgctxt "tfrmstackprop.tsgeneral.caption"
+msgid "General"
+msgstr "Общие"
+
+#: tfrmstackprop.tsitems.caption
+msgid "Items"
+msgstr "Элементы"
 
 #: tfrmthemeeditor.btnclose.caption
 msgid "Close (Esc)"

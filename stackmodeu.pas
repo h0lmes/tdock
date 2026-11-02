@@ -26,7 +26,6 @@ type
 
   TStackModeController = class(TObject)
   private
-    names: array [0..MODE_COUNT] of string;
     function GetFan(Opening, ShowHint: boolean; Index: integer; Progress: extended;
         ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
     function GetFanAlt(Opening, ShowHint: boolean; Index: integer; Progress: extended;
@@ -46,7 +45,6 @@ type
     function GetParallel(Opening, ShowHint: boolean; Index: integer; Progress: extended;
         ItemCount, Site, ItemSize, Offset, Distort: integer): TStackItemData;
   public
-    constructor Create;
     function GetModeCount: integer;
     function GetModeName(Mode: integer): string;
     function GetStep(Mode: integer; ItemCount: integer): extended;
@@ -58,20 +56,17 @@ var
   mc: TStackModeController;
 
 implementation
-//------------------------------------------------------------------------------
-constructor TStackModeController.Create;
-begin
-  names[0] := 'Auto';
-  names[1] := 'Fan';
-  names[2] := 'Fan Alt';
-  names[3] := 'Table';
-  names[4] := 'Cards';
-  names[5] := 'Line';
-  names[6] := 'Double Line';
-  names[7] := 'Sun';
-  names[8] := 'Parallel Wave';
-  names[9] := 'Parallel';
-end;
+resourcestring
+  XLayoutAuto = 'Auto';
+  XLayoutFan = 'Fan';
+  XLayoutFanAlt = 'Fan Alt';
+  XLayoutTable = 'Table';
+  XLayoutCards = 'Cards';
+  XLayoutLine = 'Line';
+  XLayoutDoubleLine = 'Double Line';
+  XLayoutSun = 'Sun';
+  XLayoutParallelWave = 'Parallel Wave';
+  XLayoutParallel = 'Parallel';
 //------------------------------------------------------------------------------
 function TStackModeController.GetModeCount: integer;
 begin
@@ -80,7 +75,18 @@ end;
 //------------------------------------------------------------------------------
 function TStackModeController.GetModeName(Mode: integer): string;
 begin
-  result := names[mode];
+  case Mode of
+    1: Result := XLayoutFan;
+    2: Result := XLayoutFanAlt;
+    3: Result := XLayoutTable;
+    4: Result := XLayoutCards;
+    5: Result := XLayoutLine;
+    6: Result := XLayoutDoubleLine;
+    7: Result := XLayoutSun;
+    8: Result := XLayoutParallelWave;
+    9: Result := XLayoutParallel;
+    else Result := XLayoutAuto;
+  end;
 end;
 //------------------------------------------------------------------------------
 function TStackModeController.GetStep(Mode: integer; ItemCount: integer): extended;

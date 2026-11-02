@@ -79,6 +79,44 @@ Those windows count as failures during Save.
 Access-denied messages mention possible administrator privileges.
 Restoration does not recreate Windows Snap groups.
 
+Stack properties
+------------
+
+Stack properties use General, Items, Appearance, and Animation tabs.
+Select **None (custom stack)** under **Stack location** to manage shortcuts manually.
+Windows locations include virtual folders such as Control Panel and Recycle Bin.
+Windows manages the contents of location-backed stacks.
+
+Item additions, removals, edits, ordering, and settings stay pending until Apply or OK.
+Apply keeps the dialog open.
+Cancel, Escape, and window close discard changes made since the last Apply.
+The fixed preview shows the closed stack icon with zero, four, or nine miniature items.
+Use Apply and the actual stack to assess its layout and animation.
+
+Stacks, dock shortcuts, and task items show red badges with their window counts.
+A single window shows **1**.
+**Show running indicator** controls these badges, including expanded stack shortcuts.
+Running programs use no theme indicator or running background.
+TDock ignores older themes' `indicator.png`, `button.png`, `attentionbutton.png`, and `button.ini` files.
+
+Applications requesting attention show a separate amber badge at the icon's top left.
+The badge contains a bold black exclamation mark.
+The dock icon uses the animation selected in settings.
+The attention badge stays until its requesting window becomes active or closes.
+Activation through Alt+Tab or the Windows taskbar also clears attention.
+Grouped icons keep the badge while any requesting window still needs attention.
+Stacks collect attention from their child shortcuts.
+Attention works when **Show running indicator** is disabled.
+Repeated flashes from a pending window do not restart the animation.
+Another requesting window can start a new animation, including another item in the same stack.
+New attention raises the visible dock without taking keyboard focus.
+Attention does not show a dock hidden manually, by auto-hide, or by fullscreen policy.
+
+**Distance from stack** adds zero through two icon sizes of extra distance.
+Each slider step adds one quarter of the current configured icon size.
+TDock calculates the pixel distance during stack rendering.
+Existing pixel offsets convert to the nearest quarter step within the new range.
+
 =====
 
 Distribution package

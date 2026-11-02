@@ -123,6 +123,8 @@ type
     procedure SetNotForeground;
     procedure MaintainNotForeground;
     procedure BasePaint(flags: integer);
+  protected
+    procedure RaiseForAttention; virtual;
   public
     property ItemMgr: TItemManager read GetItemManager;
     property DropMgr: TDropManager read GetDropManager;
@@ -708,8 +710,20 @@ end;
 //------------------------------------------------------------------------------
 procedure Tfrmmain.FlashTaskWindow(hwnd: HWND);
 begin
-  if assigned(ItemMgr) then ItemMgr.AllItemCmd(icFlashTaskWindow, hwnd);
+  if not Assigned(ItemMgr) or not IsWindow(hwnd) then Exit;
+  if Assigned(ProcessHelper) then
+  begin
+    if ProcessHelper.GetWindowProcessName(hwnd) = '' then ProcessHelper.EnumProc;
+    UpdateRunning;
+  end;
+  if (ItemMgr.AllItemCmd(icFlashTaskWindow, hwnd) = 0) or FProgramIsClosing then Exit;
+  ObserveFullscreen;
+  if (FState <> nil) and FState.Visible and Visible and IsWindowVisible(Handle) and
+    Assigned(ItemMgr) and ItemMgr.Visible and not IsHiddenDown then RaiseForAttention;
 end;
+//------------------------------------------------------------------------------
+procedure Tfrmmain.RaiseForAttention;
+begin SetForeground; end;
 //------------------------------------------------------------------------------
 procedure Tfrmmain.FormMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 begin
@@ -1066,14 +1080,12 @@ var
   parent: THandle = 0;
 begin
   try
-    if sets.container.ShowRunningIndicator or sets.container.Taskbar then
-    begin
-      if sets.container.TaskSameMonitor then parent := Handle;
-      ProcessHelper.EnumAppWindows(parent);
-      if ProcessHelper.WindowsCountChanged then ProcessHelper.EnumProc;
-      if sets.container.ShowRunningIndicator then ItemMgr.SetParam(icUpdateRunning, 0);
-		  if sets.container.Taskbar then ItemMgr.Taskbar;
-		end;
+    if (sets = nil) or (ItemMgr = nil) or (ProcessHelper = nil) then Exit;
+    if sets.container.TaskSameMonitor then parent := Handle;
+    ProcessHelper.EnumAppWindows(parent);
+    if ProcessHelper.WindowsCountChanged then ProcessHelper.EnumProc;
+    ItemMgr.SetParam(icUpdateRunning, 0);
+    if sets.container.Taskbar then ItemMgr.Taskbar;
 	except
     on e: Exception do raise Exception.Create('Base.UpdateRunning' + LineEnding + e.message);
   end;

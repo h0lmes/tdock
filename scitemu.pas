@@ -16,7 +16,7 @@ type
   private
     procedure ApplyData(const Data: TShortcutDtoV1);
     function CaptureData: TShortcutDtoV1;
-  private
+  {$ifdef RUNNING_BADGE_TESTS}protected{$else}private{$endif}
     FCommand: string;
     FParams: string;
     FDir: string;
@@ -26,6 +26,7 @@ type
     FHide: boolean;
     //
     FUseShellContextMenus: boolean;
+    FShowRunningIndicator: boolean;
     FTaskLivePreviews: boolean;
     FTaskThumbSize: integer;
     FTaskGrouping: boolean;
@@ -43,7 +44,6 @@ type
     FDynObject: boolean;
     FDynObjectRecycleBin: boolean;
     FDynObjectState: integer;
-    procedure CheckWindowActivated;
     procedure FromIni(IniFile, IniSection: string);
     procedure FromString(value: string);
     procedure LoadImageI;
@@ -107,6 +107,7 @@ constructor TShortcutItem.Create(AWndParent: HWND; var AParams: TDItemCreatePara
 begin
   inherited;
   FUseShellContextMenus := AParams.UseShellContextMenus;
+  FShowRunningIndicator := true;
   FAeroPeekEnabled      := AParams.AeroPeekEnabled;
   FTaskGrouping         := AParams.TaskGrouping;
   FTaskLivePreviews     := AParams.TaskLivePreviews;
@@ -390,10 +391,13 @@ begin
           if temp <> FIW then LoadImageI;
         end;
       gpShowRunningIndicator:
-        if FRunning and not boolean(param) then
         begin
-          FRunning := false;
-          Redraw;
+          if FShowRunningIndicator <> (param <> 0) then
+          begin
+            FShowRunningIndicator := param <> 0;
+            FRunning := FShowRunningIndicator and (FAppList.Count > 0);
+            Redraw;
+          end;
         end;
       gpAeroPeekEnabled:      FAeroPeekEnabled := boolean(param);
       gpTaskLivePreviews:     FTaskLivePreviews := boolean(param);
@@ -430,10 +434,11 @@ begin
       icFlashTaskWindow:
         if FAppList.IndexOf(pointer(param)) >= 0 then
         begin
-          FFlashedWindow := param;
-          Animate;
-          Attention(true);
-          ItemViews.SetItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED, 1000);
+          if RequestAttention(HWND(param)) then
+          begin
+            FFlashedWindow := param;
+            Result := 1;
+          end;
         end;
     end;
 
@@ -451,7 +456,7 @@ begin
   begin
     appCount := FAppList.Count;
     ProcessHelper.GetProcessWindows(FExecutable, FAppList);
-    aRunning := FAppList.Count > 0;
+    aRunning := FShowRunningIndicator and (FAppList.Count > 0);
     if (aRunning <> FRunning) or (appCount <> FAppList.Count) then
     begin
       FRunning := aRunning;
@@ -468,8 +473,8 @@ end;
 //------------------------------------------------------------------------------
 procedure TShortcutItem.DrawOverlay(dst: pointer; x, y, size: integer);
 begin
-  if assigned(FAppList) then
-    if FAppList.Count > 1 then DrawNumberOverlay(dst, x, y, size, FAppList.Count);
+  if FShowRunningIndicator and assigned(FAppList) then
+    if FAppList.Count > 0 then DrawNumberOverlay(dst, x, y, size, FAppList.Count);
   DrawItemIndicator(dst, FDropIndicator, x, y, size, size);
 end;
 // Draw routines ---------------------------------------------------------------
@@ -677,9 +682,6 @@ begin
           // open AeroPeekWindow
           if (wParam = ID_TIMER_OPEN) and
             ItemViews.ConsumeItemTimer(ItemId, ID_TIMER_OPEN, ClockNow) then ShowPeekWindow;
-          // check if should cancel attention
-          if (wParam = ID_TIMER_WINDOWACTIVATED) and
-            ItemViews.ConsumeItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED, ClockNow) then CheckWindowActivated;
           // update bitbucket
           if (wParam = ID_TIMER_UPDATE_SHORTCUT) and
             ItemViews.ConsumeItemTimer(ItemId, ID_TIMER_UPDATE_SHORTCUT, ClockNow) then
@@ -781,24 +783,10 @@ begin
   TAeroPeekWindow.SetPosition(pt.x, pt.y);
 end;
 //------------------------------------------------------------------------------
-procedure TShortcutItem.CheckWindowActivated;
-begin
-  ForegroundChanged(GetForegroundWindow);
-end;
-
 procedure TShortcutItem.ForegroundChanged(wnd: HWND);
 begin
-  if FFreed then exit;
-  if FAttention then
-  begin
-    if FAppList.IndexOf(pointer(wnd)) >= 0 then
-    begin
-      FFlashedWindow := 0;
-      Attention(false);
-      ItemViews.KillItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED);
-    end;
-  end
-  else ItemViews.KillItemTimer(ItemId, ID_TIMER_WINDOWACTIVATED);
+  inherited;
+  FFlashedWindow := FAttentionWindows.LastWindow;
 end;
 //------------------------------------------------------------------------------
 function TShortcutItem.CanOpenFolder: boolean;

@@ -5,7 +5,7 @@ unit customdrawitemu;
 interface
 
 uses Windows, Messages, SysUtils, Controls, Classes, ShellAPI, Math,
-  declu, dockh, GDIPAPI, gfx, customitemu, themeu, animationcurveu;
+  declu, dockh, GDIPAPI, gfx, customitemu, animationcurveu, attentionu;
 
 type
   TOnBeforeDraw = procedure of object;
@@ -115,7 +115,6 @@ var
   screenX, screenY: integer; // coord of window
   ItemRect: windows.TRect;
   animX, animY, animSize: integer;
-  button: boolean;
   motion: TClickAnimationValues;
   drawAttempted, drawComplete: boolean;
 begin
@@ -232,10 +231,7 @@ begin
       brush := nil;
       GdipSetInterpolationMode(dst, InterpolationModeHighQualityBicubic);
 
-      // draw the button
-      button := false;
-      if FRunning then button := theme.DrawButton(dst, ItemRect.Left, ItemRect.Top, FSize, FAttention);
-      FNCHitTestNC := button;
+      FNCHitTestNC := false;
 
       bitmapX := 0;
       bitmapY := 0;
@@ -307,18 +303,14 @@ begin
 
     // OnDrawOverlay
     if assigned(OnDrawOverlay) then OnDrawOverlay(dst, bitmapX, bitmapY, FSize + animSize);
+    if FAttention then
+      DrawAttentionBadge(dst, bitmapX, bitmapY, FItemSize);
 
     // reset the transform we might have set for animation
     if FAnimationProgress > 0 then GdipResetWorldTransform(dst);
 
-    if not button and not FUndocked then
-    begin
-      if FReflection then
-        BitmapReflection(bmp, ItemRect.Left, ItemRect.Top, FSize, FReflectionSize, FSite);
-
-      if FRunning then
-        theme.DrawIndicator(dst, ItemRect.Left, ItemRect.Top, FSize, FSite);
-    end;
+    if FReflection and not FUndocked then
+      BitmapReflection(bmp, ItemRect.Left, ItemRect.Top, FSize, FReflectionSize, FSite);
 
     if not PresentDrawSurface(bmp, ifthen(FUndocked, 127, 255)) then exit;
     drawComplete := true;

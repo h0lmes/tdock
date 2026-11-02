@@ -4,9 +4,9 @@ unit propertylifetimetests;
 
 interface
 
-uses Windows, Classes, SysUtils, Forms, fpcunit, testregistry,
+uses Windows, Classes, SysUtils, Forms, Controls, StdCtrls, ActiveX, fpcunit, testregistry,
   declu, itemmgru, itemsettingsu, customitemu, customsubitemu, scitemu, scsubitemu, stackitemu,
-  itemregistryu, themeu, frmitemoptu, frmstackpropu;
+  itemregistryu, themeu, frmitemoptu, frmstackpropu, itemserializationu, GDIPAPI;
 
 type
   TTestItemProp = class(TfrmItemProp)
@@ -15,8 +15,13 @@ type
   end;
 
   TTestStackProp = class(TfrmStackProp)
+  protected
+    function EditChild(var Text: string): boolean; override;
   public
+    EditedText: string;
+    AcceptEdit: boolean;
     function BindItem(wnd: HWND): boolean;
+    procedure PaintPreview(Graphics: Pointer; Size: integer);
   end;
 
   TPropertyLifetimeTests = class(TTestCase)
@@ -28,6 +33,8 @@ type
     RetainedIdentity, RetainedChildIdentity: TItemIdentity;
     ReboundWindow: HWND;
     SavedWindowData: PtrInt;
+    AcceptDraftEditor: boolean;
+    procedure DriveDraftEditor(Sender: TObject; var Done: boolean);
     function CreateStackForm: TStackItem;
     function CreateItemForm: TShortcutItem;
     function CreateSubitemForm: TShortcutSubitem;
@@ -41,12 +48,22 @@ type
     procedure StackCancelAfterClearDoesNotEditRetiredItem;
     procedure ShortcutApplyAfterDeleteDoesNotEditReplacement;
     procedure ShortcutCancelAfterDeleteDoesNotEditReplacement;
-    procedure StackApplyAndCancelPreserveOriginalSnapshot;
+    procedure StackApplyAndCancelPreserveAppliedSnapshot;
     procedure ShortcutApplyAndCancelPreserveOriginalSnapshot;
     procedure StackSubitemActionsPreserveOrder;
     procedure StackSubitemActionsAfterClearDoNotEditRetiredItem;
     procedure ShortcutSubitemApplyAfterStackClearDoesNotEditRetiredItem;
     procedure ShortcutSubitemCancelAfterStackClearDoesNotEditRetiredItem;
+    procedure StackCancelDiscardsPendingChildChanges;
+    procedure StackEditsRefreshDraftAndCommitTogether;
+    procedure StackActionStatesFollowSelectionAndOrder;
+    procedure StackDistanceAndNumbersStaySynchronized;
+    procedure StackLocationPreservesControlPanelAndCustomDraft;
+    procedure StackCloseAndEscapeDiscardDrafts;
+    procedure StackValidationFailureKeepsModelAndDraft;
+    procedure StackClosedPreviewUsesPendingItems;
+    procedure StackLayoutFitsAtLargerScales;
+    procedure StackChildEditorKeepsTheLiveShortcutUntouched;
   end;
 
 implementation
@@ -57,9 +74,19 @@ begin Result := SetData(wnd); end;
 function TTestStackProp.BindItem(wnd: HWND): boolean;
 begin Result := SetData(wnd); end;
 
+function TTestStackProp.EditChild(var Text: string): boolean;
+begin
+  Result := AcceptEdit;
+  if Result then Text := EditedText;
+end;
+
+procedure TTestStackProp.PaintPreview(Graphics: Pointer; Size: integer);
+begin RenderPreview(Graphics, Size); end;
+
 procedure TPropertyLifetimeTests.SetUp;
 var Settings: TItemManagerSettings;
 begin
+  CoInitialize(nil);
   FixtureTheme := TDTheme(TDTheme.NewInstance);
   theme := FixtureTheme;
   Settings := Default(TItemManagerSettings);
@@ -88,6 +115,7 @@ begin
   theme := nil;
   FixtureTheme.Free;
   Application.ProcessMessages;
+  CoUninitialize;
 end;
 
 procedure TPropertyLifetimeTests.RetainItem(Item: TCustomItem);
@@ -204,7 +232,7 @@ begin
     'Replacement shortcut', UTF8Encode(Replacement.Caption));
 end;
 
-procedure TPropertyLifetimeTests.StackApplyAndCancelPreserveOriginalSnapshot;
+procedure TPropertyLifetimeTests.StackApplyAndCancelPreserveAppliedSnapshot;
 var Item: TStackItem;
 begin
   Item := CreateStackForm;
@@ -214,8 +242,8 @@ begin
   AssertEquals('Apply must release its model lease', 1, Item.PinCount);
   StackForm.edCaption.Text := 'Unsaved stack';
   StackForm.btnCancelClick(nil);
-  AssertEquals('Cancel must keep the original edit snapshot',
-    'Original stack', UTF8Encode(Item.Caption));
+  AssertEquals('Cancel must retain the last applied settings',
+    'Applied stack', UTF8Encode(Item.Caption));
   AssertEquals('Cancel must release its model lease', 1, Item.PinCount);
 end;
 
@@ -255,15 +283,262 @@ begin
   AssertTrue(StackForm.BindItem(Item.Handle));
   StackForm.list.ItemIndex := 1;
   StackForm.bbIconUpClick(nil);
-  AssertEquals('Second child', UTF8Encode(Item.GetSubitemCaption(0)));
+  AssertEquals('Second child', StackForm.list.Items[0]);
+  AssertEquals('Moves must remain pending', 'First child', UTF8Encode(Item.GetSubitemCaption(0)));
   StackForm.bbIconDownClick(nil);
   AssertEquals('First child', UTF8Encode(Item.GetSubitemCaption(0)));
   StackForm.bbDelIconClick(nil);
-  AssertEquals(1, Item.ItemCount);
+  AssertEquals(1, StackForm.list.Items.Count);
+  AssertEquals('Removal must remain pending', 2, Item.ItemCount);
   StackForm.bbAddIconClick(nil);
   AssertEquals(2, Item.ItemCount);
   AssertEquals(Item.ItemCount, StackForm.list.Items.Count);
+  StackForm.btnApplyClick(nil);
+  AssertEquals('New item', UTF8Encode(Item.GetSubitemCaption(1)));
   AssertEquals('Child actions must release their model leases', 1, Item.PinCount);
+end;
+
+procedure TPropertyLifetimeTests.StackCancelDiscardsPendingChildChanges;
+var Item: TStackItem;
+begin
+  Item := CreateStackForm;
+  AssertFalse('Apply starts disabled', StackForm.btnApply.Enabled);
+  Item.AddSubitem(TShortcutSubitem.Make('First'));
+  Item.AddSubitem(TShortcutSubitem.Make('Second'));
+  AssertTrue(StackForm.BindItem(Item.Handle));
+  StackForm.list.ItemIndex := 0;
+  StackForm.bbDelIconClick(nil);
+  StackForm.bbAddIconClick(nil);
+  StackForm.edCaption.Text := 'Pending';
+  AssertTrue(StackForm.btnApply.Enabled);
+  StackForm.btnCancelClick(nil);
+  AssertEquals('Original stack', UTF8Encode(Item.Caption));
+  AssertEquals(2, Item.ItemCount);
+  AssertEquals('First', UTF8Encode(Item.GetSubitemCaption(0)));
+  AssertEquals('Second', UTF8Encode(Item.GetSubitemCaption(1)));
+end;
+
+procedure TPropertyLifetimeTests.StackEditsRefreshDraftAndCommitTogether;
+var Item: TStackItem;
+begin
+  Item := CreateStackForm;
+  StackForm.bbAddIconClick(nil);
+  StackForm.AcceptEdit := true;
+  StackForm.EditedText := TShortcutSubitem.Make('Edited child', '/quit');
+  StackForm.bbEditIconClick(nil);
+  AssertEquals('Edited child', StackForm.list.Items[0]);
+  AssertEquals('Child editing must not mutate the live stack', 0, Item.ItemCount);
+  StackForm.btnApplyClick(nil);
+  AssertEquals('Edited child', UTF8Encode(Item.GetSubitemCaption(0)));
+  AssertFalse('Apply must establish a new baseline', StackForm.btnApply.Enabled);
+  StackForm.bbDelIconClick(nil);
+  StackForm.btnCancelClick(nil);
+  AssertEquals('Cancel must keep applied children', 1, Item.ItemCount);
+  AssertEquals('Edited child', UTF8Encode(Item.GetSubitemCaption(0)));
+end;
+
+procedure TPropertyLifetimeTests.StackActionStatesFollowSelectionAndOrder;
+var Item: TStackItem;
+begin
+  Item := CreateStackForm;
+  AssertFalse(StackForm.bbEditIcon.Enabled);
+  AssertFalse(StackForm.bbDelIcon.Enabled);
+  StackForm.bbAddIconClick(nil);
+  AssertFalse(StackForm.bbIconUp.Enabled);
+  AssertFalse(StackForm.bbIconDown.Enabled);
+  StackForm.bbAddIconClick(nil);
+  AssertTrue(StackForm.bbIconUp.Enabled);
+  AssertFalse(StackForm.bbIconDown.Enabled);
+  StackForm.cboOrder.ItemIndex := 1;
+  StackForm.OrderChanged(nil);
+  AssertFalse(StackForm.bbIconUp.Enabled);
+  AssertFalse(StackForm.bbIconDown.Enabled);
+  AssertEquals('Sorting must remain pending', 0, Item.ItemCount);
+  StackForm.btnApplyClick(nil);
+  AssertTrue(Item.Sorted);
+  AssertEquals(2, Item.ItemCount);
+end;
+
+procedure TPropertyLifetimeTests.StackDistanceAndNumbersStaySynchronized;
+var Item: TStackItem;
+begin
+  Item := CreateStackForm;
+  StackForm.numDistance.Value := 1.75;
+  AssertEquals(7, StackForm.tbOffset.Position);
+  StackForm.tbOffset.Position := 8;
+  AssertEquals(2.0, StackForm.numDistance.Value, 0.001);
+  StackForm.numHue.Value := 90;
+  AssertEquals(90, StackForm.tbHue.Position);
+  StackForm.numCont.Value := 255;
+  AssertEquals(255, StackForm.tbCont.Position);
+  StackForm.numSpeed.Value := 20;
+  AssertEquals(20, StackForm.tbAnimationSpeed.Position);
+  StackForm.btnApplyClick(nil);
+  AssertEquals(8, Item.DistanceSteps);
+  AssertEquals(255, byte(cardinal(Item.ColorData) shr 24));
+  AssertEquals('The 100-pixel limit must not clip a 2x distance', 128, StackDistancePixels(Item.DistanceSteps, 64));
+  Item.cmd(gpItemSize, 96);
+  AssertEquals('Icon size changes retain the quarter-step value', 8, Item.DistanceSteps);
+  AssertFalse(StackForm.btnApply.Enabled);
+  StackForm.edCaption.Text := 'Changed';
+  AssertTrue(StackForm.btnApply.Enabled);
+  StackForm.edCaption.Text := 'Original stack';
+  AssertFalse('Reverting a field must clear pending changes', StackForm.btnApply.Enabled);
+end;
+
+procedure TPropertyLifetimeTests.StackLocationPreservesControlPanelAndCustomDraft;
+var Item: TStackItem;
+begin
+  Item := CreateStackForm;
+  AssertEquals('None (custom stack)', StackForm.cboLocation.Items[0]);
+  StackForm.bbAddIconClick(nil);
+  StackForm.cboLocation.ItemIndex := 1;
+  StackForm.LocationChanged(nil);
+  AssertEquals('Control Panel must be a supported virtual location', '', StackForm.lblError.Caption);
+  AssertFalse(StackForm.bbAddIcon.Enabled);
+  AssertFalse(StackForm.bbEditIcon.Enabled);
+  AssertEquals('The source must remain pending', '', Item.SpecialFolder);
+  StackForm.cboLocation.ItemIndex := 0;
+  StackForm.LocationChanged(nil);
+  AssertEquals('Switching back must restore custom draft items', 1, StackForm.list.Items.Count);
+  AssertTrue(StackForm.bbAddIcon.Enabled);
+  StackForm.cboLocation.ItemIndex := 1;
+  StackForm.LocationChanged(nil);
+  StackForm.btnApplyClick(nil);
+  AssertEquals('Applying Control Panel must succeed', '', StackForm.lblError.Caption);
+  AssertEquals('CSIDL_CONTROLS', Item.SpecialFolder);
+  AssertFalse(StackForm.btnApply.Enabled);
+end;
+
+procedure TPropertyLifetimeTests.StackCloseAndEscapeDiscardDrafts;
+var Item: TStackItem; Key: word;
+begin
+  Item := CreateStackForm;
+  StackForm.bbAddIconClick(nil);
+  Key := VK_ESCAPE;
+  StackForm.FormKeyDown(nil, Key, []);
+  AssertEquals(0, Item.ItemCount);
+  AssertEquals(0, Key);
+  StackForm.Free;
+  StackForm := nil;
+  StackForm := TTestStackProp.Create(nil);
+  AssertTrue(StackForm.BindItem(Item.Handle));
+  StackForm.bbAddIconClick(nil);
+  StackForm.Close;
+  AssertEquals('Window close must discard additions', 0, Item.ItemCount);
+end;
+
+procedure TPropertyLifetimeTests.StackValidationFailureKeepsModelAndDraft;
+var Item: TStackItem;
+begin
+  Item := CreateStackForm;
+  StackForm.bbAddIconClick(nil);
+  StackForm.cboLocation.ItemIndex := -1;
+  StackForm.btnApplyClick(nil);
+  AssertEquals(0, Item.ItemCount);
+  AssertEquals('Original stack', UTF8Encode(Item.Caption));
+  AssertTrue(StackForm.lblError.Caption <> '');
+  AssertTrue(StackForm.btnApply.Enabled);
+  AssertEquals('A validation error must retain the pending item', 1, StackForm.list.Items.Count);
+end;
+
+procedure TPropertyLifetimeTests.StackClosedPreviewUsesPendingItems;
+var Item: TStackItem; Bitmap, Graphics: Pointer; Pixel: cardinal;
+  X, Y, VisiblePixels: integer;
+begin
+  Item := CreateStackForm;
+  StackForm.bbAddIconClick(nil);
+  GdipCreateBitmapFromScan0(64, 64, 0, PixelFormat32bppPARGB, nil, Bitmap);
+  GdipGetImageGraphicsContext(Bitmap, Graphics);
+  try
+    GdipGraphicsClear(Graphics, 0);
+    StackForm.cboPreview.ItemIndex := 0;
+    StackForm.PaintPreview(Graphics, 64);
+    GdipBitmapGetPixel(Bitmap, 32, 32, Pixel);
+    AssertEquals('None must leave the empty fixture icon unchanged', 0, Int64(Pixel));
+    StackForm.cboPreview.ItemIndex := 2;
+    StackForm.PaintPreview(Graphics, 64);
+    VisiblePixels := 0;
+    for Y := 0 to 63 do
+      for X := 0 to 63 do
+      begin
+        GdipBitmapGetPixel(Bitmap, X, Y, Pixel);
+        if Pixel shr 24 <> 0 then Inc(VisiblePixels);
+      end;
+    AssertTrue('Pending items must appear in the closed icon preview', VisiblePixels > 0);
+    AssertEquals('Previewing must not commit draft children', 0, Item.ItemCount);
+    AssertEquals(128, StackForm.iPic.Width);
+    AssertEquals(128, StackForm.iPic.Height);
+  finally GdipDeleteGraphics(Graphics); GdipDisposeImage(Bitmap); end;
+end;
+
+procedure TPropertyLifetimeTests.StackLayoutFitsAtLargerScales;
+const Scales: array[0..2] of integer = (125, 150, 200);
+var Item: TStackItem; Scale, Index: integer; Control: TControl;
+begin
+  Item := CreateStackForm;
+  for Scale in Scales do
+  begin
+    StackForm.Free;
+    StackForm := TTestStackProp.Create(nil);
+    AssertTrue(StackForm.BindItem(Item.Handle));
+    StackForm.Width := StackForm.Constraints.MinWidth;
+    StackForm.Height := StackForm.Constraints.MinHeight;
+    StackForm.ScaleBy(Scale, 100);
+    AssertEquals(4, StackForm.pages.PageCount);
+    AssertTrue(StackForm.pages.ShowTabs);
+    for Index := 0 to StackForm.ComponentCount - 1 do
+      if StackForm.Components[Index] is TControl then
+      begin
+        Control := TControl(StackForm.Components[Index]);
+        if (Control.Parent = StackForm.tsItems) or (Control.Parent = StackForm.tsAnimation) then
+        begin
+          AssertTrue(Control.Name + ' must fit horizontally',
+            (Control.Left >= 0) and (Control.Left + Control.Width <= Control.Parent.ClientWidth));
+          AssertTrue(Control.Name + ' must fit vertically',
+            (Control.Top >= 0) and (Control.Top + Control.Height <= Control.Parent.ClientHeight));
+        end;
+      end;
+  end;
+end;
+
+procedure TPropertyLifetimeTests.DriveDraftEditor(Sender: TObject; var Done: boolean);
+var Index: integer; Editor: TfrmItemProp;
+begin
+  for Index := 0 to Screen.FormCount - 1 do
+    if (Screen.Forms[Index] is TfrmItemProp) and (Screen.Forms[Index] <> ItemForm) then
+    begin
+      Editor := TfrmItemProp(Screen.Forms[Index]);
+      if not Editor.Visible then Continue;
+      Editor.edCaption.Text := 'Pending child edit';
+      Editor.edCmd.Text := '/pending';
+      if AcceptDraftEditor then Editor.btnOKClick(nil) else Editor.btnCancelClick(nil);
+      Done := true;
+      Exit;
+    end;
+  Done := false;
+end;
+
+procedure TPropertyLifetimeTests.StackChildEditorKeepsTheLiveShortcutUntouched;
+var Item: TShortcutItem; Text, Original: string; PreviousIdle: TIdleEvent;
+begin
+  Item := CreateItemForm;
+  Text := TShortcutSubitem.Make('Original child');
+  Original := Text;
+  PreviousIdle := Application.OnIdle;
+  Application.OnIdle := DriveDraftEditor;
+  try
+    AcceptDraftEditor := false;
+    AssertFalse(TfrmItemProp.EditDraft(Text));
+    AssertEquals(Original, Text);
+    AcceptDraftEditor := true;
+    AssertTrue(TfrmItemProp.EditDraft(Text));
+    AssertEquals('Pending child edit', UTF8Encode(ReadShortcutText(Text).Caption));
+    AssertEquals('/pending', ReadShortcutText(Text).Command);
+    AssertEquals('Original shortcut', UTF8Encode(Item.Caption));
+    AssertEquals('', Item.Command);
+    AssertTrue('Draft editors must preserve the existing property form', frmItemProp = ItemForm);
+  finally Application.OnIdle := PreviousIdle; end;
 end;
 
 procedure TPropertyLifetimeTests.StackSubitemActionsAfterClearDoNotEditRetiredItem;

@@ -59,6 +59,7 @@ function Invoke-TestSuites {
             $extraFlags = @(switch ($suite) {
                 { $_ -in @('runthread', 'launchfailure') } { '-dRUNTHREAD_TESTS' }
                 'apptarget' { '-dPACKAGEDAPP_TESTS' }
+                'stackrunning' { '-dRUNNING_BADGE_TESTS' }
                 { $_ -in @('appmetadata', 'iconservice', 'dropvisual') } { '-dICONSERVICE_TESTS' }
                 'asyncwindowicon' { '-dWINDOW_ICON_TESTS'; '-dANIMATION_TIMING_TESTS' }
                 { $_ -in @('animationtiming', 'documentdrop') } { '-dANIMATION_TIMING_TESTS' }

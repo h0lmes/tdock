@@ -35,6 +35,7 @@ type
     property item: TCustomSubitem read GetItem;
     property wnd: HWND read GetWindow;
   end;
+  TCSIBuckets = array of TCSIBucket;
 
   PSISubitemData = ^TSISubitemData;
   TSISubitemData = record
@@ -49,11 +50,12 @@ type
     procedure ApplyData(const Data: TStackDtoV1);
     function CaptureData: TStackDtoV1;
     function AddSubitemData(const Data: string; out AddedId: TItemId): boolean;
+    procedure ApplyPropertiesCore(const Data: TStackDtoV1; Children: TStrings);
   {$ifdef ANIMATION_TIMING_TESTS}protected{$else}private{$endif}
     FImageFile: string;
     FSpecialFolder: string;
     FMode: integer;
-    FOffset: integer;
+    FDistanceSteps: integer;
     FAnimationSpeed: integer;
     FDistort: integer;
     FPreview: integer; // 0 - none, 1 - four, 2 - nine
@@ -61,7 +63,7 @@ type
     FSorted: boolean;
     //
     FUseShellContextMenus: boolean;
-    items: array of TCSIBucket; // using a dynamic array. static causes obscure error while deleting stackitem
+    items: TCSIBuckets;
     FChildren: TItemStore;
     FItemCount: integer;
     FState: TStackState;
@@ -73,6 +75,7 @@ type
     FPreviewImageW: uint;
     FPreviewImageH: uint;
     FWindowCount: integer;
+    FShowRunningIndicator: boolean;
     procedure BeforeDraw;
     procedure DrawOverlay(dst: pointer; x, y, size: integer);
     procedure Exec;
@@ -86,6 +89,7 @@ type
     procedure AddSpecialFolder(csidl: integer);
     procedure SortItems;
     procedure UpdatePreview;
+    procedure RefreshChildAttention;
     function MakeICP: TDItemCreateParams;
     procedure CheckDeleteSubitems;
     procedure DeleteSubitems;
@@ -109,7 +113,7 @@ type
     property ImageFile: string read FImageFile write FImageFile;
     property SpecialFolder: string read FSpecialFolder write FSpecialFolder;
     property Mode: integer read FMode write FMode;
-    property Offset: integer read FOffset write FOffset;
+    property DistanceSteps: integer read FDistanceSteps write FDistanceSteps;
     property AnimationSpeed: integer read FAnimationSpeed write FAnimationSpeed;
     property Distort: integer read FDistort write FDistort;
     property Preview: integer read FPreview write FPreview;
@@ -126,6 +130,8 @@ type
     procedure FromIni(IniFile, IniSection: string);
     procedure FromString(value: string);
     procedure Update;
+    procedure ApplyProperties(const Data: TStackDtoV1; Children: TStrings);
+    class function ReadLocationItems(const Location: string): TStringList;
     procedure SetFont(var Value: TDFontData); override;
     function ToString: string; override;
     procedure MouseClick(button: TMouseButton; shift: TShiftState; x, y: integer); override;
@@ -135,6 +141,7 @@ type
     function cmd(id: TDParam; param: PtrInt): PtrInt; override;
     procedure Timer; override;
     function NeedsFrame: boolean; override;
+    procedure ForegroundChanged(wnd: HWND); override;
     procedure Configure; override;
     function DropFile(wnd: HWND; pt: windows.TPoint; filename: string): boolean; override;
     procedure Save(ini, section: string); override;
@@ -195,7 +202,7 @@ begin
   FState := stsClosed;
   FStateProgress := STATE_PROGRESS_MIN;
   FMode := 0;
-  FOffset := 0;
+  FDistanceSteps := 0;
   FAnimationSpeed := DEF_ANIM_SPEED;
   FOpenAnimation := true;
   FDistort := DEF_DISTORT;
@@ -205,6 +212,7 @@ begin
   FPreviewImage := nil;
   FShowBackground := false;
   FWindowCount := 0;
+  FShowRunningIndicator := true;
 end;
 //------------------------------------------------------------------------------
 destructor TStackItem.Destroy;
@@ -245,6 +253,7 @@ begin
   ItemViews.KillItemTimer(ItemId, ID_TIMER_CLOSE);
   try
     children := FChildren.Snapshot;
+    for index := 0 to FItemCount - 1 do items[index].item.ClearAttention;
     for index := 0 to High(children) do
       ItemViews.KillItemTimer(children[index], ID_TIMER_MOUSEHELD);
     if FItemCount > 0 then ShowAllItems(false);
@@ -261,7 +270,7 @@ begin
   FSpecialFolder := Data.SpecialFolder;
   FColorData := Data.ColorData;
   FMode := Data.Mode;
-  FOffset := Data.Offset;
+  FDistanceSteps := ResolveStackDistanceSteps(Data, FItemSize);
   FAnimationSpeed := Data.AnimationSpeed;
   FDistort := Data.Distort;
   FPreview := Data.Preview;
@@ -277,7 +286,7 @@ begin
   Result.SpecialFolder := FSpecialFolder;
   Result.ColorData := FColorData;
   Result.Mode := FMode;
-  Result.Offset := FOffset;
+  Result.DistanceSteps := FDistanceSteps;
   Result.AnimationSpeed := FAnimationSpeed;
   Result.Distort := FDistort;
   Result.Preview := FPreview;
@@ -313,6 +322,127 @@ begin
   Update;
 end;
 //------------------------------------------------------------------------------
+procedure TStackItem.ApplyProperties(const Data: TStackDtoV1; Children: TStrings);
+var Id: TItemId;
+begin
+  if not Pin then raise EInvalidOperation.Create('The stack is no longer available');
+  Id := ItemId;
+  try ApplyPropertiesCore(Data, Children);
+  finally ReleaseItemModel(Id); end;
+end;
+
+procedure TStackItem.ApplyPropertiesCore(const Data: TStackDtoV1; Children: TStrings);
+var Draft, Previous: TStackDtoV1; PreviousStore, FailedStore, ReplacementStore: TItemStore;
+  PreviousItems, ReplacementItems: TCSIBuckets;
+  PreviousCount, Index: integer; ReplaceChildren: boolean;
+begin
+  if FFreed or (State in [imsDeleted, imsRetiring]) then
+    raise EInvalidOperation.Create('The stack is no longer available');
+  Draft := Data;
+  NormalizeStackDto(Draft);
+  WriteStackText(Draft);
+  if (Draft.SpecialFolder <> '') and (CSIDL_ToInt(Draft.SpecialFolder) < 0) then
+    raise EConvertError.Create('Select a supported Windows location');
+  if (Children = nil) or (Children.Count > MAX_SUBITEMS) then
+    raise ERangeError.Create('Stack capacity exceeded');
+  for Index := 0 to Children.Count - 1 do ReadShortcutText(Children[Index]);
+
+  ReplaceChildren := (Draft.SpecialFolder <> FSpecialFolder) or (Children.Count <> FItemCount);
+  if not ReplaceChildren then
+    for Index := 0 to Children.Count - 1 do
+      if Children[Index] <> SubitemToString(Index) then
+      begin
+        ReplaceChildren := true;
+        Break;
+      end;
+  Previous := CaptureData;
+  if not ReplaceChildren then
+  begin
+    try
+      ApplyData(Draft);
+      Update;
+    except
+      ApplyData(Previous);
+      raise;
+    end;
+    Exit;
+  end;
+
+  // Build replacement children before releasing the original owning store.
+  // Creation failures leave the original models and their identities intact.
+  SetLength(ReplacementItems, MAX_SUBITEMS);
+  ReplacementStore := TItemStore.Create;
+  try CloseStack(true);
+  except ReplacementStore.Free; raise; end;
+  PreviousStore := FChildren;
+  PreviousItems := items;
+  PreviousCount := FItemCount;
+  FChildren := ReplacementStore;
+  FChildren.OnRemoved := ChildRemoved;
+  items := ReplacementItems;
+  FItemCount := 0;
+  FUpdating := true;
+  try
+    try
+      ApplyData(Draft);
+      if not AddSubitems(Children) then raise ERangeError.Create('Cannot add stack children');
+      if FFreed or (State in [imsDeleted, imsRetiring]) then
+        raise EInvalidOperation.Create('The stack is no longer available');
+      FUpdating := false;
+      Update;
+    except
+      FUpdating := true;
+      FailedStore := FChildren;
+      FChildren := PreviousStore;
+      items := PreviousItems;
+      FItemCount := PreviousCount;
+      ApplyData(Previous);
+      FailedStore.Free;
+      raise;
+    end;
+  finally
+    FUpdating := false;
+  end;
+  PreviousStore.Free;
+  RefreshChildAttention;
+end;
+
+class function TStackItem.ReadLocationItems(const Location: string): TStringList;
+var Csidl: integer;
+  procedure ReadFolder(FolderId: integer);
+  var Desktop, Folder: IShellFolder; Enumerator: IEnumIDList;
+    FolderPIDL, ChildPIDL, AbsolutePIDL: PItemIDList; Fetched: ULONG;
+    Child: TShortcutDtoV1;
+  begin
+    FolderPIDL := nil;
+    OleCheck(SHGetDesktopFolder(Desktop));
+    OleCheck(SHGetSpecialFolderLocation(0, FolderId or CSIDL_FLAG_NO_ALIAS, FolderPIDL));
+    try
+      OleCheck(Desktop.BindToObject(FolderPIDL, nil, IID_IShellFolder, Folder));
+      OleCheck(Folder.EnumObjects(0, SHCONTF_NONFOLDERS or SHCONTF_FOLDERS, Enumerator));
+      if Enumerator = nil then Exit;
+      while (Result.Count < MAX_SUBITEMS) and (Enumerator.Next(1, ChildPIDL, Fetched) = S_OK) do
+      try
+        AbsolutePIDL := PIDL_GetAbsolute(FolderPIDL, ChildPIDL);
+        try
+          Child := ReadShortcutText(TShortcutSubitem.MakeFromFilename(PIDL_GetDisplayName2(AbsolutePIDL)));
+          Child.Caption := ShellUTF16(PIDL_GetDisplayName3(AbsolutePIDL));
+          Result.Add(WriteShortcutText(Child));
+        finally PIDL_Free(AbsolutePIDL); end;
+      finally PIDL_Free(ChildPIDL); end;
+    finally PIDL_Free(FolderPIDL); end;
+  end;
+begin
+  Result := TStringList.Create;
+  try
+    if Location = '' then Exit;
+    Csidl := CSIDL_ToInt(Location);
+    if Csidl < 0 then raise EConvertError.Create('Select a supported Windows location');
+    ReadFolder(Csidl);
+    if Csidl = CSIDL_DESKTOPDIRECTORY then ReadFolder(CSIDL_COMMON_DESKTOPDIRECTORY);
+  except Result.Free; raise; end;
+end;
+
 procedure TStackItem.Update;
 var Data: TStackDtoV1;
 begin
@@ -365,9 +495,10 @@ begin
         end;
       gpShowRunningIndicator:
         begin
-          if FRunning and not boolean(param) then
+          if FShowRunningIndicator <> (param <> 0) then
           begin
-            FRunning := false;
+            FShowRunningIndicator := param <> 0;
+            FRunning := FShowRunningIndicator and (FWindowCount > 0);
             Redraw;
           end;
         end;
@@ -396,12 +527,22 @@ begin
             inc(windowCount, items[idx].item.WindowCount);
             inc(idx);
           end;
-          if windowCount <> FWindowCount then
+          b := FShowRunningIndicator and (windowCount > 0);
+          if (windowCount <> FWindowCount) or (FRunning <> b) then
           begin
             FWindowCount := windowCount;
-            FRunning := windowCount > 0;
+            FRunning := b;
             Redraw;
           end;
+          if FAttention then ForegroundChanged(GetForegroundWindow);
+        end;
+      icFlashTaskWindow:
+        begin
+          Result := 0;
+          for idx := 0 to FItemCount - 1 do
+            if items[idx].item.cmd(id, param) <> 0 then Result := 1;
+          RefreshChildAttention;
+          if Result <> 0 then Animate;
         end;
       icDragEnter:
         begin
@@ -434,6 +575,23 @@ begin
   end;
 end;
 //------------------------------------------------------------------------------
+procedure TStackItem.RefreshChildAttention;
+var Index: integer; Pending: boolean;
+begin
+  Pending := false;
+  for Index := 0 to FItemCount - 1 do
+    if not items[Index].item.QueryDelete and items[Index].item.AttentionPending then Pending := true;
+  Attention(Pending);
+end;
+
+procedure TStackItem.ForegroundChanged(wnd: HWND);
+var Index: integer;
+begin
+  if FFreed then Exit;
+  for Index := 0 to FItemCount - 1 do items[Index].item.ForegroundChanged(wnd);
+  RefreshChildAttention;
+end;
+//------------------------------------------------------------------------------
 procedure TStackItem.SetFont(var Value: TDFontData);
 var
   idx: integer;
@@ -456,7 +614,8 @@ procedure TStackItem.DrawOverlay(dst: pointer; x, y, size: integer);
 begin
   if assigned(FPreviewImage) and (FState = stsClosed) then
     GdipDrawImageRectRectI(dst, FPreviewImage, x, y, size, size, 0, 0, FPreviewImageW, FPreviewImageH, UnitPixel, nil, nil, nil);
-  if FWindowCount > 0 then DrawNumberOverlay(dst, x, y, size, FWindowCount);
+  if FShowRunningIndicator and (FWindowCount > 0) then
+    DrawNumberOverlay(dst, x, y, size, FWindowCount);
   DrawItemIndicator(dst, FDropIndicator, x, y, size, size);
 end;
 // Draw routines ---------------------------------------------------------------
@@ -873,7 +1032,12 @@ begin
     try
       for Index := 0 to Data.Count - 1 do
       begin
-        if not AddSubitemData(Data[Index], AddedId) then Exit;
+        try
+          if not AddSubitemData(Data[Index], AddedId) then Exit;
+        except on E: Exception do
+          raise Exception.CreateFmt('Cannot load stack item "%s": %s',
+            [UTF8Encode(ReadShortcutText(Data[Index]).Caption), E.Message]);
+        end;
         Added[Count] := AddedId;
         Inc(Count);
       end;
@@ -915,6 +1079,7 @@ begin
           raise EOSError.Create('Cannot create subitem window');
         if not FChildren.Add(child) then raise Exception.Create('Cannot own subitem');
         child.ParentItemId := ItemId;
+        child.cmd(gpShowRunningIndicator, Ord(FShowRunningIndicator));
         child.FromString(data);
         if not FFreed and not (State in [imsDeleted, imsRetiring]) and
           not child.Freed and not (child.State in [imsDeleted, imsRetiring]) and
@@ -1000,6 +1165,7 @@ begin
       if FFreed or FUpdating then exit;
       try
         if FItemCount = 0 then PrepareDeletion;
+        RefreshChildAttention;
         UpdatePreview;
       except on E: Exception do
         try AddLog('StackItem.ChildRemoved' + LineEnding + E.Message); except end;
@@ -1277,7 +1443,7 @@ end;
 //------------------------------------------------------------------------------
 procedure TStackItem.ShowStackState;
 var
-  idx: integer;
+  idx, DistancePixels: integer;
   wr: windows.TRect;
   xyaa: TStackItemData;
 begin
@@ -1291,12 +1457,14 @@ begin
   wr := ScreenRect;
   wr.left += FSize div 2;
   wr.top += FSize div 2;
+  // Derive distance from the current icon size. Never cache pixel offsets.
+  DistancePixels := StackDistancePixels(FDistanceSteps, FItemSize);
 
   // get item params //
   for idx := 0 to FItemCount - 1 do
   begin
     xyaa := mc.GetItemData(FMode, (FState = stsOpening) or (FState = stsOpen), FShowHint, FStateProgress,
-      idx, FItemCount, FSite, FItemSize, FOffset + (FSize - FItemSize) div 2, FDistort);
+      idx, FItemCount, FSite, FItemSize, DistancePixels + (FSize - FItemSize) div 2, FDistort);
     items[idx].draw := true;
     items[idx].x := wr.left + xyaa.x;
     items[idx].y := wr.top + xyaa.y;

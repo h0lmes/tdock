@@ -89,6 +89,8 @@ type
     color_data: integer;
     FItemId: TItemId;
     FChanged: boolean;
+    FDraftMode: boolean;
+    FDraftText: string;
     FImage: Pointer;
     FIW: cardinal;
     FIH: cardinal;
@@ -98,10 +100,13 @@ type
     procedure iPicPaint(Sender: TObject);
     procedure Draw;
     procedure DrawFit;
+    procedure LoadDraft(const Data: TShortcutDtoV1);
   protected
     function SetData(itemWnd: HWND): boolean;
   public
+    destructor Destroy; override;
     class procedure Open(wnd: HWND);
+    class function EditDraft(var Text: string): boolean;
   end;
 
 var
@@ -111,6 +116,51 @@ var
 implementation
 uses declu, scitemu, scsubitemu, PIDL, toolu, frmmainu, itemviewu;
 {$R *.lfm}
+destructor TfrmItemProp.Destroy;
+begin
+  if FImage <> nil then GdipDisposeImage(FImage);
+  inherited;
+end;
+// Stack item editing uses a separate modal form and never acquires a live model.
+class function TfrmItemProp.EditDraft(var Text: string): boolean;
+var Editor: TfrmItemProp;
+begin
+  Editor := TfrmItemProp.Create(nil);
+  try
+    Editor.FDraftMode := true;
+    Editor.btnApply.Visible := false;
+    Editor.LoadDraft(ReadShortcutText(Text));
+    Result := Editor.ShowModal = mrOK;
+    if Result then Text := Editor.FDraftText;
+  finally Editor.Free; end;
+end;
+
+procedure TfrmItemProp.LoadDraft(const Data: TShortcutDtoV1);
+begin
+  edCaption.Text := UTF8Encode(Data.Caption);
+  edCmd.Text := Data.Command;
+  edParams.Text := Data.Params;
+  edDir.Text := Data.Directory;
+  edImage.Text := Data.Image;
+  chbHide.Checked := Data.Hide;
+  color_data := Data.ColorData;
+  tbHue.Position := byte(color_data);
+  tbSat.Position := byte(color_data shr 8);
+  tbBr.Position := byte(color_data shr 16);
+  tbCont.Position := byte(color_data shr 24);
+  tbHue.OnChange := tbHueChange;
+  tbSat.OnChange := tbHueChange;
+  tbBr.OnChange := tbHueChange;
+  tbCont.OnChange := tbHueChange;
+  // Trackbar notifications can run while loading the other color components.
+  color_data := Data.ColorData;
+  cboWindow.ItemIndex := 0;
+  if Data.ShowCmd = SW_SHOWMINIMIZED then cboWindow.ItemIndex := 1;
+  if Data.ShowCmd = SW_SHOWMAXIMIZED then cboWindow.ItemIndex := 2;
+  Draw;
+  iPic.OnPaint := iPicPaint;
+  FChanged := false;
+end;
 //------------------------------------------------------------------------------
 class procedure TfrmItemProp.Open(wnd: HWND);
 begin
@@ -275,12 +325,36 @@ end;
 //------------------------------------------------------------------------------
 procedure TfrmItemProp.FormKeyDown(Sender: TObject; var Key: word; Shift: TShiftState);
 begin
+  if FDraftMode and (ActiveControl is TComboBox) then
+    if TComboBox(ActiveControl).DroppedDown then Exit;
+  if FDraftMode and (Key = VK_RETURN) and (ActiveControl is TComboBox) then Exit;
   if (key = 27) and (shift = []) then btnCancel.Click;
   if (key = 13) and (shift = []) then btnOk.Click;
 end;
 //------------------------------------------------------------------------------
 procedure TfrmItemProp.btnOKClick(Sender: TObject);
+var Data: TShortcutDtoV1;
 begin
+  if FDraftMode then
+  begin
+    try
+      Data := DefaultShortcutDto;
+      Data.Caption := UTF8Decode(edCaption.Text);
+      Data.Command := edCmd.Text;
+      Data.Params := edParams.Text;
+      Data.Directory := edDir.Text;
+      Data.Image := edImage.Text;
+      Data.ColorData := color_data;
+      Data.Hide := chbHide.Checked;
+      case cboWindow.ItemIndex of
+        1: Data.ShowCmd := SW_SHOWMINIMIZED;
+        2: Data.ShowCmd := SW_SHOWMAXIMIZED;
+      end;
+      FDraftText := WriteShortcutText(Data);
+      ModalResult := mrOK;
+    except on E: Exception do MessageDlg(E.Message, mtError, [mbOK], 0); end;
+    Exit;
+  end;
   if FChanged then btnApply.Click;
   // save settings !!!
   frmmain.BaseCmd(tcSaveSets, 0);
@@ -296,6 +370,7 @@ var
   ShowCmd: integer;
   Draft: TShortcutDtoV1;
 begin
+  if FDraftMode then Exit;
   try
     if not AcquireItem(Inst, Id) then exit;
     try
@@ -359,6 +434,11 @@ var
   sci: TShortcutItem = nil;
   scs: TShortcutSubitem = nil;
 begin
+  if FDraftMode then
+  begin
+    ModalResult := mrCancel;
+    Exit;
+  end;
   if FChanged then
   begin
     if not AcquireItem(Inst, Id) then exit;
@@ -405,8 +485,8 @@ begin
   except end;
   FImage := nil;
   FItemId := NO_ITEM_ID;
-  action := caFree;
-  frmItemProp := nil;
+  if FDraftMode then action := caHide else action := caFree;
+  if frmItemProp = Self then frmItemProp := nil;
 end;
 //------------------------------------------------------------------------------
 procedure TfrmItemProp.btnPropertiesClick(Sender: TObject);
